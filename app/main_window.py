@@ -2,9 +2,12 @@
 import tkinter as tk
 from tkinter import ttk
 import csv
+import threading
 from app.menu import create_menu
 from app.zabbix_api import ZabbixConnector
 from app.screens.ap_registration import show_ap_registration
+from app.screens.analysis_results import show_analysis_results
+from app.analysis.analysis import run_analysis
 
 
 class MainWindow:
@@ -29,6 +32,12 @@ class MainWindow:
         register_button = tk.Button(self.root, text="Cadastrar Ponto de Acesso", command=self.open_registration_window)
         register_button.pack(pady=10)
 
+        analysis_button = tk.Button(self.root, text="Iniciar Análise", command=self.start_analysis)
+        analysis_button.pack(pady=10)
+
+        self.progress = ttk.Progressbar(self.root, mode='indeterminate')
+        self.progress.pack(pady=10)
+
         self.load_data()
 
     def load_data(self):
@@ -39,12 +48,15 @@ class MainWindow:
             self.reload_data()
         else:
             # Criação da tabela
-            columns = ("Descrição", "Latitude", "Longitude")
+            columns = ("Descrição", "Latitude", "Longitude", "Frequência", "Largura de Banda", "Canal")
             self.tree = ttk.Treeview(self.root, columns=columns, show="headings")
 
             self.tree.heading("Descrição", text="Descrição")
             self.tree.heading("Latitude", text="Latitude")
             self.tree.heading("Longitude", text="Longitude")
+            self.tree.heading("Frequência", text="Frequência")
+            self.tree.heading("Largura de Banda", text="Largura de Banda")
+            self.tree.heading("Canal", text="Canal")
 
             self.tree.pack(pady=20, fill="both", expand=True)
 
@@ -110,6 +122,62 @@ class MainWindow:
     def open_registration_window(self):
         """Abre a janela de cadastro de pontos de acesso"""
         show_ap_registration(self.root, self)
+
+    def start_analysis(self):
+        """Inicia a análise da configuração"""
+        self.progress.start()
+        threading.Thread(target=self.run_analysis).start()
+
+    def run_analysis(self):
+        """Executa a análise da configuração"""
+        # Simulação de análise com dados reais
+        filename = "pontos_de_acesso.csv"
+        results = []
+        try:
+            with open(filename, mode="r") as file:
+                reader = csv.reader(file)
+                next(reader)  # Ignorar cabeçalho
+                points = list(reader)
+                # Mock da análise
+                for i in range(len(points)):
+                    for j in range(i + 1, len(points)):
+                        ponto_a = points[i][0]
+                        ponto_b = points[j][0]
+                        canal_a = points[i][5]
+                        canal_b = points[j][5]
+                        frequencia_a = points[i][3]
+                        frequencia_b = points[j][3]
+                        problema = ""
+                        solucao = ""
+                        
+                        # Verificar conflito de canal
+                        if canal_a == canal_b:
+                            problema = "Conflito de Canal"
+                            solucao = f"Mudar {ponto_b} para um canal diferente"
+                        
+                        # Verificar interferência de frequência
+                        elif frequencia_a == frequencia_b:
+                            problema = "Interferência de Frequência"
+                            solucao = f"Mudar {ponto_b} para uma frequência diferente"
+                        
+                        # Verificar proximidade (exemplo fictício)
+                        else:
+                            problema = "Proximidade Excessiva"
+                            solucao = f"Aumentar a distância entre {ponto_a} e {ponto_b}"
+                        
+                        results.append((ponto_a, ponto_b, problema, solucao))
+        except FileNotFoundError:
+            print("Arquivo de dados não encontrado.")
+
+        # Finaliza o indicador de progresso
+        self.progress.stop()
+
+        # Exibe os resultados da análise
+        self.show_analysis_results(results)
+
+    def show_analysis_results(self, results):
+        """Exibe os resultados da análise em uma nova janela"""
+        show_analysis_results(self.root, results)
 
     def run(self):
         """Inicia o loop principal da interface gráfica"""

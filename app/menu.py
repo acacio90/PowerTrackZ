@@ -9,7 +9,7 @@ def create_menu(root):
 
     # Menu "Arquivo"
     file_menu = tk.Menu(menu_bar, tearoff=0)
-    file_menu.add_command(label="Registro", command=lambda: show_ap_registration(root))
+    file_menu.add_command(label="Registro", command=lambda: show_ap_registration(root, root))
     file_menu.add_command(label="Mapa", command=lambda: show_map(root))
     file_menu.add_separator()
     file_menu.add_command(label="Sair", command=root.quit)

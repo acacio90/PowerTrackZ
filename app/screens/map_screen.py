@@ -1,3 +1,4 @@
+# app/screens/map_screen.py
 import tkinter as tk
 import folium
 import webview
@@ -9,7 +10,7 @@ def show_map(root):
     map_window.title("Visualizar Mapa")
     map_window.geometry("800x600")
 
-    # Criando um mapa com a biblioteca Folium
+    # Criar o mapa
     m = folium.Map(location=[-24.061258, -52.386096], zoom_start=19)
 
     filename = "pontos_de_acesso.csv"
@@ -20,11 +21,12 @@ def show_map(root):
             reader = csv.reader(file)
             next(reader)  # Ignorar cabeçalho
             for row in reader:
-                if len(row) == 3:
-                    descricao, latitude, longitude = row
+                if len(row) == 6:
+                    descricao, latitude, longitude, frequencia, largura_banda, canal = row
+                    popup_text = f"{descricao}<br>Frequência: {frequencia}<br>Largura de Banda: {largura_banda}<br>Canal: {canal}"
                     folium.Marker(
                         location=[float(latitude), float(longitude)],
-                        popup=descricao,
+                        popup=popup_text,
                         icon=folium.Icon(icon="info-sign")
                     ).add_to(m)
     except FileNotFoundError:
