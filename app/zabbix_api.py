@@ -1,8 +1,9 @@
 import configparser
 from pyzabbix import ZabbixAPI
+import certifi
 
 class ZabbixConnector:
-    def __init__(self, config_path='config.ini'):
+    def __init__(self, config_path='config.ini', verify=True):
         config = configparser.ConfigParser()
         config.read(config_path)
         
@@ -10,7 +11,14 @@ class ZabbixConnector:
         password = config.get('zabbix', 'password')
         url = config.get('zabbix', 'url')
 
+        # Verificação do certificado SSL
         self.zapi = ZabbixAPI(url)
+        if not verify:
+            # Desativa a verificação SSL
+            self.zapi.session.verify = False
+        else:
+            # Usar o certificado confiável
+            self.zapi.session.verify = certifi.where()
 
         try:
             self.zapi.login(username, password)
@@ -19,6 +27,5 @@ class ZabbixConnector:
             print(f"Erro ao conectar: {e}")
 
     def get_hostgroups(self):
-        # Exemplo de como obter dados de host groups
         hostgroups = self.zapi.hostgroup.get()
         return hostgroups

@@ -12,10 +12,7 @@ class MainWindow:
         # Cria a barra de menu
         create_menu(self.root)
 
-        # Configurações do Zabbix
-        self.zabbix = ZabbixConnector("config.ini")
-
-        # Elementos da interface
+        self.zabbix = ZabbixConnector("config.ini", verify=False)
         self.energy_label = tk.Label(self.root, text="Consumo Energético: ", font=('Arial', 16))
         self.energy_label.pack(pady=20)
 
