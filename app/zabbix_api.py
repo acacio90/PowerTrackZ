@@ -1,3 +1,4 @@
+# app/zabbix_api.py
 import configparser
 from pyzabbix import ZabbixAPI
 import certifi
