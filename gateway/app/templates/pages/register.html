@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Access Point</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Register Access Point</h1>
+    </header>
+    <div class="container">
+        <div class="form-container">
+            <form action="/register" method="post">
+                <label for="description">Description:</label>
+                <input type="text" id="description" name="description" required><br><br>
+                <label for="latitude">Latitude:</label>
+                <input type="text" id="latitude" name="latitude" required><br><br>
+                <label for="longitude">Longitude:</label>
+                <input type="text" id="longitude" name="longitude" required><br><br>
+                <label for="frequency">Frequency:</label>
+                <input type="text" id="frequency" name="frequency" required><br><br>
+                <label for="bandwidth">Bandwidth:</label>
+                <input type="text" id="bandwidth" name="bandwidth" required><br><br>
+                <label for="channel">Channel:</label>
+                <input type="text" id="channel" name="channel" required><br><br>
+                <button type="submit">Register</button>
+            </form>
+        </div>
+        <div class="table-container">
+            <h2>Registered Access Points</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Frequency</th>
+                        <th>Bandwidth</th>
+                        <th>Channel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ap in access_points %}
+                    <tr>
+                        <td>{{ ap.description }}</td>
+                        <td>{{ ap.latitude }}</td>
+                        <td>{{ ap.longitude }}</td>
+                        <td>{{ ap.frequency }}</td>
+                        <td>{{ ap.bandwidth }}</td>
+                        <td>{{ ap.channel }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="map-container">
+                <div class="map-content">
+                    {{ map_html|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
