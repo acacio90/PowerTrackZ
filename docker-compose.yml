@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: ./gateway
+    ports:
+      - "80:80"
+    depends_on:
+      - access_point_service
+      - map_service
+      - analysis_service
+
+  access_point_service:
+    build:
+      context: ./services/access_point_service
+    ports:
+      - "5000:5000"
+
+  map_service:
+    build:
+      context: ./services/map_service
+    ports:
+      - "5001:5001"
+    depends_on:
+      - access_point_service
+
+  analysis_service:
+    build:
+      context: ./services/analysis_service
+    ports:
+      - "5002:5002"
