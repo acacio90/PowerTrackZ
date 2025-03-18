@@ -2,7 +2,6 @@ from flask import request, jsonify
 from models import db, AccessPoint
 import logging
 
-# Configuração de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

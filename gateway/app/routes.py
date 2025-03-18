@@ -69,3 +69,7 @@ def analyze():
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
         return jsonify({"message": "Error connecting to analysis service", "error": str(e)}), 500
+
+@routes.route('/settings', methods=['GET'])
+def settings():
+    return render_template('pages/settings.html')

@@ -1,16 +1,11 @@
 from flask import jsonify, send_file
 import folium
 import requests
-from models import db
 import os
 import logging
 
-# Configuração de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-def create_tables():
-    db.create_all()
 
 def get_map():
     m = folium.Map(location=[-24.061258, -52.386096], zoom_start=19)

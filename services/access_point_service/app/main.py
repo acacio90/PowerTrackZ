@@ -1,6 +1,6 @@
 from flask import Flask
-from models import db  # Ajuste na importação
-import controllers  # Importar o controlador
+from models import db
+import controllers
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///access_points.db'

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="settings-content">
+        <div class="settings-content">
+            <h2>Settings</h2>
+            <form id="zabbix-config-form">
+                <label for="zabbix-url">Zabbix API URL:</label>
+                <input type="text" id="zabbix-url" name="zabbix-url" required><br><br>
+                <label for="zabbix-user">Zabbix User:</label>
+                <input type="text" id="zabbix-user" name="zabbix-user" required><br><br>
+                <label for="zabbix-password">Zabbix Password:</label>
+                <input type="password" id="zabbix-password" name="zabbix-password" required><br><br>
+                <button type="submit" class="save-button">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('zabbix-config-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            // Lógica para salvar as configurações da API do Zabbix
+            alert('Zabbix configuration saved!');
+        });
+    </script>
+</body>
+</html>
