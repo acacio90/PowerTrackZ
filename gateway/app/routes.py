@@ -33,6 +33,20 @@ def handle_error(e, service_name):
             "type": "request_error"
         }, 500
 
+# Rota principal
+@routes.route('/')
+def index():
+    """Página inicial"""
+    logger.debug("📌 Acessando a página inicial")
+    return render_template('pages/index.html')
+
+# Rota de configurações
+@routes.route('/settings', methods=['GET'])
+def settings():
+    """Página de configurações"""
+    logger.debug("📌 Acessando configurações")
+    return render_template('pages/settings.html')
+
 # Rotas do Zabbix
 @routes.route('/zabbix/test-connection', methods=['POST'])
 def test_zabbix_connection():
