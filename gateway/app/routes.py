@@ -40,12 +40,32 @@ def index():
     logger.debug("📌 Acessando a página inicial")
     return render_template('pages/index.html')
 
-# Rota de configurações
-@routes.route('/settings', methods=['GET'])
-def settings():
-    """Página de configurações"""
-    logger.debug("📌 Acessando configurações")
-    return render_template('pages/settings.html')
+# Rota de hosts do Zabbix
+@routes.route('/hosts', methods=['GET'])
+def hosts():
+    """Lista os hosts do Zabbix"""
+    try:
+        logger.debug("📌 Buscando hosts do Zabbix")
+        
+        # Fazer requisição para o serviço Zabbix
+        response = session.get(f"{Config.ZABBIX_SERVICE_URL}/hosts")
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("success"):
+                hosts = result.get("data", [])
+                logger.debug(f"✅ Hosts recebidos com sucesso: {hosts}")
+                return render_template('pages/hosts.html', hosts=hosts)
+            else:
+                logger.warning(f"⚠️ Erro ao buscar hosts: {result}")
+                return render_template('pages/hosts.html', hosts=[], error=result)
+        else:
+            logger.warning(f"⚠️ Erro ao buscar hosts: {response.json()}")
+            return render_template('pages/hosts.html', hosts=[], error=response.json())
+    except Exception as e:
+        error_response, status_code = handle_error(e, "Zabbix")
+        logger.error(f"❌ Erro ao buscar hosts: {e}")
+        return render_template('pages/hosts.html', hosts=[], error=error_response)
 
 # Rotas do Zabbix
 @routes.route('/zabbix/test-connection', methods=['POST'])

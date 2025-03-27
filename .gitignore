@@ -165,8 +165,9 @@ cython_debug/
 
 # Específicos para o projeto
 ssl/
-access_point_service/ssl/
-analysis_service/ssl/
-map_service/ssl/
-zabbix_service/ssl/ 
+services/access_point_service/ssl/
+services/analysis_service/ssl/
+services/map_service/ssl/
+services/zabbix_service/ssl/
 services/access_point_service/app/access_points.db
+restart.ps1

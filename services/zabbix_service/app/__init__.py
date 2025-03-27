@@ -33,10 +33,4 @@ def create_app():
     with app.app_context():
         db.create_all()
     
-    return app
-
-class ZabbixConfig(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    url = db.Column(db.String(255), nullable=False)
-    user = db.Column(db.String(255), nullable=False)
-    password = db.Column(db.String(255), nullable=False) 
+    return app 

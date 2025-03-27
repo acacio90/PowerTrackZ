@@ -1,22 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PowerTrackZ</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    {% include 'components/menu.html' %}
-    <div class="container">
-        <div class="project-info">
-            <h2>PowerTrackZ</h2>
-            <p>PowerTrackZ é um projeto que visa monitorar e analisar pontos de acesso de energia utilizando a API do Zabbix. Este projeto permite registrar, visualizar e analisar dados de pontos de acesso de forma eficiente.</p>
-            <p>Repositório do projeto: <a href="https://github.com/acacio90/PowerTrackZ" target="_blank">GitHub</a></p>
-        </div>
-        <div class="register-button-container">
-            <a href="/register" class="button-standard">REGISTER</a>
+{% extends "base.html" %}
+
+{% block title %}Início{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>PowerTrackZ</h1>
+            <p class="lead">Sistema de Monitoramento de Pontos de Acesso</p>
         </div>
     </div>
-</body>
-</html>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Hosts do Zabbix</h5>
+                    <p class="card-text">Visualize e gerencie os hosts monitorados pelo Zabbix.</p>
+                    <a href="{{ url_for('routes.hosts') }}" class="btn btn-primary">
+                        <i class="fas fa-server"></i> Ver Hosts
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Configurações</h5>
+                    <p class="card-text">Configure as credenciais e parâmetros do sistema.</p>
+                    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                        <i class="fas fa-cog"></i> Configurações
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Registrar Ponto de Acesso</h5>
+                    <p class="card-text">Adicione um novo ponto de acesso ao sistema.</p>
+                    <a href="{{ url_for('routes.register') }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Registrar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'pages/settings.html' %}
+{% endblock %}

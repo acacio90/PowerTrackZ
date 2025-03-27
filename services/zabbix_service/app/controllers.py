@@ -2,11 +2,12 @@ import json
 import logging
 from pyzabbix import ZabbixAPI
 from werkzeug.security import generate_password_hash
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 import urllib3
 import ssl
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from .models import db, ZabbixConfig
 
 # Desabilitar avisos de SSL
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -97,6 +98,7 @@ def test_zabbix_connection():
         password = data.get('password')
 
         if not all([url, user, password]):
+            logger.error(f"Dados recebidos: {data}")
             return jsonify({"success": False, "error": "Campos obrigatórios ausentes"}), 400
 
         url = url.strip()
@@ -125,20 +127,17 @@ def test_zabbix_connection():
 # Função para obter todos os hosts
 def get_all_hosts():
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "Dados JSON inválidos ou ausentes"}), 400
+        # Buscar configuração do banco
+        config = ZabbixConfig.query.first()
+        if not config:
+            return jsonify({
+                "success": False,
+                "error": "Configuração do Zabbix não encontrada"
+            }), 404
 
-        url = data.get('url')
-        user = data.get('user')
-        password = data.get('password')
-
-        if not all([url, user, password]):
-            return jsonify({"success": False, "error": "Campos obrigatórios ausentes"}), 400
-
-        url = url.strip()
-        user = user.strip()
-        password = password.strip()
+        url = config.url
+        user = config.user
+        password = config.password
 
         logger.info(f"Tentando obter hosts de: {url}")
         zabbix_service = ZabbixService(url, user, password)
@@ -148,8 +147,6 @@ def get_all_hosts():
             "success": True,
             "data": hosts
         })
-    except json.JSONDecodeError:
-        return jsonify({"success": False, "error": "JSON inválido"}), 400
     except Exception as e:
         logger.error(f"❌ Erro ao obter hosts: {str(e)}")
         return jsonify({
@@ -177,9 +174,10 @@ def save_zabbix_config():
         password = password.strip()
 
         logger.info(f"Tentando conectar com URL: {url}")
-        hashed_password = generate_password_hash(password)
 
-        config = ZabbixConfig(url=url, user=user, password=hashed_password)
+        ZabbixConfig.query.delete()
+        
+        config = ZabbixConfig(url=url, user=user, password=password)
         db.session.add(config)
         db.session.commit()
 
@@ -194,10 +192,34 @@ def save_zabbix_config():
     except json.JSONDecodeError:
         return jsonify({"success": False, "error": "JSON inválido"}), 400
     except Exception as e:
-        db.session.rollback()
+        if 'db' in locals():
+            db.session.rollback()
         logger.error(f"❌ Erro ao salvar configuração: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
             "details": "Verifique se a URL do Zabbix está correta e se o servidor está acessível"
+        }), 500
+
+def get_zabbix_config():
+    try:
+        config = ZabbixConfig.query.first()
+        if not config:
+            return jsonify({
+                "success": False,
+                "error": "Configuração do Zabbix não encontrada"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "url": config.url,
+                "user": config.user
+            }
+        })
+    except Exception as e:
+        logger.error(f"❌ Erro ao obter configuração: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
         }), 500

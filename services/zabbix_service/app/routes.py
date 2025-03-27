@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import logging
-from .controllers import test_zabbix_connection, save_zabbix_config, get_all_hosts
+from .controllers import test_zabbix_connection, save_zabbix_config, get_all_hosts, get_zabbix_config
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,14 @@ def health_check():
 def test_connection():
     return test_zabbix_connection()
 
-@routes.route('/hosts', methods=['POST'])
+@routes.route('/hosts', methods=['GET'])
 def hosts():
     return get_all_hosts()
 
 @routes.route('/save-config', methods=['POST'])
 def save_config():
-    return save_zabbix_config() 
+    return save_zabbix_config()
+
+@routes.route('/config', methods=['GET'])
+def config():
+    return get_zabbix_config() 
