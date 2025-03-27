@@ -1,32 +1,118 @@
 version: '3.8'
 
 services:
-  gateway:
-    build:
-      context: ./gateway
+  zabbix_service:
+    build: 
+      context: ./services/zabbix_service
+      dockerfile: Dockerfile
     ports:
-      - "80:80"
-    depends_on:
-      - access_point_service
-      - map_service
-      - analysis_service
-
-  access_point_service:
-    build:
-      context: ./services/access_point_service
-    ports:
-      - "5000:5000"
+      - "5003:5003"
+    volumes:
+      - ./services/zabbix_service:/app
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
 
   map_service:
-    build:
+    build: 
       context: ./services/map_service
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
-    depends_on:
-      - access_point_service
+    volumes:
+      - ./services/map_service:/app
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
 
   analysis_service:
-    build:
+    build: 
       context: ./services/analysis_service
+      dockerfile: Dockerfile
     ports:
       - "5002:5002"
+    volumes:
+      - ./services/analysis_service:/app
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
+
+  access_point_service:
+    build: 
+      context: ./services/access_point_service
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./services/access_point_service:/app
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
+
+  gateway:
+    build: 
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./gateway:/app
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    depends_on:
+      zabbix_service:
+        condition: service_healthy
+      map_service:
+        condition: service_healthy
+      analysis_service:
+        condition: service_healthy
+      access_point_service:
+        condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

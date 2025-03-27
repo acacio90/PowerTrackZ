@@ -7,22 +7,86 @@ PowerTrackZ é um projeto que visa monitorar e analisar pontos de acesso de ener
 - Indicação da melhor distribuição de configurações de APs
 - Integração com a API do Zabbix
 
-## Instalação
-Para instalar o PowerTrackZ, siga os passos abaixo:
-1. Clone o repositório: `git clone https://github.com/acacio90/PowerTrackZ.git`
-2. Navegue até o diretório do projeto: `cd PowerTrackZ`
-3. Construa as imagens Docker: `docker-compose build`
-4. Inicie os containers: `docker-compose up`
+## Estrutura do Projeto
 
-## Uso
-Após a instalação, inicie o aplicativo com o comando:
 ```
-docker-compose up
+PowerTrackZ/
+├── gateway/                 # API Gateway
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── config.py       # Configurações
+│   │   ├── routes/         # Rotas da API
+│   │   │   ├── __init__.py
+│   │   │   ├── zabbix.py
+│   │   │   ├── map.py
+│   │   │   ├── analysis.py
+│   │   │   └── access_point.py
+│   │   ├── services/       # Serviços de comunicação
+│   │   │   ├── __init__.py
+│   │   │   └── http.py
+│   │   └── templates/      # Templates HTML
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── services/              # Microserviços
+│   ├── zabbix_service/    # Serviço de integração com Zabbix
+│   ├── map_service/       # Serviço de mapas
+│   ├── analysis_service/  # Serviço de análise
+│   └── access_point_service/ # Serviço de pontos de acesso
+│
+└── docker-compose.yml     # Configuração Docker
 ```
-Abra o navegador e acesse `http://localhost:80` para começar a usar o PowerTrackZ.
+
+## Requisitos
+
+- Docker
+- Docker Compose
+- Python 3.9+
+
+## Instalação
+
+1. Clone o repositório:
+```bash
+git clone https://github.com/acacio90/PowerTrackZ.git
+cd PowerTrackZ
+```
+
+2. Build das imagens Docker:
+```bash
+docker-compose build
+```
+
+3. Inicie os serviços:
+```bash
+docker-compose up -d
+```
+
+## Serviços
+
+### Gateway (Porta 80)
+- API Gateway principal
+- Roteamento de requisições
+- Interface web
+
+### Zabbix Service (Porta 5003)
+- Integração com Zabbix
+
+### Map Service (Porta 5001)
+- Visualização de mapas
+- Geolocalização de pontos de acesso
+
+### Analysis Service (Porta 5002)
+- Análise de dados
+- Relatórios
+
+### Access Point Service (Porta 5004)
+- Gerenciamento de pontos de acesso
+- Registro e monitoramento
 
 ## Contribuição
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e enviar pull requests.
 
-## Licença
-Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request

@@ -1,11 +1,21 @@
-from flask import Flask
-import controllers
+from flask import Flask, jsonify
+from app.controllers import get_map
+import os
 
 app = Flask(__name__)
 
+@app.route('/health')
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "service": "map_service",
+        "port": int(os.environ.get('PORT', 5001))
+    })
+
 @app.route('/map', methods=['GET'])
-def get_map():
-    return controllers.get_map()
+def map():
+    return get_map()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=True)

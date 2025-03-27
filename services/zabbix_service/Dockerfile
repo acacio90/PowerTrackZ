@@ -4,7 +4,9 @@ WORKDIR /app
 
 # Instalar dependências do sistema
 RUN apt-get update && apt-get install -y \
+    gcc \
     curl \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements.txt e instalar dependências
@@ -17,16 +19,19 @@ COPY . .
 # Configurar variáveis de ambiente
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=development
-ENV PORT=5002
+ENV PORT=5003
 ENV HOST=0.0.0.0
 ENV PYTHONPATH=/app
 
 # Expor a porta
-EXPOSE 5002
+EXPOSE 5003
+
+# Criar diretório SSL se não existir
+RUN mkdir -p /app/ssl
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5002/health || exit 1
+    CMD curl -k -f https://localhost:5003/health || exit 1
 
 # Comando para iniciar a aplicação
-CMD ["python", "app/main.py"]
+CMD ["python", "run.py"]

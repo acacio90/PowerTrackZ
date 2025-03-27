@@ -1,32 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings</title>
+    <title>Configurações Zabbix</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #connection-status {
+            min-width: 150px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .loading {
+            color: orange;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
 <body>
     <div class="settings-content">
-        <div class="settings-content">
-            <h2>Settings</h2>
-            <form id="zabbix-config-form">
-                <label for="zabbix-url">Zabbix API URL:</label>
-                <input type="text" id="zabbix-url" name="zabbix-url" required><br><br>
-                <label for="zabbix-user">Zabbix User:</label>
-                <input type="text" id="zabbix-user" name="zabbix-user" required><br><br>
-                <label for="zabbix-password">Zabbix Password:</label>
-                <input type="password" id="zabbix-password" name="zabbix-password" required><br><br>
-                <button type="submit" class="button-standard">Save</button>
-            </form>
-        </div>
+        <h2>Configurações do Zabbix</h2>
+        <form id="zabbix-config-form">
+            <label for="zabbix-url">API URL:</label>
+            <input type="text" id="zabbix-url" name="zabbix-url" required><br><br>
+
+            <label for="zabbix-user">Usuário:</label>
+            <input type="text" id="zabbix-user" name="zabbix-user" required><br><br>
+
+            <label for="zabbix-password">Senha:</label>
+            <input type="password" id="zabbix-password" name="zabbix-password" required><br><br>
+
+            <button type="submit" class="button-standard">Salvar</button>
+            <button type="button" class="button-standard" id="test-connection-button">Testar Conexão</button>
+            <span id="connection-status" class="loading">Aguardando...</span>
+        </form>
     </div>
 
     <script>
-        document.getElementById('zabbix-config-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            // Lógica para salvar as configurações da API do Zabbix
-            alert('Zabbix configuration saved!');
+        document.addEventListener("DOMContentLoaded", function () {
+            console.log("🚀 Script carregado!");
+
+            const form = document.getElementById('zabbix-config-form');
+            const testButton = document.getElementById('test-connection-button');
+            const statusSpan = document.getElementById('connection-status');
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                console.log("✅ Configuração salva!");
+
+                alert("Configuração salva com sucesso!");
+            });
+
+            testButton.addEventListener("click", function () {
+                console.log("🔍 Iniciando teste de conexão...");
+                statusSpan.textContent = 'Testando...';
+                statusSpan.className = 'loading';
+
+                const url = document.getElementById('zabbix-url').value;
+                const user = document.getElementById('zabbix-user').value;
+                const password = document.getElementById('zabbix-password').value;
+
+                if (!url || !user || !password) {
+                    console.log("⚠️ Preencha todos os campos antes de testar!");
+                    statusSpan.textContent = '⚠️ Preencha todos os campos!';
+                    statusSpan.className = 'error';
+                    return;
+                }
+
+                fetch('/test_zabbix_connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, user, password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("📡 Resposta do servidor:", data);
+                    if (data.success) {
+                        statusSpan.textContent = '✅ Conexão bem-sucedida!';
+                        statusSpan.className = 'success';
+                    } else {
+                        statusSpan.textContent = '❌ Falha na conexão!';
+                        statusSpan.className = 'error';
+                    }
+                })
+                .catch(error => {
+                    console.error("❌ Erro ao testar a conexão:", error);
+                    statusSpan.textContent = '❌ Erro na conexão!';
+                    statusSpan.className = 'error';
+                });
+            });
         });
     </script>
 </body>
