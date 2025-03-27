@@ -40,71 +40,77 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container">
     <div class="row">
         <div class="col-md-6">
-            <div class="form-container">
-                <h2>Registrar Novo Ponto de Acesso</h2>
-                <form action="{{ url_for('routes.register') }}" method="post">
-                    <div class="form-group">
-                        <label for="description">Descrição:</label>
-                        <input type="text" id="description" name="description" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="latitude">Latitude:</label>
-                        <input type="text" id="latitude" name="latitude" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="longitude">Longitude:</label>
-                        <input type="text" id="longitude" name="longitude" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="frequency">Frequência:</label>
-                        <input type="text" id="frequency" name="frequency" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="bandwidth">Largura de Banda:</label>
-                        <input type="text" id="bandwidth" name="bandwidth" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="channel">Canal:</label>
-                        <input type="text" id="channel" name="channel" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Registrar</button>
-                </form>
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Registrar Novo Ponto de Acesso</h2>
+                    <form action="{{ url_for('routes.register') }}" method="post">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descrição:</label>
+                            <input type="text" class="form-control" id="description" name="description" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="latitude" class="form-label">Latitude:</label>
+                            <input type="text" class="form-control" id="latitude" name="latitude" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="longitude" class="form-label">Longitude:</label>
+                            <input type="text" class="form-control" id="longitude" name="longitude" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="frequency" class="form-label">Frequência:</label>
+                            <input type="text" class="form-control" id="frequency" name="frequency" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bandwidth" class="form-label">Largura de Banda:</label>
+                            <input type="text" class="form-control" id="bandwidth" name="bandwidth" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="channel" class="form-label">Canal:</label>
+                            <input type="text" class="form-control" id="channel" name="channel" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Registrar</button>
+                    </form>
+                </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="table-container">
-                <h2>Pontos de Acesso Registrados</h2>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>Descrição</th>
-                                <th>Latitude</th>
-                                <th>Longitude</th>
-                                <th>Frequência</th>
-                                <th>Largura de Banda</th>
-                                <th>Canal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for ap in access_points %}
-                            <tr>
-                                <td>{{ ap.description }}</td>
-                                <td>{{ ap.latitude }}</td>
-                                <td>{{ ap.longitude }}</td>
-                                <td>{{ ap.frequency }}</td>
-                                <td>{{ ap.bandwidth }}</td>
-                                <td>{{ ap.channel }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Pontos de Acesso Registrados</h2>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th>Latitude</th>
+                                    <th>Longitude</th>
+                                    <th>Frequência</th>
+                                    <th>Largura de Banda</th>
+                                    <th>Canal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ap in access_points %}
+                                <tr>
+                                    <td>{{ ap.description }}</td>
+                                    <td>{{ ap.latitude }}</td>
+                                    <td>{{ ap.longitude }}</td>
+                                    <td>{{ ap.frequency }}</td>
+                                    <td>{{ ap.bandwidth }}</td>
+                                    <td>{{ ap.channel }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="map-container">
-                    <div class="map-content">
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div class="map-content" style="height: 400px;">
                         {{ map_html|safe }}
                     </div>
                 </div>

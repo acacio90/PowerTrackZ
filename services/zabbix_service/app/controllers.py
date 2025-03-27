@@ -167,6 +167,7 @@ def save_zabbix_config():
         password = data.get('password')
 
         if not all([url, user, password]):
+            logger.error(f"Dados recebidos: {data}")
             return jsonify({"success": False, "error": "Campos obrigatórios ausentes"}), 400
 
         url = url.strip()
@@ -174,10 +175,13 @@ def save_zabbix_config():
         password = password.strip()
 
         logger.info(f"Tentando conectar com URL: {url}")
+        hashed_password = generate_password_hash(password)
 
+        # Primeiro, remove qualquer configuração existente
         ZabbixConfig.query.delete()
         
-        config = ZabbixConfig(url=url, user=user, password=password)
+        # Cria uma nova configuração
+        config = ZabbixConfig(url=url, user=user, password=hashed_password)
         db.session.add(config)
         db.session.commit()
 
