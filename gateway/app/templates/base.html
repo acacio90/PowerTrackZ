@@ -3,64 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PowerTrackZ - {% block title %}{% endblock %}</title>
+    <title>{% block title %}PowerTrackZ{% endblock %}</title>
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- CSS -->
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- CSS Global -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
+    <!-- CSS específico da página -->
+    {% if request.endpoint == 'routes.index' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+    {% elif request.endpoint == 'routes.register' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet-overrides.css') }}">
+    {% endif %}
+    
+    <!-- CSS adicional -->
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('routes.index') }}">
-                <i class="fas fa-bolt"></i> PowerTrackZ
+            <a href="{{ url_for('routes.index') }}" class="navbar-brand">
+                <i class="fas fa-chart-line"></i>
+                <span>PowerTrackZ</span>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.index') }}">
-                            <i class="fas fa-home"></i> Início
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.hosts') }}">
-                            <i class="fas fa-server"></i> Hosts
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('routes.register') }}">
-                            <i class="fas fa-plus"></i> Registrar
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a href="{{ url_for('routes.index') }}" class="nav-link">
+                        <i class="fas fa-home"></i>
+                        <span>Início</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('routes.hosts') }}" class="nav-link">
+                        <i class="fas fa-server"></i>
+                        <span>Hosts</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('routes.register') }}" class="nav-link">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Registrar</span>
+                    </a>
+                </li>
+            </ul>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="py-4">
+    <!-- Conteúdo principal -->
+    <main>
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container text-center">
-            <span class="text-muted">PowerTrackZ &copy; 2025</span>
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; {{ year }} PowerTrackZ - Sistema de Monitoramento de Pontos de Acesso</p>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Bootstrap Bundle com Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- JavaScript Global -->
+    <script>
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+    </script>
+
+    <!-- JavaScript adicional -->
     {% block extra_js %}{% endblock %}
 </body>
 </html> 

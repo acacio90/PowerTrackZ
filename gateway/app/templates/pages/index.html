@@ -1,49 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Início{% endblock %}
+{% block title %}Início - PowerTrackZ{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <h1>PowerTrackZ</h1>
-            <p class="lead">Sistema de Monitoramento de Pontos de Acesso</p>
+<!-- Header -->
+<header class="home-header">
+    <div class="container">
+        <h1 class="home-title">PowerTrackZ</h1>
+        <p class="home-subtitle">Sistema de Monitoramento de Pontos de Acesso - Gerencie e monitore sua infraestrutura de rede com eficiência</p>
+    </div>
+</header>
+
+<!-- Features Grid -->
+<div class="features-grid">
+    <!-- Hosts Card -->
+    <div class="feature-card">
+        <div class="card-body">
+            <div class="feature-icon">
+                <i class="fas fa-server"></i>
+            </div>
+            <h2 class="card-title">Hosts do Zabbix</h2>
+            <p class="card-text">Visualize e gerencie todos os hosts monitorados pelo Zabbix em um único lugar. Acompanhe o status e métricas em tempo real.</p>
+            <a href="{{ url_for('routes.hosts') }}" class="btn btn-hosts">
+                Ver Hosts
+            </a>
         </div>
     </div>
 
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Hosts do Zabbix</h5>
-                    <p class="card-text">Visualize e gerencie os hosts monitorados pelo Zabbix.</p>
-                    <a href="{{ url_for('routes.hosts') }}" class="btn btn-primary">
-                        <i class="fas fa-server"></i> Ver Hosts
-                    </a>
-                </div>
+    <!-- Configurações Card -->
+    <div class="feature-card">
+        <div class="card-body">
+            <div class="feature-icon">
+                <i class="fas fa-cog"></i>
             </div>
+            <h2 class="card-title">Configurações</h2>
+            <p class="card-text">Configure as credenciais e parâmetros do sistema. Personalize as configurações de monitoramento de acordo com suas necessidades.</p>
+            <button type="button" class="btn btn-config" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                Configurar
+            </button>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Configurações</h5>
-                    <p class="card-text">Configure as credenciais e parâmetros do sistema.</p>
-                    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                        <i class="fas fa-cog"></i> Configurações
-                    </button>
-                </div>
+    </div>
+
+    <!-- Registro Card -->
+    <div class="feature-card">
+        <div class="card-body">
+            <div class="feature-icon">
+                <i class="fas fa-plus-circle"></i>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Registrar Ponto de Acesso</h5>
-                    <p class="card-text">Adicione um novo ponto de acesso ao sistema.</p>
-                    <a href="{{ url_for('routes.register') }}" class="btn btn-success">
-                        <i class="fas fa-plus"></i> Registrar
-                    </a>
-                </div>
-            </div>
+            <h2 class="card-title">Registrar Ponto</h2>
+            <p class="card-text">Adicione novos pontos de acesso ao sistema de monitoramento. Gerencie facilmente sua infraestrutura de rede.</p>
+            <a href="{{ url_for('routes.register') }}" class="btn btn-register">
+                Registrar Novo
+            </a>
         </div>
     </div>
 </div>

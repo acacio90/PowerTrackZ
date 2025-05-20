@@ -1,32 +1,62 @@
 <!-- Modal Settings -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="settingsModalLabel">Configurações do Zabbix</h5>
+                <h5 class="modal-title" id="settingsModalLabel">
+                    <i class="fas fa-cog me-2"></i>
+                    Configurações do Zabbix
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="zabbix-config-form">
-                    <div class="form-group mb-3">
-                        <label for="url" class="form-label">API URL:</label>
-                        <input type="text" class="form-control" id="url" name="url" required>
+                    <div class="form-group">
+                        <label for="url" class="form-label">API URL</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-link"></i>
+                            </span>
+                            <input type="url" class="form-control" id="url" name="url" placeholder="https://seu-zabbix.com/api_jsonrpc.php" required>
+                        </div>
                     </div>
 
-                    <div class="form-group mb-3">
-                        <label for="user" class="form-label">Usuário:</label>
-                        <input type="text" class="form-control" id="user" name="user" required>
+                    <div class="form-group">
+                        <label for="user" class="form-label">Usuário</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            <input type="text" class="form-control" id="user" name="user" placeholder="Seu usuário do Zabbix" required>
+                        </div>
                     </div>
 
-                    <div class="form-group mb-3">
-                        <label for="password" class="form-label">Senha:</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                    <div class="form-group">
+                        <label for="password" class="form-label">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Sua senha do Zabbix" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <button type="submit" class="btn btn-primary">Salvar</button>
-                        <button type="button" class="btn btn-secondary" id="test-connection-button">Testar Conexão</button>
-                        <span id="connection-status" class="loading">Aguardando...</span>
+                    <div class="d-flex align-items-center gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Salvar
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="test-connection-button">
+                            <i class="fas fa-plug me-2"></i>
+                            Testar Conexão
+                        </button>
+                        <div id="connection-status" class="connection-status">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                            <span>Aguardando...</span>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -34,102 +64,90 @@
     </div>
 </div>
 
-<style>
-    #connection-status {
-        min-width: 150px;
-        font-weight: bold;
-        display: inline-block;
-    }
-    .loading {
-        color: orange;
-    }
-    .success {
-        color: green;
-    }
-    .error {
-        color: red;
-    }
-</style>
-
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        console.log("🚀 Script carregado!");
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById('zabbix-config-form');
+    const testButton = document.getElementById('test-connection-button');
+    const statusDiv = document.getElementById('connection-status');
+    const togglePassword = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
 
-        const form = document.getElementById('zabbix-config-form');
-        const testButton = document.getElementById('test-connection-button');
-        const statusSpan = document.getElementById('connection-status');
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        togglePassword.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+    });
 
-        form.addEventListener("submit", function (event) {
-            event.preventDefault();
-            console.log("📤 Enviando configuração...");
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
 
-            const url = document.getElementById('url').value;
-            const user = document.getElementById('user').value;
-            const password = document.getElementById('password').value;
+        const formData = {
+            url: document.getElementById('url').value,
+            user: document.getElementById('user').value,
+            password: document.getElementById('password').value
+        };
 
-            fetch('/zabbix/save-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, user, password })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("📡 Resposta do servidor:", data);
-                if (data.success) {
-                    showAlert("Configuração salva com sucesso!", "success");
-                    // Fecha o modal após salvar
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
-                    modal.hide();
-                } else {
-                    showAlert("Erro ao salvar configuração: " + data.message, "danger");
-                }
-            })
-            .catch(error => {
-                console.error("❌ Erro ao salvar configuração:", error);
-                showAlert("Erro ao salvar configuração", "danger");
-            });
-        });
-
-        testButton.addEventListener("click", function () {
-            console.log("🔍 Iniciando teste de conexão...");
-            statusSpan.textContent = 'Testando...';
-            statusSpan.className = 'loading';
-
-            const url = document.getElementById('url').value;
-            const user = document.getElementById('user').value;
-            const password = document.getElementById('password').value;
-
-            if (!url || !user || !password) {
-                console.log("⚠️ Preencha todos os campos antes de testar!");
-                statusSpan.textContent = '⚠️ Preencha todos os campos!';
-                statusSpan.className = 'error';
-                return;
+        fetch('/zabbix/save-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert("Configuração salva com sucesso!", "success");
+                const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                modal.hide();
+            } else {
+                showAlert("Erro ao salvar configuração: " + data.message, "danger");
             }
-
-            fetch('/zabbix/test-connection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, user, password })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("📡 Resposta do servidor:", data);
-                if (data.success) {
-                    statusSpan.textContent = '✅ Conexão bem-sucedida!';
-                    statusSpan.className = 'success';
-                    showAlert("Conexão testada com sucesso!", "success");
-                } else {
-                    statusSpan.textContent = '❌ Falha na conexão!';
-                    statusSpan.className = 'error';
-                    showAlert("Falha na conexão: " + data.message, "danger");
-                }
-            })
-            .catch(error => {
-                console.error("❌ Erro ao testar a conexão:", error);
-                statusSpan.textContent = '❌ Erro na conexão!';
-                statusSpan.className = 'error';
-                showAlert("Erro ao testar conexão", "danger");
-            });
+        })
+        .catch(error => {
+            console.error("Erro ao salvar configuração:", error);
+            showAlert("Erro ao salvar configuração", "danger");
         });
     });
+
+    testButton.addEventListener("click", function () {
+        const formData = {
+            url: document.getElementById('url').value,
+            user: document.getElementById('user').value,
+            password: document.getElementById('password').value
+        };
+
+        if (!formData.url || !formData.user || !formData.password) {
+            statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Preencha todos os campos!</span>';
+            statusDiv.className = 'connection-status error';
+            return;
+        }
+
+        statusDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i><span>Testando...</span>';
+        statusDiv.className = 'connection-status loading';
+
+        fetch('/zabbix/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>Conexão estabelecida!</span>';
+                statusDiv.className = 'connection-status success';
+                showAlert("Conexão testada com sucesso!", "success");
+            } else {
+                statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Falha na conexão!</span>';
+                statusDiv.className = 'connection-status error';
+                showAlert("Falha na conexão: " + data.message, "danger");
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao testar a conexão:", error);
+            statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Erro na conexão!</span>';
+            statusDiv.className = 'connection-status error';
+            showAlert("Erro ao testar conexão", "danger");
+        });
+    });
+});
 </script>
