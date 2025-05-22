@@ -3,112 +3,110 @@
 {% block title %}Hosts{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row mb-4">
-        <div class="col">
-            <h2 class="d-flex align-items-center gap-2">
-                <i class="fas fa-server"></i> 
-                Hosts do Zabbix
-                <span class="badge bg-primary ms-2">{{ hosts|length if hosts else 0 }}</span>
-            </h2>
-        </div>
-        <div class="col-auto">
-            <button class="btn btn-primary" onclick="refreshHosts()">
-                <i class="fas fa-sync-alt me-2"></i>
-                Atualizar
-            </button>
-        </div>
-    </div>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Hosts do Zabbix</h5>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                        {% if error.get('error', '') and 'Incorrect user name or password' in error.get('error', '') %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Credenciais do Zabbix inválidas. Por favor, configure as credenciais corretas.
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
+                            </div>
+                        {% endif %}
+                    {% endif %}
 
-    {% if error %}
-    <div class="alert alert-danger d-flex align-items-center" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i>
-        <div>{{ error.message if error.message else error }}</div>
-    </div>
-    {% endif %}
-
-    {% if hosts %}
-    <div class="card">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nome</th>
-                            <th>Status</th>
-                            <th>Última Atualização</th>
-                            <th class="text-end">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for host in hosts %}
-                        <tr>
-                            <td>{{ host.hostid }}</td>
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="fas fa-hdd text-primary"></i>
-                                    {{ host.host }}
-                                </div>
-                            </td>
-                            <td>
-                                {% if host.status == '0' %}
-                                <span class="badge bg-success d-flex align-items-center gap-1" style="width: fit-content">
-                                    <i class="fas fa-check-circle"></i>
-                                    Ativo
-                                </span>
-                                {% else %}
-                                <span class="badge bg-danger d-flex align-items-center gap-1" style="width: fit-content">
-                                    <i class="fas fa-times-circle"></i>
-                                    Inativo
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    <i class="far fa-clock me-1"></i>
-                                    {{ host.lastaccess|default('Nunca', true) }}
-                                </small>
-                            </td>
-                            <td class="text-end">
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-primary" onclick="showHostDetails('{{ host.hostid }}')">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        Detalhes
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="showHostGraphs('{{ host.hostid }}')">
-                                        <i class="fas fa-chart-line"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    {% if hosts %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>IP</th>
+                                        <th>Status</th>
+                                        <th>Última Atualização</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for host in hosts %}
+                                    <tr>
+                                        <td>{{ host.name }}</td>
+                                        <td>{{ host.ip }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if host.status == 'online' else 'danger' }}">
+                                                {{ host.status }}
+                                            </span>
+                                        </td>
+                                        <td>{{ host.last_update }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" title="Ver detalhes">
+                                                <i class="fas fa-info-circle"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% elif not error %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Nenhum host encontrado.
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-    {% else %}
-    <div class="alert alert-info d-flex align-items-center" role="alert">
-        <i class="fas fa-info-circle me-2"></i>
-        <div>Nenhum host encontrado. Configure a conexão com o Zabbix para visualizar os hosts.</div>
-    </div>
-    {% endif %}
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-function refreshHosts() {
-    const button = event.target.closest('button');
-    button.classList.add('loading');
-    location.reload();
+function saveZabbixConfig() {
+    const form = document.getElementById('zabbixConfigForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/zabbix/save-config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showAlert('success', 'Configuração salva com sucesso!');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showAlert('danger', result.error || 'Erro ao salvar configuração');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Erro ao salvar configuração: ' + error);
+    });
 }
 
-function showHostDetails(hostId) {
-    // Implementar lógica de detalhes
-}
-
-function showHostGraphs(hostId) {
-    // Implementar lógica de gráficos
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('.card-body').firstChild);
 }
 </script>
 {% endblock %} 

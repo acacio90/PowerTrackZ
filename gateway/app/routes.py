@@ -47,7 +47,7 @@ def hosts():
     try:
         logger.debug("📌 Buscando hosts do Zabbix")
         
-        # Fazer requisição para o serviço Zabbix
+        # Fazer requisição para o serviço Zabbix usando GET
         response = session.get(f"{Config.ZABBIX_SERVICE_URL}/hosts")
         
         if response.status_code == 200:
@@ -58,10 +58,18 @@ def hosts():
                 return render_template('pages/hosts.html', hosts=hosts)
             else:
                 logger.warning(f"⚠️ Erro ao buscar hosts: {result}")
-                return render_template('pages/hosts.html', hosts=[], error=result)
+                error = result
+                # Verificar se o erro é relacionado à configuração ausente
+                if "Configuração do Zabbix não encontrada" in str(error.get("error", "")):
+                    error["config_missing"] = True
+                return render_template('pages/hosts.html', hosts=[], error=error)
         else:
             logger.warning(f"⚠️ Erro ao buscar hosts: {response.json()}")
-            return render_template('pages/hosts.html', hosts=[], error=response.json())
+            error = response.json()
+            # Verificar se o erro é relacionado à configuração ausente
+            if "Configuração do Zabbix não encontrada" in str(error.get("error", "")):
+                error["config_missing"] = True
+            return render_template('pages/hosts.html', hosts=[], error=error)
     except Exception as e:
         error_response, status_code = handle_error(e, "Zabbix")
         logger.error(f"❌ Erro ao buscar hosts: {e}")
@@ -202,11 +210,11 @@ def register():
     try:
         logger.debug("📌 Carregando a página de registro")
         response = session.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points")
-        access_points = response.json()
-        logger.debug(f"✅ Pontos de acesso recebidos: {access_points}")
+        points = response.json()
+        logger.debug(f"✅ Pontos de acesso recebidos: {points}")
     except Exception as e:
         logger.error(f"❌ Erro ao buscar pontos de acesso: {e}")
-        access_points = []
+        points = []
 
     try:
         map_response = session.get(f"{Config.MAP_SERVICE_URL}/map")
@@ -220,4 +228,4 @@ def register():
         logger.error(f"❌ Erro ao conectar ao serviço de mapas: {e}")
         map_html = "<p>Error connecting to map service</p>"
 
-    return render_template('pages/register.html', access_points=access_points, map_html=map_html) 
+    return render_template('pages/register.html', points=points, map_html=map_html) 

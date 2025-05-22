@@ -57,4 +57,15 @@
 </div>
 
 {% include 'pages/settings.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar se precisa abrir a modal de configuração
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('open_config')) {
+        const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        settingsModal.show();
+    }
+});
+</script>
 {% endblock %}

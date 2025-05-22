@@ -3,6 +3,7 @@ import folium
 import requests
 import os
 import logging
+import tempfile
 from app.config import Config
 
 logging.basicConfig(
@@ -12,7 +13,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def get_map():
-    m = folium.Map(location=[-24.061258, -52.386096], zoom_start=19)
+    # Criar mapa com folium
+    m = folium.Map(
+        location=[-24.061258, -52.386096],
+        zoom_start=4,
+        control_scale=True,
+        prefer_canvas=True,
+        height='100%',
+        width='100%'
+    )
     
     try:
         logger.info(f"Buscando pontos de acesso em {Config.ACCESS_POINT_SERVICE_URL}")
@@ -33,15 +42,66 @@ def get_map():
     if not access_points:
         logger.info("Nenhum ponto de acesso encontrado.")
     else:
-        logger.info("Pontos de acesso encontrados:")
+        logger.info("Adicionando pontos de acesso ao mapa:")
         for ap in access_points:
-            logger.info(f"ID: {ap['id']}, Descrição: {ap['description']}, Latitude: {ap['latitude']}, Longitude: {ap['longitude']}, Frequência: {ap['frequency']}, Banda: {ap['bandwidth']}, Canal: {ap['channel']}")
-            folium.Marker(
-                location=[ap['latitude'], ap['longitude']],
-                popup=f"{ap['description']}<br>Frequência: {ap['frequency']}<br>Banda: {ap['bandwidth']}<br>Canal: {ap['channel']}",
-                icon=folium.Icon(icon="info-sign")
-            ).add_to(m)
+            try:
+                lat = float(ap['latitude'])
+                lng = float(ap['longitude'])
+                logger.info(f"Ponto: {ap['description']} em ({lat}, {lng})")
+                folium.Marker(
+                    location=[lat, lng],
+                    popup=f"{ap['description']}<br>Frequência: {ap['frequency']} GHz<br>Banda: {ap['bandwidth']} MHz<br>Canal: {ap['channel']}",
+                    icon=folium.Icon(icon="info-sign")
+                ).add_to(m)
+            except Exception as e:
+                logger.error(f"Erro ao adicionar ponto {ap.get('id')}: {str(e)}")
     
-    map_path = os.path.join(os.getcwd(), "map.html")
-    m.save(map_path)
-    return send_file(map_path)
+    # Criar arquivo temporário para o mapa
+    with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as tmp:
+        # Salvar o mapa no arquivo temporário
+        m.save(tmp.name)
+        tmp_path = tmp.name
+    
+    # Adicionar CSS personalizado para melhorar a aparência do mapa
+    with open(tmp_path, 'r') as f:
+        content = f.read()
+    
+    # Inserir CSS para garantir que o mapa ocupe todo o espaço disponível
+    custom_css = """
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .folium-map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .leaflet-container {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+    """
+    content = content.replace('</head>', f'{custom_css}</head>')
+    
+    # Salvar o conteúdo modificado
+    with open(tmp_path, 'w') as f:
+        f.write(content)
+    
+    # Enviar o arquivo como resposta e depois removê-lo
+    try:
+        response = send_file(
+            tmp_path,
+            mimetype='text/html'
+        )
+        return response
+    finally:
+        # Remover o arquivo temporário após o envio
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
