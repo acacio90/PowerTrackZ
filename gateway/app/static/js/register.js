@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Elementos principais
     const modal = document.getElementById('modal-add-point');
     const btnAddPoint = document.getElementById('btn-add-point');
+    const btnAnalyze = document.getElementById('btn-analyze');
     const closeModal = document.getElementById('close-modal');
     const latitudeInput = document.getElementById('modal-latitude');
     const longitudeInput = document.getElementById('modal-longitude');
@@ -22,6 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Abre a página de análise
+    function openAnalysis() {
+        window.location.href = '/analysis';
+    }
+
     // Fecha a modal
     function closeModalHandler() {
         if (modal) modal.style.display = 'none';
@@ -29,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Eventos dos botões
     if (btnAddPoint) btnAddPoint.addEventListener('click', openModal);
+    if (btnAnalyze) btnAnalyze.addEventListener('click', openAnalysis);
     if (closeModal) closeModal.addEventListener('click', closeModalHandler);
     if (btnCancel) btnCancel.addEventListener('click', closeModalHandler);
 
