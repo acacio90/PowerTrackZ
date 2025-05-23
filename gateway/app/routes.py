@@ -130,3 +130,13 @@ def register():
         map_html = "<p>Error loading map</p>"
 
     return render_template('pages/register.html', points=points, map_html=map_html)
+
+# Rota para análise com cards
+@routes.route('/analysis', methods=['GET'])
+def analysis():
+    try:
+        response = session.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points")
+        points = response.json() if response.status_code == 200 else []
+    except Exception:
+        points = []
+    return render_template('pages/analysis.html', points=points)

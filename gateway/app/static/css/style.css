@@ -811,4 +811,61 @@ main {
         transform: scale(1);
         opacity: 1;
     }
+}
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.card {
+    background: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 1.5rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: box-shadow 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+}
+
+.card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2rem;
+    color: #2d3748;
+}
+
+.card p {
+    margin: 0.2rem 0;
+    color: #4a5568;
+    font-size: 0.98rem;
+}
+
+@media (max-width: 900px) {
+    .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 600px) {
+    .cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+#settingsModal.modal {
+}
+#settingsModal .modal-content {
+    z-index: 1070 !important;
+    position: relative;
+}
+
+.modal-backdrop {
+    display: none !important;
+    background: none !important;
 } 

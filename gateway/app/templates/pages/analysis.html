@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Análise de Pontos de Acesso{% endblock %}
+
+{% block content %}
+<main class="page-analysis">
+    <div class="container">
+        <h1 class="analysis-title">Análise de Pontos de Acesso</h1>
+        <div class="cards-grid">
+            {% for point in points %}
+            <div class="card">
+                <h3>{{ point.description }}</h3>
+                <p><strong>Coordenadas:</strong> {{ point.latitude }}, {{ point.longitude }}</p>
+                <p><strong>Frequência:</strong> {{ point.frequency }} GHz</p>
+                <p><strong>Banda:</strong> {{ point.bandwidth }} MHz</p>
+                <p><strong>Canal:</strong> {{ point.channel }}</p>
+                {% if point.status %}
+                <p><strong>Status:</strong> {{ point.status }}</p>
+                {% endif %}
+                {% if point.indicador %}
+                <p><strong>Indicador:</strong> {{ point.indicador }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</main>
+{% endblock %} 
