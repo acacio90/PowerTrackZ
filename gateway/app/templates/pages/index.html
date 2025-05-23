@@ -1,9 +1,11 @@
+{# Template base #}
 {% extends "base.html" %}
 
+{# Título da página #}
 {% block title %}Início - PowerTrackZ{% endblock %}
 
 {% block content %}
-<!-- Header -->
+{# Cabeçalho da página #}
 <header class="home-header">
     <div class="container">
         <h1 class="home-title">PowerTrackZ</h1>
@@ -11,9 +13,9 @@
     </div>
 </header>
 
-<!-- Features Grid -->
+{# Grid de funcionalidades #}
 <div class="features-grid">
-    <!-- Hosts Card -->
+    {# Card de Hosts #}
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
@@ -27,7 +29,7 @@
         </div>
     </div>
 
-    <!-- Configurações Card -->
+    {# Card de Configurações #}
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
@@ -41,7 +43,7 @@
         </div>
     </div>
 
-    <!-- Registro Card -->
+    {# Card de Registro #}
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
@@ -56,11 +58,12 @@
     </div>
 </div>
 
+{# Inclui template de configurações #}
 {% include 'pages/settings.html' %}
 
+{# Script para abrir modal de configurações se necessário #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Verificar se precisa abrir a modal de configuração
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('open_config')) {
         const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));

@@ -1,3 +1,4 @@
+// Exibe alertas na interface com tipo (info, success, warning, danger)
 function showAlert(message, type = 'info') {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -8,17 +9,17 @@ function showAlert(message, type = 'info') {
     `;
     document.querySelector('main').insertBefore(alertDiv, document.querySelector('main').firstChild);
     
-    // Auto-remove após 5 segundos
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
 }
 
+// Exibe diálogo de confirmação
 function confirmAction(message) {
     return confirm(message);
 }
 
-// Função para formatar data
+// Formata data para padrão brasileiro
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleString('pt-BR', {
@@ -30,6 +31,7 @@ function formatDate(dateString) {
     });
 }
 
+// Copia texto para área de transferência
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
         showAlert('Texto copiado para a área de transferência!', 'success');
@@ -38,6 +40,7 @@ function copyToClipboard(text) {
     });
 }
 
+// Inicializa tooltips do Bootstrap
 document.addEventListener('DOMContentLoaded', function() {
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {

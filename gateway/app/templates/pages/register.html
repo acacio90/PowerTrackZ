@@ -1,29 +1,36 @@
+{# Template HTML base #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    {# Meta tags #}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Ponto de Acesso - PowerTrackZ</title>
+    
+    {# CSS #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
+    {# Navegação #}
     <nav class="navbar">
         <div class="container">
-            <a href="/" class="navbar-brand">PowerTrackZ</a>
+            <a href="/" class="navbar-brand"><i class="fa-solid fa-chart-line"></i> <span>PowerTrackZ</span></a>
+            
             <ul class="navbar-nav">
-                <li class="nav-item"><a href="/" class="nav-link">Início</a></li>
-                <li class="nav-item"><a href="/hosts" class="nav-link">Hosts</a></li>
-                <li class="nav-item"><a href="/register" class="nav-link active">Registrar</a></li>
+                <li class="nav-item"><a href="/" class="nav-link"><i class="fa-solid fa-home"></i> Início</a></li>
+                <li class="nav-item"><a href="/hosts" class="nav-link"><i class="fa-solid fa-server"></i> Hosts</a></li>
+                <li class="nav-item"><a href="/register" class="nav-link active"><i class="fa-solid fa-plus-circle"></i> Registrar</a></li>
             </ul>
         </div>
     </nav>
 
+    {# Conteúdo principal #}
     <main class="page-register">
         <div class="container">
             <div class="register-grid">
-                <!-- Coluna Esquerda: Tabela -->
+                {# Tabela de pontos #}
                 <section class="table-section">
                     <div class="header-table">
                         <h2 class="card-title">
@@ -34,6 +41,7 @@
                             <i class="fas fa-plus-circle"></i> Adicionar Ponto de Acesso
                         </button>
                     </div>
+                    
                     <div class="card">
                         <div class="table-wrapper">
                             <table class="data-table">
@@ -68,7 +76,7 @@
                     </div>
                 </section>
 
-                <!-- Coluna Direita: Mapa -->
+                {# Mapa #}
                 <section class="map-section">
                     <div class="card">
                         <h2 class="card-title">
@@ -76,59 +84,74 @@
                             Mapa de Pontos de Acesso
                         </h2>
                         <div class="map-container">
-                            {% if map_html %}
-                            <div class="map-content">
-                                {{ map_html|safe }}
-                            </div>
-                            {% else %}
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Não foi possível carregar o mapa. Por favor, tente novamente mais tarde.
-                            </div>
-                            {% endif %}
+                            <div id="map" style="height: 400px;"></div>
                         </div>
                     </div>
                 </section>
             </div>
         </div>
 
-        <!-- Modal de Adição de Ponto de Acesso -->
+        {# Modal de adição #}
         <div id="modal-add-point" class="modal" style="display:none;">
             <div class="modal-content">
-                <span class="close" id="close-modal">&times;</span>
-                <h2>Novo Ponto de Acesso</h2>
+                <div class="modal-header">
+                    <h2><i class="fas fa-wifi"></i> Novo Ponto de Acesso</h2>
+                    <span class="close" id="close-modal">&times;</span>
+                </div>
+                
                 <form id="form-add-point" action="{{ url_for('routes.register') }}" method="post">
-                    <div class="form-group">
-                        <label for="modal-latitude">Latitude</label>
-                        <input type="text" id="modal-latitude" name="latitude" required readonly>
+                    <div class="form-grid">
+                        {# Campos de localização #}
+                        <div class="form-group">
+                            <label for="modal-latitude"><i class="fas fa-map-marker-alt"></i> Latitude</label>
+                            <input type="text" id="modal-latitude" name="latitude" required readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="modal-longitude"><i class="fas fa-map-marker-alt"></i> Longitude</label>
+                            <input type="text" id="modal-longitude" name="longitude" required readonly>
+                        </div>
+                        
+                        {# Campos de configuração #}
+                        <div class="form-group full-width">
+                            <label for="modal-description"><i class="fas fa-info-circle"></i> Descrição</label>
+                            <input type="text" id="modal-description" name="description" required placeholder="Digite uma descrição para o ponto de acesso">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="modal-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
+                            <select id="modal-frequency" name="frequency" required class="form-control">
+                                <option value="">Selecione a frequência</option>
+                                <option value="2.4">2.4 GHz</option>
+                                <option value="5">5 GHz</option>
+                                <option value="6">6 GHz</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="modal-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
+                            <input type="text" id="modal-bandwidth" name="bandwidth" required placeholder="Ex: 20">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="modal-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
+                            <input type="number" id="modal-channel" name="channel" min="1" max="165" required placeholder="1-165">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="modal-longitude">Longitude</label>
-                        <input type="text" id="modal-longitude" name="longitude" required readonly>
+                    
+                    {# Botões #}
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Registrar
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <label for="modal-description">Descrição</label>
-                        <input type="text" id="modal-description" name="description" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-frequency">Frequência (GHz)</label>
-                        <input type="text" id="modal-frequency" name="frequency" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-bandwidth">Largura (MHz)</label>
-                        <input type="text" id="modal-bandwidth" name="bandwidth" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-channel">Canal</label>
-                        <input type="number" id="modal-channel" name="channel" min="1" max="165" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Registrar</button>
                 </form>
             </div>
         </div>
     </main>
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    {# Scripts #}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{{ url_for('static', filename='js/register.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 </body>

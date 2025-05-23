@@ -1,110 +1,80 @@
+// Inicializa quando o DOM carregar
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Página de registro carregada. Inicializando...");
-    
-    // Elementos globais
+    // Elementos principais
     const modal = document.getElementById('modal-add-point');
     const btnAddPoint = document.getElementById('btn-add-point');
     const closeModal = document.getElementById('close-modal');
     const latitudeInput = document.getElementById('modal-latitude');
     const longitudeInput = document.getElementById('modal-longitude');
     const formModal = document.getElementById('form-add-point');
-    
-    // Verificar se os elementos existem
-    if (!modal) console.error("Modal não encontrada!");
-    if (!btnAddPoint) console.error("Botão de adicionar ponto não encontrado!");
-    if (!latitudeInput) console.error("Input de latitude não encontrado!");
-    if (!longitudeInput) console.error("Input de longitude não encontrado!");
-    
-    // Função para abrir a modal
+    const btnCancel = document.getElementById('cancel-modal');
+
+    // Abre a modal e atualiza coordenadas
     function openModal() {
-        console.log("Abrindo modal...");
         if (modal) {
             modal.style.display = 'flex';
-            
-            // Verificar se há coordenadas selecionadas no mapa
             if (window.lastSelectedCoordinates) {
                 updateCoordinates(
-                    window.lastSelectedCoordinates.lat, 
+                    window.lastSelectedCoordinates.lat,
                     window.lastSelectedCoordinates.lng
                 );
             }
         }
     }
-    
-    // Função para fechar a modal
+
+    // Fecha a modal
     function closeModalHandler() {
-        console.log("Fechando modal...");
-        if (modal) {
-            modal.style.display = 'none';
-        }
+        if (modal) modal.style.display = 'none';
     }
-    
-    // Adicionar eventos aos botões
-    if (btnAddPoint) {
-        btnAddPoint.addEventListener('click', openModal);
-    }
-    
-    if (closeModal) {
-        closeModal.addEventListener('click', closeModalHandler);
-    }
-    
-    // Fechar a modal ao clicar fora dela
-    window.addEventListener('click', function(event) {
-        if (event.target === modal) {
-            closeModalHandler();
-        }
+
+    // Eventos dos botões
+    if (btnAddPoint) btnAddPoint.addEventListener('click', openModal);
+    if (closeModal) closeModal.addEventListener('click', closeModalHandler);
+    if (btnCancel) btnCancel.addEventListener('click', closeModalHandler);
+
+    // Fecha modal ao clicar fora ou pressionar ESC
+    window.addEventListener('click', e => {
+        if (e.target === modal) closeModalHandler();
     });
-    
-    // Fechar a modal ao pressionar ESC
-    window.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape' && modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
-            closeModalHandler();
-        }
+
+    window.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modal) closeModalHandler();
     });
-    
+
     // Validação do formulário
     if (formModal) {
         const inputs = formModal.querySelectorAll('input[required]');
-        
-        // Função para validar coordenadas
+
+        // Funções de validação
         function isValidCoordinate(value, type) {
             const num = parseFloat(value);
-            if (isNaN(num)) return false;
-            
-            if (type === 'latitude') {
-                return num >= -90 && num <= 90;
-            } else if (type === 'longitude') {
-                return num >= -180 && num <= 180;
-            }
-            return false;
+            return type === 'latitude' ? (num >= -90 && num <= 90) : (num >= -180 && num <= 180);
         }
-        
-        // Função para validar frequência
+
         function isValidFrequency(value) {
             const num = parseFloat(value);
-            return !isNaN(num) && num > 0 && num <= 6; // Frequência em GHz
+            return !isNaN(num) && num > 0 && num <= 6;
         }
-        
-        // Função para validar largura de banda
+
         function isValidBandwidth(value) {
             const num = parseFloat(value);
-            return !isNaN(num) && num > 0 && num <= 160; // Largura de banda em MHz
+            return !isNaN(num) && num > 0 && num <= 160;
         }
-        
-        // Função para validar canal
+
         function isValidChannel(value) {
             const num = parseInt(value);
-            return !isNaN(num) && num > 0 && num <= 165; // Canais WiFi
+            return !isNaN(num) && num > 0 && num <= 165;
         }
-        
-        // Adiciona validação em tempo real
+
+        // Validação em tempo real
         inputs.forEach(input => {
-            if (input.readOnly) return; // Pular campos readonly (lat/long)
-            
+            if (input.readOnly) return;
+
             input.addEventListener('input', function() {
                 let isValid = true;
                 let errorMessage = '';
-                
+
+                // Valida cada campo
                 switch(input.id) {
                     case 'modal-latitude':
                         if (!isValidCoordinate(input.value, 'latitude')) {
@@ -121,24 +91,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     case 'modal-frequency':
                         if (!isValidFrequency(input.value)) {
                             isValid = false;
-                            errorMessage = 'Frequência inválida (deve ser entre 0 e 6 GHz)';
+                            errorMessage = 'Frequência inválida (0-6 GHz)';
                         }
                         break;
                     case 'modal-bandwidth':
                         if (!isValidBandwidth(input.value)) {
                             isValid = false;
-                            errorMessage = 'Largura de banda inválida (deve ser entre 0 e 160 MHz)';
+                            errorMessage = 'Largura de banda inválida (0-160 MHz)';
                         }
                         break;
                     case 'modal-channel':
                         if (!isValidChannel(input.value)) {
                             isValid = false;
-                            errorMessage = 'Canal inválido (deve ser entre 1 e 165)';
+                            errorMessage = 'Canal inválido (1-165)';
                         }
                         break;
                 }
-                
-                // Atualiza o feedback visual
+
+                // Atualiza feedback visual
                 if (!isValid) {
                     input.classList.add('is-invalid');
                     let feedback = input.nextElementSibling;
@@ -151,66 +121,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     input.classList.remove('is-invalid');
                     input.classList.add('is-valid');
-                    let feedback = input.nextElementSibling;
-                    if (feedback && feedback.classList.contains('invalid-feedback')) {
-                        feedback.remove();
-                    }
                 }
             });
         });
-        
-        // Validação no envio do formulário
+
+        // Validação no envio
         formModal.addEventListener('submit', function(event) {
-            console.log("Formulário submetido, validando...");
             let isValid = true;
-            
             inputs.forEach(input => {
-                // Pular campos readonly (lat/long) na validação de preenchimento
-                if (input.readOnly) {
-                    if (!input.value.trim()) {
-                        isValid = false;
-                        console.error(`Campo ${input.id} está vazio`);
-                    }
-                    return;
-                }
-                
                 if (!input.value.trim()) {
                     isValid = false;
                     input.classList.add('is-invalid');
-                    console.error(`Campo ${input.id} está vazio`);
                 }
             });
-            
+
             if (!isValid) {
                 event.preventDefault();
-                alert('Por favor, preencha todos os campos obrigatórios.');
-            } else {
-                console.log("Formulário válido, enviando...");
+                alert('Preencha todos os campos obrigatórios.');
             }
         });
     }
 });
 
-// Função global para atualizar as coordenadas no formulário
+// Atualiza coordenadas no formulário
 function updateCoordinates(lat, lng) {
-    console.log(`Atualizando coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-    
     const latitudeInput = document.getElementById('modal-latitude');
     const longitudeInput = document.getElementById('modal-longitude');
     
     if (latitudeInput && longitudeInput) {
         latitudeInput.value = lat.toFixed(6);
         longitudeInput.value = lng.toFixed(6);
-        console.log("Coordenadas atualizadas com sucesso!");
-    } else {
-        console.error("Campos de latitude/longitude não encontrados!");
     }
 }
 
-// Evento personalizado para quando o mapa for carregado
-document.addEventListener('mapReady', function(e) {
-    console.log("Evento 'mapReady' recebido. Mapa pronto para seleção de coordenadas.");
-});
-
-// Expor função para ser usada pelo mapa.js
-window.updateCoordinates = updateCoordinates; 
+// Expõe função globalmente
+window.updateCoordinates = updateCoordinates;

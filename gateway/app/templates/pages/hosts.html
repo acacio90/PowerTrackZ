@@ -1,3 +1,4 @@
+{# Template base #}
 {% extends "base.html" %}
 
 {% block title %}Hosts{% endblock %}
@@ -7,10 +8,12 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
+                {# Cabeçalho do card #}
                 <div class="card-header">
                     <h5 class="mb-0">Hosts do Zabbix</h5>
                 </div>
                 <div class="card-body">
+                    {# Exibe mensagens de erro #}
                     {% if error %}
                         {% if error.get('error', '') and 'Incorrect user name or password' in error.get('error', '') %}
                             <div class="alert alert-warning">
@@ -25,6 +28,7 @@
                         {% endif %}
                     {% endif %}
 
+                    {# Lista de hosts #}
                     {% if hosts %}
                         <div class="table-responsive">
                             <table class="table table-striped">
@@ -73,6 +77,7 @@
 
 {% block scripts %}
 <script>
+// Salva configurações do Zabbix
 function saveZabbixConfig() {
     const form = document.getElementById('zabbixConfigForm');
     const formData = new FormData(form);
@@ -99,6 +104,7 @@ function saveZabbixConfig() {
     });
 }
 
+// Exibe alertas na interface
 function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
