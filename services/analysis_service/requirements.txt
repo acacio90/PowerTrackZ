@@ -1,2 +1,4 @@
 Flask==2.0.1
 Werkzeug==2.0.1
+networkx==3.2.1
+Flask-CORS==3.0.10

@@ -4,11 +4,13 @@ from controllers import AccessPointController, create_tables
 import os
 import logging
 from datetime import datetime
+from flask_cors import CORS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///access_points.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)

@@ -5,23 +5,15 @@
 <main class="page-analysis">
     <div class="container">
         <h1>Análise de Pontos de Acesso</h1>
-        <div class="cards-grid">
-            {% for point in points %}
-            <div class="card">
-                <h3>{{ point.description }}</h3>
-                <p><strong>Coordenadas:</strong> {{ point.latitude }}, {{ point.longitude }}</p>
-                <p><strong>Frequência:</strong> {{ point.frequency }} GHz</p>
-                <p><strong>Banda:</strong> {{ point.bandwidth }} MHz</p>
-                <p><strong>Canal:</strong> {{ point.channel }}</p>
-                {% if point.status %}
-                <p><strong>Status:</strong> {{ point.status }}</p>
-                {% endif %}
-                {% if point.indicador %}
-                <p><strong>Indicador:</strong> {{ point.indicador }}</p>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
+        <hr>
+        <h2>Grafo de Colisão dos APs</h2>
+        <div id="cy" style="width: 100%; height: 500px; border: 1px solid #ccc;"></div>
     </div>
 </main>
+<!-- Importa Cytoscape.js via CDN -->
+<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+<script src="/static/js/analysis.js"></script>
+<script>
+    window.ACCESS_POINT_URL = window.ACCESS_POINT_URL || 'http://localhost:5004/access_points';
+</script>
 {% endblock %}
