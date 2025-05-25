@@ -1,21 +1,19 @@
-// Inicializa o mapa quando o DOM estiver carregado
+// Inicializa o mapa
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('map');
     if (!mapElement) return;
     
-    let tempMarker = null;
     let selectedCoordinates = null;
     let mapInstance = null;
     
-    // Verifica se o Leaflet está disponível
     if (typeof L === 'undefined') {
-        console.error('Leaflet não foi carregado!');
+        console.error('Leaflet não carregado');
         return;
     }
     
     const mapIframe = mapElement.querySelector('iframe');
     
-    // Inicializa o mapa de acordo com o estado atual
+    // Inicializa mapa de acordo com estado atual
     if (mapIframe) {
         mapElement.innerHTML = '';
         initMap();
@@ -28,31 +26,30 @@ document.addEventListener('DOMContentLoaded', function() {
         initMap();
     }
     
-    // Configura botão para adicionar ponto
+    // Botão para adicionar ponto
     const btnAddPoint = document.getElementById('btn-add-point');
     if (btnAddPoint) {
-        btnAddPoint.addEventListener('click', function() {
+        btnAddPoint.addEventListener('click', () => {
             if (selectedCoordinates) {
                 updateFormCoordinates(selectedCoordinates.lat, selectedCoordinates.lng);
             }
         });
     }
     
-    // Função principal de inicialização do mapa
+    // Inicializa mapa
     function initMap() {
         try {
             const map = L.map('map').setView([-24.061072, -52.386024], 20);
             mapInstance = map;
             
-            // Adiciona camada do OpenStreetMap
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
             
             let currentMarker = null;
             let currentCircle = null;
             
-            // Cria círculo de alcance baseado na frequência
+            // Cria círculo baseado na frequência
             function createCircle(latlng, color = 'red', frequency = '2.4') {
                 let radius = frequency === '5' ? 15 : frequency === '6' ? 10 : 20;
                 
@@ -64,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
             
-            // Gerencia cliques no mapa
+            // Gerencia cliques
             function onMapClick(e) {
                 if (currentMarker) map.removeLayer(currentMarker);
                 if (currentCircle) map.removeLayer(currentCircle);
@@ -87,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             map.on('click', onMapClick);
             
-            // Carrega pontos existentes da tabela
+            // Carrega pontos da tabela
             document.querySelectorAll('.data-table tbody tr').forEach(row => {
                 const coords = row.querySelector('.coords')?.textContent.trim().split(',');
                 const frequency = row.querySelector('td:nth-child(3)')?.textContent.trim();
@@ -161,10 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Manipula cliques no mapa
     function handleMapClick(map, lat, lng) {
-        if (tempMarker) map.removeLayer(tempMarker);
-        
         L.popup()
             .setLatLng([lat, lng])
             .setContent(`Você clicou em: ${lat.toFixed(6)}, ${lng.toFixed(6)}`)
@@ -174,12 +168,10 @@ document.addEventListener('DOMContentLoaded', function() {
         storeCoordinates(lat, lng);
     }
     
-    // Armazena coordenadas selecionadas
     function storeCoordinates(lat, lng) {
         window.lastSelectedCoordinates = { lat, lng };
     }
     
-    // Atualiza coordenadas no formulário
     function updateFormCoordinates(lat, lng) {
         if (typeof window.updateCoordinates === 'function') {
             window.updateCoordinates(lat, lng);

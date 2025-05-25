@@ -1,16 +1,13 @@
-// Inicializa quando o DOM carregar
 document.addEventListener('DOMContentLoaded', function() {
-    // Elementos principais
+    // Elementos do DOM
     const modal = document.getElementById('modal-add-point');
     const btnAddPoint = document.getElementById('btn-add-point');
     const btnAnalyze = document.getElementById('btn-analyze');
     const closeModal = document.getElementById('close-modal');
-    const latitudeInput = document.getElementById('modal-latitude');
-    const longitudeInput = document.getElementById('modal-longitude');
     const formModal = document.getElementById('form-add-point');
     const btnCancel = document.getElementById('cancel-modal');
 
-    // Abre a modal e atualiza coordenadas
+    // Funções da modal
     function openModal() {
         if (modal) {
             modal.style.display = 'flex';
@@ -23,23 +20,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Abre a página de análise
-    function openAnalysis() {
-        window.location.href = '/analysis';
-    }
-
-    // Fecha a modal
     function closeModalHandler() {
         if (modal) modal.style.display = 'none';
     }
 
-    // Eventos dos botões
+    // Event listeners
     if (btnAddPoint) btnAddPoint.addEventListener('click', openModal);
-    if (btnAnalyze) btnAnalyze.addEventListener('click', openAnalysis);
+    if (btnAnalyze) btnAnalyze.addEventListener('click', () => window.location.href = '/analysis');
     if (closeModal) closeModal.addEventListener('click', closeModalHandler);
     if (btnCancel) btnCancel.addEventListener('click', closeModalHandler);
 
-    // Fecha modal ao clicar fora ou pressionar ESC
     window.addEventListener('click', e => {
         if (e.target === modal) closeModalHandler();
     });
@@ -53,95 +43,49 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputs = formModal.querySelectorAll('input[required]');
 
         // Funções de validação
-        function isValidCoordinate(value, type) {
-            const num = parseFloat(value);
-            return type === 'latitude' ? (num >= -90 && num <= 90) : (num >= -180 && num <= 180);
-        }
+        const validations = {
+            latitude: (num) => num >= -90 && num <= 90,
+            longitude: (num) => num >= -180 && num <= 180,
+            frequency: (num) => !isNaN(num) && num > 0 && num <= 6,
+            bandwidth: (num) => !isNaN(num) && num > 0 && num <= 160,
+            channel: (num) => !isNaN(num) && num > 0 && num <= 165
+        };
 
-        function isValidFrequency(value) {
-            const num = parseFloat(value);
-            return !isNaN(num) && num > 0 && num <= 6;
-        }
-
-        function isValidBandwidth(value) {
-            const num = parseFloat(value);
-            return !isNaN(num) && num > 0 && num <= 160;
-        }
-
-        function isValidChannel(value) {
-            const num = parseInt(value);
-            return !isNaN(num) && num > 0 && num <= 165;
-        }
+        const errorMessages = {
+            'modal-latitude': 'Latitude deve estar entre -90 e 90',
+            'modal-longitude': 'Longitude deve estar entre -180 e 180',
+            'modal-frequency': 'Frequência inválida (0-6 GHz)',
+            'modal-bandwidth': 'Largura de banda inválida (0-160 MHz)',
+            'modal-channel': 'Canal inválido (1-165)'
+        };
 
         // Validação em tempo real
         inputs.forEach(input => {
             if (input.readOnly) return;
 
             input.addEventListener('input', function() {
-                let isValid = true;
-                let errorMessage = '';
+                const value = parseFloat(input.value);
+                const type = input.id.split('-')[1];
+                const isValid = validations[type]?.(value) ?? false;
 
-                // Valida cada campo
-                switch(input.id) {
-                    case 'modal-latitude':
-                        if (!isValidCoordinate(input.value, 'latitude')) {
-                            isValid = false;
-                            errorMessage = 'Latitude deve estar entre -90 e 90';
-                        }
-                        break;
-                    case 'modal-longitude':
-                        if (!isValidCoordinate(input.value, 'longitude')) {
-                            isValid = false;
-                            errorMessage = 'Longitude deve estar entre -180 e 180';
-                        }
-                        break;
-                    case 'modal-frequency':
-                        if (!isValidFrequency(input.value)) {
-                            isValid = false;
-                            errorMessage = 'Frequência inválida (0-6 GHz)';
-                        }
-                        break;
-                    case 'modal-bandwidth':
-                        if (!isValidBandwidth(input.value)) {
-                            isValid = false;
-                            errorMessage = 'Largura de banda inválida (0-160 MHz)';
-                        }
-                        break;
-                    case 'modal-channel':
-                        if (!isValidChannel(input.value)) {
-                            isValid = false;
-                            errorMessage = 'Canal inválido (1-165)';
-                        }
-                        break;
-                }
+                input.classList.toggle('is-invalid', !isValid);
+                input.classList.toggle('is-valid', isValid);
 
-                // Atualiza feedback visual
                 if (!isValid) {
-                    input.classList.add('is-invalid');
                     let feedback = input.nextElementSibling;
-                    if (!feedback || !feedback.classList.contains('invalid-feedback')) {
+                    if (!feedback?.classList.contains('invalid-feedback')) {
                         feedback = document.createElement('div');
                         feedback.className = 'invalid-feedback';
                         input.parentNode.insertBefore(feedback, input.nextSibling);
                     }
-                    feedback.textContent = errorMessage;
-                } else {
-                    input.classList.remove('is-invalid');
-                    input.classList.add('is-valid');
+                    feedback.textContent = errorMessages[input.id];
                 }
             });
         });
 
         // Validação no envio
         formModal.addEventListener('submit', function(event) {
-            let isValid = true;
-            inputs.forEach(input => {
-                if (!input.value.trim()) {
-                    isValid = false;
-                    input.classList.add('is-invalid');
-                }
-            });
-
+            const isValid = Array.from(inputs).every(input => input.value.trim());
             if (!isValid) {
                 event.preventDefault();
                 alert('Preencha todos os campos obrigatórios.');
@@ -150,16 +94,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Atualiza coordenadas no formulário
+// Atualiza coordenadas nos formulários
 function updateCoordinates(lat, lng) {
-    const latitudeInput = document.getElementById('modal-latitude');
-    const longitudeInput = document.getElementById('modal-longitude');
-    
-    if (latitudeInput && longitudeInput) {
-        latitudeInput.value = lat.toFixed(6);
-        longitudeInput.value = lng.toFixed(6);
-    }
+    const forms = [
+        {
+            modal: document.getElementById('modal-add-point'),
+            latInput: document.getElementById('modal-latitude'),
+            lngInput: document.getElementById('modal-longitude')
+        },
+        {
+            modal: document.getElementById('modal-edit-point'),
+            latInput: document.getElementById('edit-latitude'),
+            lngInput: document.getElementById('edit-longitude')
+        }
+    ];
+
+    forms.forEach(form => {
+        if (form.latInput && form.lngInput && form.modal?.style.display !== 'none') {
+            form.latInput.value = lat.toFixed(6);
+            form.lngInput.value = lng.toFixed(6);
+        }
+    });
 }
 
-// Expõe função globalmente
 window.updateCoordinates = updateCoordinates;

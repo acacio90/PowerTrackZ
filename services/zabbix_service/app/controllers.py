@@ -1,11 +1,8 @@
-import json
 import logging
 import re
 from pyzabbix import ZabbixAPI
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 import urllib3
-import ssl
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from .models import db, ZabbixConfig
@@ -18,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def validate_url(url):
-    """Valida URL"""
+    """Valida formato da URL"""
     if not url:
         return False
     url_pattern = re.compile(
@@ -30,18 +27,9 @@ def validate_url(url):
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
     return url_pattern.match(url) is not None
 
-def sanitize_input(text):
-    """Limpa caracteres especiais"""
-    if not text:
-        return ""
-    return ''.join(char for char in text if char.isprintable() and ord(char) < 128)
-
 class ZabbixService:
     def __init__(self, url, user, password):
-        if not url:
-            raise ValueError("URL não pode ser vazia")
-            
-        if not validate_url(url):
+        if not url or not validate_url(url):
             raise ValueError("URL inválida")
             
         if not url.startswith('https://'):
@@ -54,36 +42,33 @@ class ZabbixService:
         self.logger = logging.getLogger(__name__)
 
     def authenticate(self):
+        """Autentica no Zabbix"""
         if self.zapi:
             return True
 
         try:
-            self.logger.info(f"📡 Conectando ao Zabbix: {self.url}")
+            self.logger.info(f"Conectando ao Zabbix: {self.url}")
             self.zapi = ZabbixAPI(self.url)
             self.zapi.session.verify = False
             self.zapi.login(self.user, self.password)
-            self.logger.info("✅ Autenticado")
-            version = self.zapi.api_version()
-            self.logger.info(f"Versão API: {version}")
+            self.logger.info(f"Conectado - API v{self.zapi.api_version()}")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Erro auth: {str(e)}")
+            self.logger.error(f"Erro auth: {str(e)}")
             if "Login name or password is incorrect" in str(e):
                 raise ValueError("Credenciais inválidas")
             elif "Connection refused" in str(e):
-                raise ValueError("Não foi possível conectar ao servidor Zabbix")
+                raise ValueError("Servidor Zabbix indisponível")
             else:
                 raise ValueError(f"Erro na autenticação: {str(e)}")
 
     def get_hosts(self):
+        """Busca hosts e seus itens"""
         if not self.zapi:
             self.authenticate()
         
         try:
-            self.logger.info("Buscando controladora e seus itens...")
-            
-            # Busca controladora e itens
             hosts = self.zapi.host.get(
                 output=['hostid', 'host', 'name'],
                 selectInterfaces=['interfaceid', 'ip'],
@@ -97,19 +82,16 @@ class ZabbixService:
             controladora = hosts[0]
             items_agrupados = {}
             
-            # Processa itens agrupando por índice
             for item in controladora.get('items', []):
                 try:
                     key = item.get('key_', '')
                     lastvalue = item.get('lastvalue', 'N/A')
                     item_name = item.get('name', 'N/A')
                     
-                    # Extrai índice da chave
                     match = re.search(r'\[(.*?)\]', key)
                     if match:
                         index = match.group(1)
                         
-                        # Inicializa grupo se não existir
                         if index not in items_agrupados:
                             items_agrupados[index] = {
                                 'hostid': controladora.get('hostid'),
@@ -121,11 +103,10 @@ class ZabbixService:
                                 'channel': 'N/A'
                             }
                         
-                        # Atualiza valores
                         if 'freq' in key:
                             freq_mapping = {
                                 "1": "2.4 GHz",
-                                "2": "5 GHz",
+                                "2": "5 GHz", 
                                 "3": "6 GHz"
                             }
                             items_agrupados[index]['frequency'] = freq_mapping.get(lastvalue, f"{lastvalue} MHz")
@@ -145,26 +126,27 @@ class ZabbixService:
             raise ValueError(f"Erro ao buscar hosts: {str(e)}")
 
     def get_groups(self):
-        """Obtém todos os grupos de hosts do Zabbix"""
+        """Obtém grupos de hosts"""
         if not self.zapi:
             self.authenticate()
         
         try:
-            groups = self.zapi.hostgroup.get(
+            return self.zapi.hostgroup.get(
                 output=['groupid', 'name'],
                 sortfield='name'
             )
-            return groups
         except Exception as e:
-            self.logger.error(f"❌ Erro ao buscar grupos: {str(e)}")
+            self.logger.error(f"Erro ao buscar grupos: {str(e)}")
             raise ValueError(f"Erro ao buscar grupos: {str(e)}")
 
     def get_items(self, hostids):
+        """Obtém itens dos hosts"""
         if not self.zapi:
             self.authenticate()
         return self.zapi.item.get(hostids=hostids, output='extend')
 
 def test_zabbix_connection():
+    """Testa conexão com Zabbix"""
     try:
         data = request.get_json()
         if not data:
@@ -175,7 +157,6 @@ def test_zabbix_connection():
         password = data.get('password')
 
         if not all([url, user, password]):
-            logger.error(f"Dados: {data}")
             return jsonify({"success": False, "error": "Campos obrigatórios faltando"}), 400
 
         zabbix_service = ZabbixService(url.strip(), user.strip(), password.strip())
@@ -187,7 +168,7 @@ def test_zabbix_connection():
             "url": url
         })
     except Exception as e:
-        logger.error(f"❌ Erro: {str(e)}")
+        logger.error(f"Erro: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -195,6 +176,7 @@ def test_zabbix_connection():
         }), 500
 
 def get_all_hosts():
+    """Lista todos os hosts"""
     try:
         config = ZabbixConfig.query.first()
         if not config:
@@ -205,13 +187,12 @@ def get_all_hosts():
 
         zabbix_service = ZabbixService(config.url, config.user, config.password)
         hosts = zabbix_service.get_hosts()
-        
         return jsonify({
             "success": True,
             "data": hosts
         })
     except Exception as e:
-        logger.error(f"❌ Erro: {str(e)}")
+        logger.error(f"Erro: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -219,7 +200,7 @@ def get_all_hosts():
         }), 500
 
 def get_all_groups():
-    """Endpoint para listar todos os grupos"""
+    """Lista todos os grupos"""
     try:
         config = ZabbixConfig.query.first()
         if not config:
@@ -236,7 +217,7 @@ def get_all_groups():
             "data": groups
         })
     except Exception as e:
-        logger.error(f"❌ Erro: {str(e)}")
+        logger.error(f"Erro: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -244,6 +225,7 @@ def get_all_groups():
         }), 500
 
 def save_zabbix_config():
+    """Salva configuração do Zabbix"""
     try:
         data = request.get_json()
         if not data:
@@ -256,7 +238,6 @@ def save_zabbix_config():
         if not all([url, user, password]):
             return jsonify({"success": False, "error": "Campos obrigatórios faltando"}), 400
 
-        # Testa a conexão antes de salvar
         zabbix_service = ZabbixService(url.strip(), user.strip(), password.strip())
         zabbix_service.authenticate()
 
@@ -264,7 +245,7 @@ def save_zabbix_config():
         config = ZabbixConfig(
             url=url.strip(), 
             user=user.strip(), 
-            password=password.strip()  # Não vamos mais usar hash aqui
+            password=password.strip()
         )
         db.session.add(config)
         db.session.commit()
@@ -275,17 +256,15 @@ def save_zabbix_config():
             "url": url
         })
     except ValueError as e:
-        if 'db' in locals():
-            db.session.rollback()
-        logger.error(f"❌ Erro de validação: {str(e)}")
+        db.session.rollback()
+        logger.error(f"Erro de validação: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 400
     except Exception as e:
-        if 'db' in locals():
-            db.session.rollback()
-        logger.error(f"❌ Erro: {str(e)}")
+        db.session.rollback()
+        logger.error(f"Erro: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -293,6 +272,7 @@ def save_zabbix_config():
         }), 500
 
 def get_zabbix_config():
+    """Obtém configuração do Zabbix"""
     try:
         config = ZabbixConfig.query.first()
         if not config:
@@ -309,7 +289,7 @@ def get_zabbix_config():
             }
         })
     except Exception as e:
-        logger.error(f"❌ Erro: {str(e)}")
+        logger.error(f"Erro: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)

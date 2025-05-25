@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Elementos do DOM
     function initZabbixModal() {
         const form = document.getElementById('zabbix-config-form');
         const testButton = document.getElementById('test-connection-button');
@@ -7,16 +6,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const togglePassword = document.getElementById('toggle-password');
         const passwordInput = document.getElementById('password');
 
-        if (!form) return; // Só executa se a modal estiver presente
+        if (!form) return;
 
-        // Alterna visibilidade da senha
+        // Toggle senha
         togglePassword.addEventListener('click', function() {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
             togglePassword.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
         });
 
-        // Salva configurações
+        // Salvar config
         form.addEventListener("submit", function (event) {
             event.preventDefault();
             const formData = {
@@ -42,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(error => showAlert("Erro ao salvar configuração", "danger"));
         });
 
-        // Testa conexão
+        // Testar conexão
         testButton.addEventListener("click", function () {
             const formData = {
                 url: document.getElementById('url').value,
@@ -84,6 +83,5 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Função para ser chamada após carregar o HTML da modal
     window.initZabbixModal = initZabbixModal;
-}); 
+});

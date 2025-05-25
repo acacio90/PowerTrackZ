@@ -3,13 +3,11 @@ import logging
 import requests
 from .config import Config
 
-# Configuração inicial
 logger = logging.getLogger(__name__)
 routes = Blueprint('routes', __name__)
 session = requests.Session()
 session.verify = False
 
-# Função para tratamento de erros
 def handle_error(e, service_name):
     error_msg = str(e)
     if isinstance(e, requests.exceptions.ConnectionError):
@@ -19,12 +17,10 @@ def handle_error(e, service_name):
     else:
         return {"message": f"Erro ao conectar com {service_name}", "error": error_msg}, 500
 
-# Rota principal
 @routes.route('/')
 def index():
     return render_template('pages/index.html')
 
-# Rota para listar hosts do Zabbix
 @routes.route('/hosts', methods=['GET'])
 def hosts():
     try:
@@ -38,7 +34,6 @@ def hosts():
         error_response, _ = handle_error(e, "Zabbix")
         return render_template('pages/hosts.html', hosts=[], error=error_response)
 
-# Rotas da API do Zabbix
 @routes.route('/zabbix/test-connection', methods=['POST'])
 def test_zabbix_connection():
     try:
@@ -69,7 +64,6 @@ def save_config():
         error_response, status_code = handle_error(e, "Zabbix")
         return jsonify(error_response), status_code
 
-# Rota do mapa
 @routes.route('/map', methods=['GET'])
 def get_map():
     try:
@@ -79,7 +73,6 @@ def get_map():
         error_response, status_code = handle_error(e, "map_service")
         return jsonify(error_response), status_code
 
-# Rota de análise
 @routes.route('/analyze', methods=['GET'])
 def analyze():
     try:
@@ -89,7 +82,6 @@ def analyze():
         error_response, status_code = handle_error(e, "analysis_service")
         return jsonify(error_response), status_code
 
-# Rotas de pontos de acesso
 @routes.route('/access_points', methods=['GET'])
 def get_access_points():
     try:
@@ -99,26 +91,37 @@ def get_access_points():
         error_response, status_code = handle_error(e, "access_point_service")
         return jsonify(error_response), status_code
 
-# Rota de registro de pontos de acesso
 @routes.route('/register', methods=['GET', 'POST'])
 def register():
+    print('>>> Entrou na rota /register, método:', request.method)
     if request.method == 'POST':
         try:
-            data = {
-                "description": request.form['description'],
-                "latitude": request.form['latitude'],
-                "longitude": request.form['longitude'],
-                "frequency": request.form['frequency'],
-                "bandwidth": request.form['bandwidth'],
-                "channel": request.form['channel']
-            }
-            response = session.post(f"{Config.ACCESS_POINT_SERVICE_URL}/register", json=data)
-            return redirect(url_for('routes.register')) if response.status_code == 201 else jsonify(response.json())
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = {
+                    "id": request.form.get('id', request.form['description']),
+                    "name": request.form['description'],
+                    "channel": request.form['channel'],
+                    "frequency": request.form['frequency'],
+                    "bandwidth": request.form['bandwidth'],
+                    "latitude": request.form['latitude'],
+                    "longitude": request.form['longitude'],
+                    "coordenadas": f"{request.form['latitude']},{request.form['longitude']}"
+                }
+            print('Enviando para access_point_service:', data)
+            response = session.post(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points", json=data)
+            print('Resposta do access_point_service:', response.status_code, response.text)
+            if response.status_code == 201:
+                if request.is_json:
+                    return jsonify({"success": True, "message": "Ponto cadastrado com sucesso!"}), 201
+                return redirect(url_for('routes.register'))
+            else:
+                return jsonify(response.json()), response.status_code
         except Exception as e:
             error_response, status_code = handle_error(e, "access_point_service")
             return jsonify(error_response), status_code
 
-    # Carrega dados para o formulário GET
     try:
         points = session.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points").json()
     except Exception:
@@ -131,7 +134,6 @@ def register():
 
     return render_template('pages/register.html', points=points, map_html=map_html)
 
-# Rota para análise com cards
 @routes.route('/analysis', methods=['GET'])
 def analysis():
     try:
@@ -140,3 +142,21 @@ def analysis():
     except Exception:
         points = []
     return render_template('pages/analysis.html', points=points)
+
+@routes.route('/api/access_points', methods=['POST'])
+def save_access_point():
+    try:
+        response = session.post(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points", json=request.get_json())
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        error_response, status_code = handle_error(e, "access_point_service")
+        return jsonify(error_response), status_code
+
+@routes.route('/api/access_points/<id>', methods=['PUT'])
+def update_access_point(id):
+    try:
+        response = session.put(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points/{id}", json=request.get_json())
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        error_response, status_code = handle_error(e, "access_point_service")
+        return jsonify(error_response), status_code

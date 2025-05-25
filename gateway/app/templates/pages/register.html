@@ -1,20 +1,16 @@
-{# Template HTML base #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    {# Meta tags #}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Ponto de Acesso - PowerTrackZ</title>
     
-    {# CSS #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         .header-table {
             display: flex;
-            flex-direction: row;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
@@ -24,32 +20,35 @@
 
         .header-buttons {
             display: flex;
-            flex-direction: row;
             gap: 0.5rem;
             align-items: center;
             flex-shrink: 0;
         }
+
+        .row-missing-coords {
+            background-color: #ffeaea !important;
+        }
+        .row-has-coords {
+            background-color: #eaffea !important;
+        }
     </style>
 </head>
 <body>
-    {# Navegação #}
     <nav class="navbar">
         <div class="container">
             <a href="/" class="navbar-brand"><i class="fa-solid fa-chart-line"></i> <span>PowerTrackZ</span></a>
             
             <ul class="navbar-nav">
                 <li class="nav-item"><a href="/" class="nav-link"><i class="fa-solid fa-home"></i> Início</a></li>
-                <li class="nav-item"><a href="/hosts" class="nav-link"><i class="fa-solid fa-server"></i> Hosts</a></li>
+                <li class="nav-item"><a href="/hosts" class="nav-link"><i class="fa-solid fa-server"></i> Pontos</a></li>
                 <li class="nav-item"><a href="/register" class="nav-link active"><i class="fa-solid fa-plus-circle"></i> Registrar</a></li>
             </ul>
         </div>
     </nav>
 
-    {# Conteúdo principal #}
     <main class="page-register">
         <div class="container">
             <div class="register-grid">
-                {# Tabela de pontos #}
                 <section class="table-section">
                     <div class="header-table">
                         <h2 class="card-title">
@@ -81,15 +80,15 @@
                                 </thead>
                                 <tbody>
                                     {% for point in points %}
-                                    <tr>
-                                        <td><i class="fas fa-wifi"></i> {{ point.description }}</td>
-                                        <td><span class="coords">{{ point.latitude }}, {{ point.longitude }}</span></td>
-                                        <td>{{ point.frequency }} GHz</td>
-                                        <td>{{ point.bandwidth }} MHz</td>
+                                    <tr class="{% if not point.latitude or not point.longitude %}row-missing-coords{% else %}row-has-coords{% endif %}">
+                                        <td><i class="fas fa-wifi"></i> {{ point.name }}</td>
+                                        <td><span class="coords">{{ point.latitude if point.latitude is not none else '-' }}, {{ point.longitude if point.longitude is not none else '-' }}</span></td>
+                                        <td>{{ point.frequency }}</td>
+                                        <td>{{ point.bandwidth }}</td>
                                         <td>{{ point.channel }}</td>
                                         <td>
-                                            <button class="action-button" onclick="showPointDetails('{{ point.id }}')">
-                                                <i class="fas fa-info-circle"></i>
+                                            <button class="action-button" onclick="openEditModal('{{ point.id }}')">
+                                                <i class="fas fa-edit"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -100,7 +99,6 @@
                     </div>
                 </section>
 
-                {# Mapa #}
                 <section class="map-section">
                     <div class="card">
                         <h2 class="card-title">
@@ -115,7 +113,6 @@
             </div>
         </div>
 
-        {# Modal de adição #}
         <div id="modal-add-point" class="modal" style="display:none;">
             <div class="modal-content">
                 <div class="modal-header">
@@ -125,7 +122,6 @@
                 
                 <form id="form-add-point" action="{{ url_for('routes.register') }}" method="post">
                     <div class="form-grid">
-                        {# Campos de localização #}
                         <div class="form-group">
                             <label for="modal-latitude"><i class="fas fa-map-marker-alt"></i> Latitude</label>
                             <input type="text" id="modal-latitude" name="latitude" required readonly>
@@ -135,7 +131,6 @@
                             <input type="text" id="modal-longitude" name="longitude" required readonly>
                         </div>
                         
-                        {# Campos de configuração #}
                         <div class="form-group full-width">
                             <label for="modal-description"><i class="fas fa-info-circle"></i> Descrição</label>
                             <input type="text" id="modal-description" name="description" required placeholder="Digite uma descrição para o ponto de acesso">
@@ -162,7 +157,6 @@
                         </div>
                     </div>
                     
-                    {# Botões #}
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="cancel-modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary">
@@ -172,11 +166,167 @@
                 </form>
             </div>
         </div>
+
+        <div id="modal-edit-point" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2><i class="fas fa-edit"></i> Editar Ponto de Acesso</h2>
+                    <span class="close" id="close-edit-modal">&times;</span>
+                </div>
+                <form id="form-edit-point">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="edit-description"><i class="fas fa-info-circle"></i> Descrição</label>
+                            <input type="text" id="edit-description" name="description" required readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-latitude"><i class="fas fa-map-marker-alt"></i> Latitude</label>
+                            <input type="text" id="edit-latitude" name="latitude" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-longitude"><i class="fas fa-map-marker-alt"></i> Longitude</label>
+                            <input type="text" id="edit-longitude" name="longitude" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
+                            <input type="text" id="edit-frequency" name="frequency" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
+                            <input type="text" id="edit-bandwidth" name="bandwidth" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
+                            <input type="number" id="edit-channel" name="channel" min="1" max="165" required>
+                        </div>
+                        <input type="hidden" id="edit-id" name="id">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-edit-modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </main>
 
-    {# Scripts #}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{{ url_for('static', filename='js/register.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
+    <script>
+    function openEditModal(pointId) {
+        const row = Array.from(document.querySelectorAll('table tbody tr')).find(tr => {
+            const btn = tr.querySelector('.action-button');
+            return btn && btn.getAttribute('onclick').includes(pointId);
+        });
+        if (!row) return;
+        const cells = row.querySelectorAll('td');
+        document.getElementById('edit-id').value = pointId;
+        document.getElementById('edit-description').value = cells[0].innerText.replace(/^[^\w]+/, '').trim();
+        const coords = cells[1].innerText.split(',');
+        let lat = coords[0]?.trim();
+        let lng = coords[1]?.trim();
+        if ((lat === '-' || !lat) && window.lastSelectedCoordinates) lat = window.lastSelectedCoordinates.lat;
+        if ((lng === '-' || !lng) && window.lastSelectedCoordinates) lng = window.lastSelectedCoordinates.lng;
+        document.getElementById('edit-latitude').value = lat || '';
+        document.getElementById('edit-longitude').value = lng || '';
+        document.getElementById('edit-frequency').value = cells[2].innerText.trim();
+        document.getElementById('edit-bandwidth').value = cells[3].innerText.trim();
+        document.getElementById('edit-channel').value = cells[4].innerText.trim();
+        document.getElementById('modal-edit-point').style.display = 'flex';
+    }
+    document.getElementById('close-edit-modal').onclick = function() {
+        document.getElementById('modal-edit-point').style.display = 'none';
+    };
+    document.getElementById('cancel-edit-modal').onclick = function() {
+        document.getElementById('modal-edit-point').style.display = 'none';
+    };
+    document.getElementById('form-edit-point').onsubmit = async function(e) {
+        e.preventDefault();
+        const id = document.getElementById('edit-id').value.trim();
+        if (!id) {
+            alert('ID do ponto de acesso não encontrado. Não é possível atualizar.');
+            return;
+        }
+        const payload = {
+            name: document.getElementById('edit-description').value,
+            latitude: document.getElementById('edit-latitude').value,
+            longitude: document.getElementById('edit-longitude').value,
+            frequency: document.getElementById('edit-frequency').value,
+            bandwidth: document.getElementById('edit-bandwidth').value,
+            channel: document.getElementById('edit-channel').value
+        };
+        try {
+            const response = await fetch(`/api/access_points/${encodeURIComponent(id)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            let result = {};
+            try {
+                result = await response.json();
+            } catch (jsonErr) {
+                alert('Erro inesperado: resposta não é JSON.');
+                return;
+            }
+            if (response.ok && result.success) {
+                alert('Ponto de acesso atualizado com sucesso!');
+                window.location.reload();
+            } else {
+                alert(result.error || 'Erro ao atualizar ponto de acesso.');
+            }
+        } catch (err) {
+            alert('Erro ao atualizar ponto de acesso: ' + err);
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const formAdd = document.getElementById('form-add-point');
+        if (formAdd) {
+            formAdd.addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                const descInput = document.getElementById('modal-description');
+                const freqInput = document.getElementById('modal-frequency');
+                const bwInput = document.getElementById('modal-bandwidth');
+                const channelInput = document.getElementById('modal-channel');
+                const latInput = document.getElementById('modal-latitude');
+                const lngInput = document.getElementById('modal-longitude');
+
+                const id = descInput.value.replace(/\s+/g, '_') + '_' + Date.now();
+
+                const data = {
+                    id: id,
+                    name: descInput.value,
+                    frequency: freqInput.value.includes('GHz') ? freqInput.value : freqInput.value + ' GHz',
+                    bandwidth: bwInput.value.includes('MHz') ? bwInput.value : bwInput.value + ' MHz',
+                    channel: channelInput.value,
+                    latitude: latInput.value,
+                    longitude: lngInput.value,
+                    coordenadas: `${latInput.value},${lngInput.value}`
+                };
+
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Ponto cadastrado com sucesso!');
+                    window.location.reload();
+                } else {
+                    let result = {};
+                    try {
+                        result = await response.json();
+                    } catch (e) {}
+                    alert(result.error || 'Erro ao cadastrar ponto.');
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>

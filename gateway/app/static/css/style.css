@@ -683,7 +683,6 @@ main {
     }
 }
 
-/* Layout em duas colunas para a tela de registro */
 .register-grid {
     display: flex;
     flex-direction: column;

@@ -1,4 +1,4 @@
-// Exibe alertas na interface com tipo (info, success, warning, danger)
+// Alerta temporário
 function showAlert(message, type = 'info') {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -9,41 +9,34 @@ function showAlert(message, type = 'info') {
     `;
     document.querySelector('main').insertBefore(alertDiv, document.querySelector('main').firstChild);
     
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
+    setTimeout(() => alertDiv.remove(), 5000);
 }
 
-// Exibe diálogo de confirmação
+// Confirmação
 function confirmAction(message) {
     return confirm(message);
 }
 
-// Formata data para padrão brasileiro
+// Data BR
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', {
+    return new Date(dateString).toLocaleString('pt-BR', {
         day: '2-digit',
-        month: '2-digit',
+        month: '2-digit', 
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
     });
 }
 
-// Copia texto para área de transferência
+// Copiar texto
 function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        showAlert('Texto copiado para a área de transferência!', 'success');
-    }).catch(err => {
-        showAlert('Erro ao copiar texto', 'danger');
-    });
+    navigator.clipboard.writeText(text)
+        .then(() => showAlert('Texto copiado!', 'success'))
+        .catch(() => showAlert('Erro ao copiar', 'danger'));
 }
 
-// Inicializa tooltips do Bootstrap
-document.addEventListener('DOMContentLoaded', function() {
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-}); 
+// Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        .forEach(el => new bootstrap.Tooltip(el));
+});

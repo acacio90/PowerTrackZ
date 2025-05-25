@@ -1,4 +1,3 @@
-<!-- Cabeçalho com navegação principal -->
 <header>
     <div class="header-left">
         <a href="/" class="home-button">Home</a>
@@ -11,7 +10,6 @@
     </div>
 </header>
 
-<!-- Modal de configurações -->
 <div id="settingsModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeSettingsModal()">&times;</span>
@@ -20,18 +18,15 @@
 </div>
 
 <script>
-    // Abre modal de configurações
     function openSettingsModal() {
         document.getElementById('settingsModal').style.display = 'flex';
         loadSettingsContent();
     }
 
-    // Fecha modal de configurações 
     function closeSettingsModal() {
         document.getElementById('settingsModal').style.display = 'none';
     }
 
-    // Carrega conteúdo das configurações via AJAX
     function loadSettingsContent() {
         fetch('/settings')
             .then(response => response.text())
@@ -41,8 +36,5 @@
             .catch(error => console.error('Error loading settings content:', error));
     }
 
-    // Fecha modal ao carregar página
-    document.addEventListener('DOMContentLoaded', function() {
-        closeSettingsModal();
-    });
+    document.addEventListener('DOMContentLoaded', closeSettingsModal);
 </script>
