@@ -1,8 +1,13 @@
 # Importações necessárias
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from models import db
-import controllers
+from controllers import AccessPointController, create_tables
 import os
+import logging
+
+# Configuração básica de logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Inicializa app Flask e configura banco
 app = Flask(__name__)
@@ -12,8 +17,8 @@ db.init_app(app)
 
 # Cria tabelas antes da primeira requisição
 @app.before_first_request
-def create_tables():
-    controllers.create_tables()
+def init_db():
+    create_tables()
 
 # Rota de healthcheck
 @app.route('/health')
@@ -24,15 +29,35 @@ def health_check():
         "port": int(os.environ.get('PORT', 5004))
     })
 
-# Rota para registrar AP
-@app.route('/register', methods=['POST'])
-def register():
-    return controllers.register()
+# Rota para listar hosts (pontos de acesso)
+@app.route('/hosts', methods=['GET'])
+def list_hosts():
+    try:
+        controller = AccessPointController()
+        return controller.list_hosts()
+    except Exception as e:
+        logger.error(f"Erro ao listar hosts: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
-# Rota para listar APs
-@app.route('/access_points', methods=['GET'])
-def get_access_points():
-    return controllers.get_access_points()
+# Rota para detalhes de um host (ponto de acesso)
+@app.route('/hosts/<host_id>', methods=['GET'])
+def get_host_details(host_id):
+    try:
+        controller = AccessPointController()
+        return controller.get_host_details(host_id)
+    except Exception as e:
+        logger.error(f"Erro ao buscar detalhes do host: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# Rota para sincronização com Zabbix
+@app.route('/sync/zabbix', methods=['POST'])
+def sync_zabbix():
+    try:
+        controller = AccessPointController()
+        return controller.sync_zabbix_data()
+    except Exception as e:
+        logger.error(f"Erro na sincronização: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Inicia a aplicação
 if __name__ == '__main__':

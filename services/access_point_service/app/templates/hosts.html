@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pontos de Rádio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-responsive { margin-top: 20px; }
+        .status-badge { font-size: 0.9em; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Pontos de Rádio</h1>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nome</th>
+                        <th>Canal</th>
+                        <th>Frequência</th>
+                        <th>Largura de Banda</th>
+                        <th>Última Atualização</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ap in access_points %}
+                    <tr>
+                        <td>{{ ap.id }}</td>
+                        <td>{{ ap.name }}</td>
+                        <td>{{ ap.channel }}</td>
+                        <td>{{ ap.frequency }}</td>
+                        <td>{{ ap.bandwidth }}</td>
+                        <td>{{ ap.last_update }}</td>
+                        <td>
+                            <a href="/hosts/{{ ap.id }}" class="btn btn-sm btn-info">Detalhes</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

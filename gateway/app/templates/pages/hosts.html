@@ -1,7 +1,7 @@
 {# Template base #}
 {% extends "base.html" %}
 
-{% block title %}Hosts{% endblock %}
+{% block title %}Pontos de Acesso{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -9,65 +9,88 @@
         <div class="col-12">
             <div class="card">
                 {# Cabeçalho do card #}
-                <div class="card-header">
-                    <h5 class="mb-0">Hosts do Zabbix</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Pontos de Acesso</h5>
+                    <button class="btn btn-primary" onclick="window.location.href='/register'">
+                        <i class="fas fa-plus"></i> Novo Ponto de Acesso
+                    </button>
                 </div>
                 <div class="card-body">
                     {# Exibe mensagens de erro #}
                     {% if error %}
-                        {% if error.get('error', '') and 'Incorrect user name or password' in error.get('error', '') %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                Credenciais do Zabbix inválidas. Por favor, configure as credenciais corretas.
-                            </div>
-                        {% else %}
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-circle"></i>
-                                {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
-                            </div>
-                        {% endif %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
+                        </div>
                     {% endif %}
 
-                    {# Lista de hosts #}
+                    {# Lista de pontos de acesso #}
                     {% if hosts %}
                         <div class="table-responsive">
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
                                         <th>Nome</th>
-                                        <th>IP</th>
-                                        <th>Status</th>
-                                        <th>Última Atualização</th>
+                                        <th>Índice</th>
+                                        <th>Frequência</th>
+                                        <th>Largura de Banda</th>
+                                        <th>Canal</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for host in hosts %}
+                                    {% for item in hosts %}
                                     <tr>
-                                        <td>{{ host.name }}</td>
-                                        <td>{{ host.ip }}</td>
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.index }}</td>
+                                        <td>{{ item.frequency }}</td>
+                                        <td>{{ item.bandwidth }}</td>
+                                        <td>{{ item.channel }}</td>
                                         <td>
-                                            <span class="badge bg-{{ 'success' if host.status == 'online' else 'danger' }}">
-                                                {{ host.status }}
-                                            </span>
-                                        </td>
-                                        <td>{{ host.last_update }}</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-info" title="Ver detalhes">
-                                                <i class="fas fa-info-circle"></i>
-                                            </button>
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-info" title="Ver detalhes" onclick="showHostDetails('{{ item.itemid }}')">
+                                                    <i class="fas fa-info-circle"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-warning" title="Editar" onclick="editHost('{{ item.itemid }}')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" title="Excluir" onclick="deleteHost('{{ item.itemid }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
-                    {% elif not error %}
+                    {% else %}
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            Nenhum host encontrado.
+                            Nenhum ponto de acesso encontrado.
                         </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal de Detalhes do Host #}
+<div class="modal fade" id="hostDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Ponto de Acesso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="hostDetailsContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -77,31 +100,36 @@
 
 {% block scripts %}
 <script>
-// Salva configurações do Zabbix
-function saveZabbixConfig() {
-    const form = document.getElementById('zabbixConfigForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+// Exibe detalhes do host
+function showHostDetails(itemId) {
+    const modal = new bootstrap.Modal(document.getElementById('hostDetailsModal'));
+    modal.show();
+}
 
-    fetch('/zabbix/save-config', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            showAlert('success', 'Configuração salva com sucesso!');
-            setTimeout(() => window.location.reload(), 1500);
-        } else {
-            showAlert('danger', result.error || 'Erro ao salvar configuração');
-        }
-    })
-    .catch(error => {
-        showAlert('danger', 'Erro ao salvar configuração: ' + error);
-    });
+// Edita um host
+function editHost(itemId) {
+    window.location.href = `/register?edit=${itemId}`;
+}
+
+// Exclui um host
+function deleteHost(itemId) {
+    if (confirm('Tem certeza que deseja excluir este ponto de acesso?')) {
+        fetch(`/zabbix/hosts/${itemId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showAlert('success', 'Ponto de acesso excluído com sucesso!');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showAlert('danger', result.error || 'Erro ao excluir ponto de acesso');
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'Erro ao excluir ponto de acesso: ' + error);
+        });
+    }
 }
 
 // Exibe alertas na interface

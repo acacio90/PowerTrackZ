@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import logging
-from .controllers import test_zabbix_connection, save_zabbix_config, get_all_hosts, get_zabbix_config
+from .controllers import test_zabbix_connection, save_zabbix_config, get_all_hosts, get_zabbix_config, get_all_groups
 
 logger = logging.getLogger(__name__)
 
@@ -35,4 +35,8 @@ def save_config():
 
 @routes.route('/config', methods=['GET'])
 def config():
-    return get_zabbix_config() 
+    return get_zabbix_config()
+
+@routes.route('/groups', methods=['GET'])
+def groups():
+    return get_all_groups() 

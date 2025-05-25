@@ -1,4 +1,5 @@
 Flask==2.0.1
 Flask-SQLAlchemy==2.5.1
-SQLAlchemy==1.4.22
+SQLAlchemy==1.4.23
 Werkzeug==2.0.1
+requests==2.31.0
