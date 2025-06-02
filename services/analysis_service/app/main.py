@@ -18,6 +18,24 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+def calcular_area_intersecao(r1, r2, d):
+    """
+    Calcula a área de interseção entre dois círculos
+    r1, r2: raios dos círculos em metros
+    d: distância entre os centros em metros
+    retorna: área de interseção em metros quadrados
+    """
+    if d >= r1 + r2:
+        return 0
+    if d <= abs(r1 - r2):
+        return math.pi * min(r1, r2)**2
+    
+    termo1 = r1**2 * math.acos((d**2 + r1**2 - r2**2)/(2*d*r1))
+    termo2 = r2**2 * math.acos((d**2 + r2**2 - r1**2)/(2*d*r2))
+    termo3 = 0.5 * math.sqrt((-d + r1 + r2)*(d + r1 - r2)*(d - r1 + r2)*(d + r1 + r2))
+    
+    return termo1 + termo2 - termo3
+
 @app.route('/health')
 def health_check():
     return jsonify({
@@ -33,16 +51,33 @@ def collision_graph():
 
     def colidem(ap1, ap2):
         distancia = haversine(ap1['x'], ap1['y'], ap2['x'], ap2['y'])
-        return distancia < (ap1['raio'] + ap2['raio']), distancia
+        if distancia >= (ap1['raio'] + ap2['raio']):
+            return False, 0
+
+        area_intersecao = calcular_area_intersecao(ap1['raio'], ap2['raio'], distancia)
+        
+        area_total = math.pi * (ap1['raio']**2 + ap2['raio']**2)
+        
+        porcentagem = (area_intersecao / area_total) * 100
+        
+        return True, porcentagem
 
     G = nx.Graph()
     for ap in aps:
-        G.add_node(ap['id'], x=ap['x'], y=ap['y'], raio=ap['raio'], label=ap.get('label'), canal=ap.get('canal'))
+        canal = str(ap.get('canal', '')).strip() if ap.get('canal') else None
+        G.add_node(ap['id'], 
+                  x=ap['x'], 
+                  y=ap['y'], 
+                  raio=ap['raio'], 
+                  label=ap.get('label'), 
+                  canal=canal)
+    
     for i in range(len(aps)):
         for j in range(i+1, len(aps)):
-            colide, distancia = colidem(aps[i], aps[j])
+            colide, peso = colidem(aps[i], aps[j])
             if colide:
-                G.add_edge(aps[i]['id'], aps[j]['id'], peso=distancia)
+                G.add_edge(aps[i]['id'], aps[j]['id'], peso=peso)
+    
     from networkx.readwrite import json_graph
     data = json_graph.node_link_data(G)
     return jsonify(data)
