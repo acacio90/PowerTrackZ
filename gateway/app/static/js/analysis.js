@@ -1,4 +1,5 @@
 window.addEventListener('DOMContentLoaded', function() {
+    // Estilos CSS para layout e componentes visuais
     const style = document.createElement('style');
     style.textContent = `
         .page-container {
@@ -11,7 +12,6 @@ window.addEventListener('DOMContentLoaded', function() {
             margin-top: 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
             border: none;
         }
         .grafo-container {
@@ -25,9 +25,9 @@ window.addEventListener('DOMContentLoaded', function() {
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .grafo-container.vazio {
-            border: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
+            border: none;
+            background: transparent;
+            box-shadow: none;
         }
         .cy {
             width: 100%;
@@ -46,6 +46,8 @@ window.addEventListener('DOMContentLoaded', function() {
             max-height: calc(100% - 40px);
             overflow-y: auto;
             z-index: 1000;
+            margin: 0;
+            float: none;
         }
         .legenda-item {
             display: flex;
@@ -63,74 +65,110 @@ window.addEventListener('DOMContentLoaded', function() {
             font-size: 14px;
             color: #666;
         }
+        .grafo-container + .grafo-container {
+            margin-top: 32px;
+        }
+        .grafo-container {
+            position: relative;
+            padding: 16px 10px 32px;
+        }
+        .campo-consumo {
+            position: static;
+            margin: 24px 0 0;
+            padding: 18px 12px 12px;
+            background: #f0f8ff;
+            border: 2px solid #b3d1ff;
+            border-radius: 8px;
+            text-align: center;
+            color: #1a237e;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+        }
+        .campo-consumo input[type='number'] {
+            margin-bottom: 12px;
+        }
+        .campo-consumo br {
+            margin-bottom: 10px;
+            display: block;
+        }
+        #tabela-alteracoes-container {
+            position: relative;
+            z-index: 1;
+            margin-top: 48px;
+        }
+        .info-gasto {
+            position: absolute;
+            left: 20px;
+            bottom: 16px;
+            background: none;
+            color: #1a237e;
+            font-size: 14px;
+            font-weight: 400;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            text-align: left;
+            z-index: 1100;
+            padding: 0;
+            margin: 0;
+        }
     `;
     document.head.appendChild(style);
 
-    // Inicializa estrutura básica da página
     const pageContainer = document.createElement('div');
     pageContainer.className = 'page-container';
     const contentContainer = document.createElement('div');
     contentContainer.className = 'content-container';
     
-    // Posiciona o título no topo
     const titulo = document.querySelector('h1');
     if (titulo) {
         titulo.parentNode.insertBefore(pageContainer, titulo);
         pageContainer.appendChild(titulo);
     }
 
-    // Inicializa containers para os grafos e suas legendas
-    const grafoContainer1 = document.createElement('div');
-    grafoContainer1.className = 'grafo-container';
-    const cyDiv1 = document.createElement('div');
-    cyDiv1.id = 'cy1';
-    cyDiv1.className = 'cy';
-    const legendaDiv1 = document.createElement('div');
-    legendaDiv1.className = 'legenda';
-    grafoContainer1.appendChild(cyDiv1);
-    grafoContainer1.appendChild(legendaDiv1);
+    const grafoContainer1 = criarContainerGrafo('cy1');
+    const grafoContainer2 = criarContainerGrafo('cy2');
 
-    const grafoContainer2 = document.createElement('div');
-    grafoContainer2.className = 'grafo-container';
-    const cyDiv2 = document.createElement('div');
-    cyDiv2.id = 'cy2';
-    cyDiv2.className = 'cy';
-    const legendaDiv2 = document.createElement('div');
-    legendaDiv2.className = 'legenda';
-    grafoContainer2.appendChild(cyDiv2);
-    grafoContainer2.appendChild(legendaDiv2);
+    defineLegendaDivs();
+
+    function defineLegendaDivs() {
+        window.legendaDiv1 = grafoContainer1.querySelector('.legenda');
+        window.legendaDiv2 = grafoContainer2.querySelector('.legenda');
+    }
 
     contentContainer.appendChild(grafoContainer1);
     contentContainer.appendChild(grafoContainer2);
     pageContainer.appendChild(contentContainer);
 
-    // Inicializa container para tabela de mudanças propostas
-    const tabelaAlteracoesContainer = document.createElement('div');
-    tabelaAlteracoesContainer.id = 'tabela-alteracoes-container';
-    tabelaAlteracoesContainer.style.margin = '30px 0 0 0';
-    pageContainer.appendChild(tabelaAlteracoesContainer);
 
-    // Armazena mapeamento de cores para configurações
+    const tabelaContainer = document.createElement('div');
+    tabelaContainer.id = 'tabela-alteracoes-container';
+    tabelaContainer.style.margin = '30px 0 0 0';
+    pageContainer.appendChild(tabelaContainer);
+
+
     const coresPorConfiguracao = new Map();
 
-    // Gera chave única para identificar configurações
+    function criarContainerGrafo(id) {
+        const container = document.createElement('div');
+        container.className = 'grafo-container';
+        const cyDiv = document.createElement('div');
+        cyDiv.id = id;
+        cyDiv.className = 'cy';
+        const legenda = document.createElement('div');
+        legenda.className = 'legenda';
+        container.appendChild(cyDiv);
+        container.appendChild(legenda);
+        return container;
+    }
+
     function gerarChaveConfiguracao(ap) {
-        const channel = ap.channel || 'N/A';
-        const bandwidth = ap.bandwidth || 'N/A';
-        const frequency = ap.frequency || 'N/A';
-        return `${channel}-${bandwidth}-${frequency}`;
+        return `${ap.channel || 'N/A'}-${ap.bandwidth || 'N/A'}-${ap.frequency}`;
     }
 
     function gerarCorAleatoria() {
-        const letras = '0123456789ABCDEF';
-        let cor = '#';
-        for (let i = 0; i < 6; i++) {
-            cor += letras[Math.floor(Math.random() * 16)];
-        }
-        return cor;
+        return '#' + Math.floor(Math.random()*16777215).toString(16);
     }
 
-    // Gerencia cores para configurações
     function obterCorConfiguracao(config) {
         if (!coresPorConfiguracao.has(config)) {
             coresPorConfiguracao.set(config, gerarCorAleatoria());
@@ -138,83 +176,100 @@ window.addEventListener('DOMContentLoaded', function() {
         return coresPorConfiguracao.get(config);
     }
 
-    // Valida atribuição de configuração considerando vizinhos
     function podeAtribuirConfiguracao(grafo, no, config, configuracoes) {
         const vizinhos = grafo.get(no) || new Set();
-        for (const vizinho of vizinhos) {
-            if (configuracoes[vizinho] === config) {
-                return false;
-            }
-        }
-        return true;
+        return ![...vizinhos].some(v => configuracoes[v] === config);
     }
 
-    // Implementa algoritmo de backtracking para distribuição de configurações
-    function distribuirConfiguracoes(grafo, nos, configuracoes, configsDisponiveis, index = 0, aps = null) {
-        if (index === nos.length) {
-            return true;
-        }
+    function gerarConfigsPossiveis(aps) {
+        const bandasPorFreq = {
+            '2.4': ['40', '20'],
+            '5': ['80', '40', '20'],
+            '6': ['80', '40', '20']
+        };
+        const configs = new Set();
+        aps.forEach(ap => {
+            let freq = String(ap.frequency).replace(',', '.');
+            let freqBase = freq.startsWith('2.4') ? '2.4' : freq.startsWith('5') ? '5' : freq.startsWith('6') ? '6' : null;
+            if (freqBase && bandasPorFreq[freqBase]) {
+                bandasPorFreq[freqBase].forEach(bw => {
+                    configs.add(`${ap.channel || 'N/A'}-${bw}-${ap.frequency}`);
+                });
+            } else {
+                configs.add(`${ap.channel || 'N/A'}-${ap.bandwidth || 'N/A'}-${ap.frequency}`);
+            }
+        });
+        return Array.from(configs);
+    }
 
-        const no = nos[index];
-        // Obtém frequência do AP atual
-        let freq = null;
-        if (aps) {
+    // Algoritmo de coloração gulosa
+    function colorirGulosoPrioritario(grafo, nos, configsDisponiveis, aps, data) {
+        const arestasOrdenadas = [...(data.links || [])].sort((a, b) => b.peso - a.peso);
+        const configuracoes = {};
+        nos.forEach(no => {
             const ap = aps.find(ap => ap.id === no);
-            if (ap) freq = String(ap.frequency).replace(',', '.');
-        }
-
-        // Filtra configurações compatíveis com a frequência
-        let configsFiltradas = [...configsDisponiveis];
-        if (freq) {
-            configsFiltradas = configsFiltradas.filter(cfg => {
-                const freqCfg = (cfg.split('-')[2] || '').trim().replace(',', '.');
-                return freqCfg === freq;
-            });
-        }
-
-        // Ordena configurações por prioridade de banda
-        let configsOrdenadas = [...configsFiltradas];
-        if (freq) {
-            configsOrdenadas.sort((a, b) => {
-                const bandaA = (a.split('-')[1] || '').replace(/[^0-9]/g, '');
-                const bandaB = (b.split('-')[1] || '').replace(/[^0-9]/g, '');
-                if (freq.startsWith('2.4')) {
-                    if (bandaA === '40' && bandaB !== '40') return -1;
-                    if (bandaB === '40' && bandaA !== '40') return 1;
-                    if (bandaA === '20' && bandaB !== '20') return -1;
-                    if (bandaB === '20' && bandaA !== '20') return 1;
-                } else if (freq.startsWith('5')) {
-                    if (bandaA === '80' && bandaB !== '80') return -1;
-                    if (bandaB === '80' && bandaA !== '80') return 1;
-                    if (bandaA === '40' && bandaB !== '40') return -1;
-                    if (bandaB === '40' && bandaA !== '40') return 1;
-                    if (bandaA === '20' && bandaB !== '20') return -1;
-                    if (bandaB === '20' && bandaA !== '20') return 1;
-                }
-                return 0;
-            });
-        }
-
-        for (const config of configsOrdenadas) {
-            if (podeAtribuirConfiguracao(grafo, no, config, configuracoes)) {
-                configuracoes[no] = config;
-                if (distribuirConfiguracoes(grafo, nos, configuracoes, configsDisponiveis, index + 1, aps)) {
-                    return true;
-                }
+            if (ap && ap.locked) {
+                configuracoes[no] = `${ap.channel}-${ap.bandwidth}-${ap.frequency}`;
+            } else {
                 configuracoes[no] = null;
             }
+        });
+        for (const no of nos) {
+            const ap = aps.find(ap => ap.id === no);
+            if (ap && ap.locked) continue;
+            let freq = ap ? String(ap.frequency).replace(',', '.') : null;
+            let configsPossiveis = configsDisponiveis;
+            if (freq) {
+                configsPossiveis = configsDisponiveis.filter(cfg => {
+                    const freqCfg = (cfg.split('-')[2] || '').trim().replace(',', '.');
+                    return freqCfg === freq;
+                });
+            }
+            configsPossiveis.sort((a, b) => parseInt((b.split('-')[1]||'').replace(/[^0-9]/g,'')) - parseInt((a.split('-')[1]||'').replace(/[^0-9]/g,'')));
+            let melhorConfig = configsPossiveis[0];
+            let menorConflito = Infinity;
+            for (const config of configsPossiveis) {
+                let conflito = 0;
+                const vizinhos = grafo.get(no) || new Set();
+                for (const vizinho of vizinhos) {
+                    if (configuracoes[vizinho] === config) {
+                        const aresta = arestasOrdenadas.find(a => (a.source === no && a.target === vizinho) || (a.source === vizinho && a.target === no));
+                        conflito += aresta ? aresta.peso : 1;
+                    }
+                }
+                if (conflito < menorConflito || (conflito === menorConflito && config === configsPossiveis[0])) {
+                    menorConflito = conflito;
+                    melhorConfig = config;
+                }
+            }
+            configuracoes[no] = melhorConfig || configsDisponiveis[0];
         }
-
-        return false;
+        return configuracoes;
     }
 
-    // Renderiza grafo de colisão com dados dos APs
-    function criarGrafo(containerId, legendaDiv, usarBacktracking = false, callbackConfiguracoes = null) {
+    // Cálculo de consumo de energia
+    function consumoEnergia25Mbps(bandwidth, frequency) {
+        const bw = String(bandwidth).replace(/[^0-9]/g, '');
+        const freq = String(frequency).replace(',', '.');
+        if (freq.startsWith('5')) {
+            if (bw === '20') return 11.1;
+            if (bw === '40') return 10.3;
+            if (bw === '80') return 9.9;
+        } else if (freq.startsWith('2.4')) {
+            if (bw === '20') return 14.5;
+            if (bw === '40') return 13.8;
+        }
+        return null;
+    }
+
+    let apsOriginais = [];
+    let apsOtimizado = [];
+
+    // Carrega APs do backend
+    function carregarAPs(callback) {
         fetch(window.ACCESS_POINT_URL)
             .then(response => response.json())
             .then(points => {
-                console.log('Pontos recebidos:', points);
-
                 function getRaio(frequency) {
                     if (!frequency) return 10;
                     const freq = String(frequency).replace(',', '.');
@@ -223,11 +278,8 @@ window.addEventListener('DOMContentLoaded', function() {
                     if (freq.startsWith('6')) return 12;
                     return 10;
                 }
-
-                // Prepara dados dos APs para visualização
                 const aps = (points || [])
-                    .filter(p => p.latitude !== null && p.latitude !== undefined && 
-                               p.longitude !== null && p.longitude !== undefined)
+                    .filter(p => p.latitude != null && p.longitude != null)
                     .map(p => ({
                         id: p.id || p.name,
                         x: p.latitude,
@@ -238,217 +290,252 @@ window.addEventListener('DOMContentLoaded', function() {
                         bandwidth: p.bandwidth,
                         frequency: p.frequency
                     }));
-
-                // Identifica configurações únicas
-                const configuracoesUnicas = new Set();
-                aps.forEach(ap => {
-                    const config = gerarChaveConfiguracao(ap);
-                    if (config !== 'N/A-N/A-N/A') {
-                        configuracoesUnicas.add(config);
-                    }
-                });
-
-                // Inicializa cores para configurações
-                configuracoesUnicas.forEach(config => {
-                    obterCorConfiguracao(config);
-                });
-
-                console.log('Configurações únicas:', configuracoesUnicas);
-
-                const payload = { aps };
-                const backendUrl = window.BACKEND_URL || 'http://localhost:5002/collision-graph';
-
-                fetch(backendUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Dados do grafo:', data);
-
-                    // Constrói estrutura do grafo
-                    const grafo = new Map();
-                    data.nodes.forEach(node => {
-                        grafo.set(node.id, new Set());
-                    });
-                    data.links.forEach(link => {
-                        grafo.get(link.source).add(link.target);
-                        grafo.get(link.target).add(link.source);
-                    });
-
-                    const elements = [];
-                    let configuracoesDistribuidas = null;
-                    if (usarBacktracking) {
-                        // Aplica algoritmo de backtracking
-                        const nos = data.nodes.map(node => node.id);
-                        const configuracoes = {};
-                        const configsDisponiveis = Array.from(configuracoesUnicas);
-                        
-                        if (distribuirConfiguracoes(grafo, nos, configuracoes, configsDisponiveis, 0, aps)) {
-                            configuracoesDistribuidas = {...configuracoes};
-                            console.log('Configurações distribuídas:', configuracoes);
-                            
-                            // Cria elementos com novas configurações
-                            data.nodes.forEach(node => {
-                                const config = configuracoes[node.id];
-                                elements.push({ 
-                                    data: { 
-                                        id: node.id, 
-                                        label: node.label || node.id,
-                                        cor: obterCorConfiguracao(config)
-                                    } 
-                                });
-                            });
-                        } else {
-                            console.log('Não foi possível encontrar uma distribuição válida');
-                            // Mantém configurações originais
-                            data.nodes.forEach(node => {
-                                const ap = aps.find(ap => ap.id === node.id);
-                                const config = ap ? gerarChaveConfiguracao(ap) : 'N/A-N/A-N/A';
-                                elements.push({ 
-                                    data: { 
-                                        id: node.id, 
-                                        label: node.label || node.id,
-                                        cor: obterCorConfiguracao(config) || '#CCCCCC'
-                                    } 
-                                });
-                            });
-                        }
-                    } else {
-                        // Usa configurações originais
-                        data.nodes.forEach(node => {
-                            const ap = aps.find(ap => ap.id === node.id);
-                            const config = ap ? gerarChaveConfiguracao(ap) : 'N/A-N/A-N/A';
-                            elements.push({ 
-                                data: { 
-                                    id: node.id, 
-                                    label: node.label || node.id,
-                                    cor: obterCorConfiguracao(config) || '#CCCCCC'
-                                } 
-                            });
-                        });
-                    }
-
-                    data.links.forEach(link => {
-                        elements.push({ data: { source: link.source, target: link.target, peso: link.peso } });
-                    });
-
-                    // Atualiza legenda do grafo
-                    legendaDiv.innerHTML = '';
-                    if (usarBacktracking) {
-                        // Mostra apenas configurações em uso
-                        const configuracoesUtilizadas = new Set();
-                        data.nodes.forEach(node => {
-                            const cor = elements.find(e => e.data.id === node.id)?.data.cor;
-                            const config = Array.from(coresPorConfiguracao.entries()).find(([, v]) => v === cor)?.[0];
-                            if (config && config !== 'N/A-N/A-N/A') {
-                                configuracoesUtilizadas.add(config);
-                            }
-                        });
-                        configuracoesUtilizadas.forEach(config => {
-                            const [channel, bandwidth, frequency] = config.split('-');
-                            const legendaItem = document.createElement('div');
-                            legendaItem.className = 'legenda-item';
-                            legendaItem.innerHTML = `
-                                <div class="cor-amostra" style="background-color: ${obterCorConfiguracao(config)}"></div>
-                                <div class="nome-ap">
-                                    Canal: ${channel}<br>
-                                    Bandwidth: ${bandwidth}<br>
-                                    Frequência: ${frequency}
-                                </div>
-                            `;
-                            legendaDiv.appendChild(legendaItem);
-                        });
-                    } else {
-                        // Mostra todas as configurações
-                        configuracoesUnicas.forEach(config => {
-                            const [channel, bandwidth, frequency] = config.split('-');
-                            const legendaItem = document.createElement('div');
-                            legendaItem.className = 'legenda-item';
-                            legendaItem.innerHTML = `
-                                <div class="cor-amostra" style="background-color: ${obterCorConfiguracao(config)}"></div>
-                                <div class="nome-ap">
-                                    Canal: ${channel}<br>
-                                    Bandwidth: ${bandwidth}<br>
-                                    Frequência: ${frequency}
-                                </div>
-                            `;
-                            legendaDiv.appendChild(legendaItem);
-                        });
-                    }
-
-                    console.log('Elementos do Cytoscape:', elements);
-
-                    cytoscape({
-                        container: document.getElementById(containerId),
-                        elements: elements,
-                        style: [
-                            { selector: 'node', style: { 
-                                'background-color': 'data(cor)',
-                                'label': 'data(label)'
-                            }},
-                            { selector: 'edge', style: {
-                                'width': function(ele) { return ele.data('peso') * 0.1; },
-                                'line-color': '#000',
-                                'label': function(ele) { return ele.data('peso').toFixed(2) + '%'; },
-                                'font-size': 10,
-                                'color': '#333',
-                                'text-background-color': '#fff',
-                                'text-background-opacity': 0.7,
-                                'text-background-padding': 2
-                            } }
-                        ],
-                        layout: { 
-                            name: 'concentric',
-                            minNodeSpacing: 100,
-                            padding: 50,
-                            concentric: function(node) {
-                                return node.degree();
-                            },
-                            levelWidth: function(nodes) {
-                                return 1.5;
-                            },
-                            spacingFactor: 1.5,
-                            animate: true,
-                            animationDuration: 1000,
-                            fit: true
-                        },
-                        minZoom: 0.1,
-                        maxZoom: 2.0,
-                        zoom: 0.5
-                    });
-
-                    // Atualiza estado visual do container
-                    const container = document.getElementById(containerId).parentNode;
-                    if (!data.nodes || data.nodes.length === 0) {
-                        container.classList.add('vazio');
-                    } else {
-                        container.classList.remove('vazio');
-                    }
-
-                    if (callbackConfiguracoes && configuracoesDistribuidas) {
-                        callbackConfiguracoes(aps, configuracoesDistribuidas);
-                    }
-                })
-                .catch(err => {
-                    const container = document.getElementById(containerId).parentNode;
-                    container.classList.add('vazio');
-                    document.getElementById(containerId).innerHTML = '<p style="color:red">Erro ao carregar o grafo.</p>';
-                    console.error('Erro ao carregar grafo:', err);
-                });
-            })
-            .catch(err => {
-                const container = document.getElementById(containerId).parentNode;
-                container.classList.add('vazio');
-                document.getElementById(containerId).innerHTML = '<p style="color:red">Erro ao buscar pontos de acesso.</p>';
-                console.error('Erro ao buscar pontos:', err);
+                apsOriginais = aps.map(ap => ({ ...ap }));
+                apsOtimizado = aps.map(ap => ({ ...ap }));
+                if (callback) callback();
             });
     }
 
-    // Gera e exibe tabela comparativa de configurações
+    // Renderiza grafo de colisão
+    function criarGrafo(containerId, legendaDiv, usarBacktracking = false, callbackConfiguracoes = null, apsCustom = null) {
+        const aps = apsCustom || (usarBacktracking ? apsOtimizado : apsOriginais);
+        // Identifica configurações únicas
+        const configuracoesUnicas = new Set();
+        aps.forEach(ap => {
+            const config = gerarChaveConfiguracao(ap);
+            if (config !== 'N/A-N/A-N/A') {
+                configuracoesUnicas.add(config);
+            }
+        });
+        // Inicializa cores
+        configuracoesUnicas.forEach(config => {
+            obterCorConfiguracao(config);
+        });
+        const payload = { aps };
+        const backendUrl = window.BACKEND_URL || 'http://localhost:5002/collision-graph';
+        fetch(backendUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Dados do grafo:', data);
+
+            // Constrói grafo
+            const grafo = new Map();
+            data.nodes.forEach(node => {
+                grafo.set(node.id, new Set());
+            });
+            data.links.forEach(link => {
+                grafo.get(link.source).add(link.target);
+                grafo.get(link.target).add(link.source);
+            });
+
+            const elements = [];
+            let configuracoesDistribuidas = null;
+            if (usarBacktracking) {
+                // Aplica algoritmo guloso
+                const nos = data.nodes.map(node => node.id);
+                const configsDisponiveis = gerarConfigsPossiveis(aps);
+                configuracoesDistribuidas = colorirGulosoPrioritario(grafo, nos, configsDisponiveis, aps, data);
+                // Cria elementos
+                data.nodes.forEach(node => {
+                    const config = configuracoesDistribuidas[node.id];
+                    elements.push({ 
+                        data: { 
+                            id: node.id, 
+                            label: node.label || node.id,
+                            cor: obterCorConfiguracao(config)
+                        } 
+                    });
+                });
+            } else {
+                // Usa configs originais
+                data.nodes.forEach(node => {
+                    const ap = aps.find(ap => ap.id === node.id);
+                    const config = ap ? gerarChaveConfiguracao(ap) : 'N/A-N/A-N/A';
+                    elements.push({ 
+                        data: { 
+                            id: node.id, 
+                            label: node.label || node.id,
+                            cor: obterCorConfiguracao(config) || '#CCCCCC'
+                        } 
+                    });
+                });
+            }
+
+            data.links.forEach(link => {
+                elements.push({ data: { source: link.source, target: link.target, peso: link.peso } });
+            });
+
+            // Atualiza legenda
+            legendaDiv.innerHTML = '';
+            if (usarBacktracking) {
+                // Mostra configs em uso
+                const configuracoesUtilizadas = new Set();
+                data.nodes.forEach(node => {
+                    const cor = elements.find(e => e.data.id === node.id)?.data.cor;
+                    const config = Array.from(coresPorConfiguracao.entries()).find(([, v]) => v === cor)?.[0];
+                    if (config && config !== 'N/A-N/A-N/A') {
+                        configuracoesUtilizadas.add(config);
+                    }
+                });
+                configuracoesUtilizadas.forEach(config => {
+                    const [channel, bandwidth, frequency] = config.split('-');
+                    const legendaItem = document.createElement('div');
+                    legendaItem.className = 'legenda-item';
+                    legendaItem.innerHTML = `
+                        <div class="cor-amostra" style="background-color: ${obterCorConfiguracao(config)}"></div>
+                        <div class="nome-ap">
+                            Canal: ${channel}<br>
+                            Bandwidth: ${bandwidth}<br>
+                            Frequência: ${frequency}
+                        </div>
+                    `;
+                    legendaDiv.appendChild(legendaItem);
+                });
+            } else {
+                // Mostra todas configs
+                configuracoesUnicas.forEach(config => {
+                    const [channel, bandwidth, frequency] = config.split('-');
+                    const legendaItem = document.createElement('div');
+                    legendaItem.className = 'legenda-item';
+                    legendaItem.innerHTML = `
+                        <div class="cor-amostra" style="background-color: ${obterCorConfiguracao(config)}"></div>
+                        <div class="nome-ap">
+                            Canal: ${channel}<br>
+                            Bandwidth: ${bandwidth}<br>
+                            Frequência: ${frequency}
+                        </div>
+                    `;
+                    legendaDiv.appendChild(legendaItem);
+                });
+            }
+
+            console.log('Elementos do Cytoscape:', elements);
+
+            // Renderiza grafo
+            cytoscape({
+                container: document.getElementById(containerId),
+                elements: elements,
+                style: [
+                    { selector: 'node', style: { 
+                        'background-color': 'data(cor)',
+                        'label': 'data(label)'
+                    }},
+                    { selector: 'edge', style: {
+                        'width': function(ele) { return ele.data('peso') * 0.1; },
+                        'line-color': '#000',
+                        'label': function(ele) { return ele.data('peso').toFixed(2) + '%'; },
+                        'font-size': 10,
+                        'color': '#333',
+                        'text-background-color': '#fff',
+                        'text-background-opacity': 0.7,
+                        'text-background-padding': 2
+                    } }
+                ],
+                layout: { 
+                    name: 'concentric',
+                    minNodeSpacing: 100,
+                    padding: 50,
+                    concentric: function(node) {
+                        return node.degree();
+                    },
+                    levelWidth: function(nodes) {
+                        return 1.5;
+                    },
+                    spacingFactor: 1.5,
+                    animate: true,
+                    animationDuration: 1000,
+                    fit: true
+                },
+                minZoom: 0.1,
+                maxZoom: 2.0,
+                zoom: 0.5
+            });
+
+            // Atualiza estado do container
+            const container = document.getElementById(containerId).parentNode;
+            if (!data.nodes || data.nodes.length === 0) {
+                container.classList.add('vazio');
+            } else {
+                container.classList.remove('vazio');
+            }
+
+            // Calcula consumo de energia
+            let consumoTotal = 0;
+            if (usarBacktracking && configuracoesDistribuidas) {
+                // Consumo proposto
+                data.nodes.forEach(node => {
+                    const config = configuracoesDistribuidas[node.id];
+                    if (config) {
+                        const partes = config.split('-');
+                        const bandwidth = partes[1] || '';
+                        const frequency = partes[2] || '';
+                        const consumo = consumoEnergia25Mbps(bandwidth, frequency);
+                        if (consumo) consumoTotal += consumo;
+                    }
+                });
+            } else {
+                // Consumo original
+                data.nodes.forEach(node => {
+                    const ap = aps.find(ap => ap.id === node.id);
+                    if (ap) {
+                        const consumo = consumoEnergia25Mbps(ap.bandwidth, ap.frequency);
+                        if (consumo) consumoTotal += consumo;
+                    }
+                });
+            }
+            // Exibe consumo
+            let infoGasto = container.querySelector('.info-gasto');
+            if (!infoGasto) {
+                infoGasto = document.createElement('div');
+                infoGasto.className = 'info-gasto';
+                container.appendChild(infoGasto);
+            }
+            let dias = 15;
+            let inputExistente = infoGasto.querySelector(`#input-dias-${containerId}`);
+            if (inputExistente) dias = parseInt(inputExistente.value) || 15;
+            const consumoDias = (consumoTotal * 24 * dias) / 1000;
+            const valorFinal = consumoDias * 0.72;
+            infoGasto.innerHTML = `Dias: <input id='input-dias-${containerId}' type='number' min='1' value='${dias}' style='width:48px; padding:2px; border-radius:4px; border:1px solid #b3d1ff; text-align:center; margin:0 4px 0 4px; font-size:13px;'> <br>Consumo: <b><span id='consumo-span-${containerId}'>${consumoDias.toFixed(2)}</span> kWh</b> | Custo: <b>R$ <span id='custo-span-${containerId}'>${valorFinal.toFixed(2)}</span></b>`;
+            const inputDias = infoGasto.querySelector(`#input-dias-${containerId}`);
+            const consumoSpan = infoGasto.querySelector(`#consumo-span-${containerId}`);
+            const custoSpan = infoGasto.querySelector(`#custo-span-${containerId}`);
+            inputDias.oninput = function() {
+                let diasNovo = parseInt(inputDias.value) || 1;
+                const consumoNovo = (consumoTotal * 24 * diasNovo) / 1000;
+                const valorFinalNovo = consumoNovo * 0.72;
+                consumoSpan.textContent = consumoNovo.toFixed(2);
+                custoSpan.textContent = valorFinalNovo.toFixed(2);
+            };
+
+            if (callbackConfiguracoes && configuracoesDistribuidas) {
+                callbackConfiguracoes(aps, configuracoesDistribuidas);
+            }
+
+            // Posiciona info de consumo
+            if (infoGasto) {
+                const legenda = container.querySelector('.legenda');
+                if (legenda && legenda.nextSibling !== infoGasto) {
+                    container.insertBefore(infoGasto, legenda.nextSibling);
+                } else if (!legenda && container.lastChild !== infoGasto) {
+                    container.appendChild(infoGasto);
+                }
+            }
+        })
+        .catch(err => {
+            const container = document.getElementById(containerId).parentNode;
+            container.classList.add('vazio');
+            document.getElementById(containerId).innerHTML = '<p style="color:red">Erro ao carregar o grafo.</p>';
+            console.error('Erro ao carregar grafo:', err);
+        });
+    }
+
+    // Gera tabela de alterações
     function exibirTabelaAlteracoes(aps, configuracoesDistribuidas) {
         const container = document.getElementById('tabela-alteracoes-container');
         container.innerHTML = '';
@@ -463,6 +550,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <th style="border:1px solid #ccc;padding:8px">Nome do AP</th>
                     <th style="border:1px solid #ccc;padding:8px">Configuração Original</th>
                     <th style="border:1px solid #ccc;padding:8px">Configuração Proposta</th>
+                    <th style="border:1px solid #ccc;padding:8px">Ações</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -486,13 +574,68 @@ window.addEventListener('DOMContentLoaded', function() {
                 };
             }
             const mudou = original.channel !== proposta.channel || original.bandwidth !== proposta.bandwidth || original.frequency !== proposta.frequency;
+            // Detecta upgrade
+            const freqOrig = String(original.frequency).replace(',', '.');
+            const freqProp = String(proposta.frequency).replace(',', '.');
+            const bwOrig = parseInt(String(original.bandwidth).replace(/[^0-9]/g, '')) || 0;
+            const bwProp = parseInt(String(proposta.bandwidth).replace(/[^0-9]/g, '')) || 0;
+            let upgrade = false;
+            let upgradeTexto = '';
+            if (freqOrig === freqProp && bwProp > bwOrig && bwOrig > 0) {
+                upgrade = true;
+                upgradeTexto = `<span style='color:#388e3c;font-weight:bold;margin-left:8px;' title='Upgrade de banda'>⬆️ ${freqOrig} GHz: ${bwOrig} → ${bwProp} MHz</span>`;
+            }
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style=\"border:1px solid #ccc;padding:8px\">${ap.label || ap.id}</td>
                 <td style=\"border:1px solid #ccc;padding:8px\">${original.channel} - ${original.bandwidth} - ${original.frequency}</td>
-                <td style=\"border:1px solid #ccc;padding:8px\">${proposta.channel} - ${proposta.bandwidth} - ${proposta.frequency} ${mudou ? '<span title=\\"Configuração alterada\\" style=\\"margin-left:6px;font-size:16px;vertical-align:middle;\\">🔄</span>' : ''}</td>
+                <td class=\"td-proposta\" style=\"border:1px solid #ccc;padding:8px\">${proposta.channel} - ${proposta.bandwidth} - ${proposta.frequency} ${mudou ? '<span title=\"Configuração alterada\" style=\"margin-left:6px;font-size:16px;vertical-align:middle;\">🔄</span>' : ''} ${upgradeTexto}</td>
+                <td style=\"border:1px solid #ccc;padding:8px\"><button class=\"btn-editar\">Editar</button></td>
             `;
+            if (upgrade) {
+                tr.style.background = '#e8f5e9';
+            }
             tbody.appendChild(tr);
+        });
+        // Eventos dos botões
+        Array.from(tbody.querySelectorAll('.btn-editar')).forEach((btn, idx) => {
+            btn.addEventListener('click', function() {
+                const tr = btn.closest('tr');
+                const tdProposta = tr.querySelector('.td-proposta');
+                if (btn.textContent === 'Editar') {
+                    // Modo edição
+                    const valores = tdProposta.textContent.split(' - ').map(v => v.replace('🔄','').trim());
+                    tdProposta.innerHTML = `
+                        <input type='text' class='input-edit' style='width:40px' value='${valores[0]}' /> -
+                        <input type='text' class='input-edit' style='width:40px' value='${valores[1]}' /> -
+                        <input type='text' class='input-edit' style='width:60px' value='${valores[2]}' />
+                    `;
+                    btn.textContent = 'Salvar';
+                } else {
+                    // Salva mudanças
+                    const inputs = tdProposta.querySelectorAll('.input-edit');
+                    const novoChannel = inputs[0].value;
+                    const novoBandwidth = inputs[1].value;
+                    const novoFrequency = inputs[2].value;
+                    tdProposta.innerHTML = `${novoChannel} - ${novoBandwidth} - ${novoFrequency}`;
+                    btn.textContent = 'Editar';
+                    // Atualiza AP
+                    const apId = aps[idx].id;
+                    const ap = aps.find(ap => ap.id === apId);
+                    if (ap) {
+                        ap.channel = novoChannel;
+                        ap.bandwidth = novoBandwidth;
+                        ap.frequency = novoFrequency;
+                        ap.locked = true;
+                    }
+                    apsOtimizado[idx].channel = novoChannel;
+                    apsOtimizado[idx].bandwidth = novoBandwidth;
+                    apsOtimizado[idx].frequency = novoFrequency;
+                    apsOtimizado[idx].locked = true;
+                    // Recarrega grafo
+                    criarGrafo('cy2', window.legendaDiv2, true, exibirTabelaAlteracoes, apsOtimizado);
+                }
+            });
         });
         // Exibe resultados
         if (tbody.children.length > 0) {
@@ -503,7 +646,10 @@ window.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Inicializa visualização dos grafos
-    criarGrafo('cy1', legendaDiv1, false); // Grafo com configurações originais
-    criarGrafo('cy2', legendaDiv2, true, exibirTabelaAlteracoes);  // Grafo com otimização por backtracking
+    // Inicializa página
+    carregarAPs(() => {
+        defineLegendaDivs();
+        criarGrafo('cy1', window.legendaDiv1, false, null, apsOriginais); // Grafo original
+        criarGrafo('cy2', window.legendaDiv2, true, exibirTabelaAlteracoes, apsOtimizado); // Grafo otimizado
+    });
 });
