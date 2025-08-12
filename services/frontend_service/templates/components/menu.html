@@ -1,0 +1,40 @@
+<header>
+    <div class="header-left">
+        <a href="/" class="home-button">Home</a>
+    </div>
+    <div class="header-center">
+        <h1>ZabbixTrackZ</h1>
+    </div>
+    <div class="header-right">
+        <a href="#" class="settings-button" onclick="openSettingsModal()">Settings</a>
+    </div>
+</header>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeSettingsModal()">&times;</span>
+        <div id="settingsContainer"></div>
+    </div>
+</div>
+
+<script>
+    function openSettingsModal() {
+        document.getElementById('settingsModal').style.display = 'flex';
+        loadSettingsContent();
+    }
+
+    function closeSettingsModal() {
+        document.getElementById('settingsModal').style.display = 'none';
+    }
+
+    function loadSettingsContent() {
+        fetch('/settings')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('settingsContainer').innerHTML = data;
+            })
+            .catch(error => console.error('Error loading settings content:', error));
+    }
+
+    document.addEventListener('DOMContentLoaded', closeSettingsModal);
+</script>

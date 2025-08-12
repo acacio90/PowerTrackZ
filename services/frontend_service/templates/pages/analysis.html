@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Análise de Pontos de Acesso{% endblock %}
+
+{% block content %}
+<main class="page-analysis">
+    <div class="container">
+        <h1>Análise de Pontos de Acesso</h1>
+
+        <div class="strategy-buttons-container">
+            <div class="strategy-button-wrapper">
+                <button class="btn btn-outline-primary w-100 btn-server-analysis" data-strategy="backtracking">
+                    <i class="fa-solid fa-sitemap"></i> Backtracking (Servidor)
+                </button>
+            </div>
+            <div class="strategy-button-wrapper">
+                <button class="btn btn-outline-secondary w-100 btn-server-analysis" data-strategy="greedy">
+                    <i class="fa-solid fa-bolt"></i> Greedy (Servidor)
+                </button>
+            </div>
+            <div class="strategy-button-wrapper">
+                <button class="btn btn-outline-success w-100 btn-server-analysis" data-strategy="genetic">
+                    <i class="fa-solid fa-dna"></i> Genetic (ML) (Servidor)
+                </button>
+            </div>
+        </div>
+
+    </div>
+</main>
+<!-- Importa Cytoscape.js via CDN -->
+<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+<script src="/static/js/analysis.js"></script>
+<script>
+    window.GATEWAY_URL = window.GATEWAY_URL || 'http://localhost';
+    window.ANALYSIS_API = {
+        analyzeGraph: window.GATEWAY_URL + '/api/analysis/analyze-graph'
+    };
+    window.ACCESS_POINT_URL = window.ACCESS_POINT_URL || 'http://localhost:5004/access_points';
+</script>
+{% endblock %}

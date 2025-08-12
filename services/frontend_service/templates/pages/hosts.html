@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Pontos de Acesso{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Pontos de Acesso</h5>
+                    <button class="btn btn-primary" id="btn-save-all">
+                        <i class="fa-solid fa-floppy-disk"></i> Salvar
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
+                        </div>
+                    {% endif %}
+
+                    {% if hosts %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Índice</th>
+                                        <th>Frequência</th>
+                                        <th>Largura de Banda</th>
+                                        <th>Canal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in hosts %}
+                                    <tr>
+                                        <td>{% if item.name %}{{ item.name.split(' - ')[0] ~ '.' ~ (item.index.split('.')[-1] if '.' in item.index else item.index) }}{% else %}{{ item.host }}{% endif %}</td>
+                                        <td>{{ item.index }}</td>
+                                        <td>{{ item.frequency }}</td>
+                                        <td>{{ item.bandwidth }}</td>
+                                        <td>{{ item.channel }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Nenhum ponto de acesso encontrado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de edição -->
+<div class="modal fade" id="editPointModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Alterar Ponto de Acesso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPointForm">
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Nome</label>
+                        <input type="text" class="form-control" id="editName" name="name" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editIndex" class="form-label">Índice</label>
+                        <input type="text" class="form-control" id="editIndex" name="index" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editFrequency" class="form-label">Frequência</label>
+                        <input type="text" class="form-control" id="editFrequency" name="frequency">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editBandwidth" class="form-label">Largura de Banda</label>
+                        <input type="text" class="form-control" id="editBandwidth" name="bandwidth">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editChannel" class="form-label">Canal</label>
+                        <input type="text" class="form-control" id="editChannel" name="channel">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLatitude" class="form-label">Latitude</label>
+                        <input type="text" class="form-control" id="editLatitude" name="latitude">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLongitude" class="form-label">Longitude</label>
+                        <input type="text" class="form-control" id="editLongitude" name="longitude">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Salvar pontos da tabela
+const btnSaveAll = document.getElementById('btn-save-all');
+if (btnSaveAll) {
+    btnSaveAll.addEventListener('click', async function() {
+        const rows = document.querySelectorAll('table tbody tr');
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            const ponto = {
+                name: cells[0].innerText.trim(),
+                id: cells[1].innerText.trim(),
+                frequency: cells[2].innerText.trim(),
+                bandwidth: cells[3].innerText.trim(),
+                channel: cells[4].innerText.trim()
+            };
+            
+            try {
+                const response = await fetch('/api/access_points', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ponto)
+                });
+                response.ok ? successCount++ : errorCount++;
+            } catch (e) {
+                errorCount++;
+            }
+        }
+
+        if (successCount > 0 && errorCount === 0) {
+            showAlert('success', 'Todos os pontos foram salvos com sucesso!');
+        } else if (successCount > 0) {
+            showAlert('warning', `${successCount} ponto(s) salvo(s), ${errorCount} falha(s).`);
+        } else {
+            showAlert('danger', 'Nenhum ponto foi salvo.');
+        }
+    });
+}
+
+// Exibe alertas
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('.card-body').firstChild);
+}
+
+// Abre modal de edição
+function openEditModal(itemId) {
+    const row = Array.from(document.querySelectorAll('table tbody tr')).find(tr => {
+        const btn = tr.querySelector('.btn-location');
+        return btn && btn.getAttribute('onclick').includes(itemId);
+    });
+    
+    if (!row) return;
+    
+    const cells = row.querySelectorAll('td');
+    document.getElementById('editName').value = cells[0].innerText.trim();
+    document.getElementById('editIndex').value = cells[1].innerText.trim();
+    document.getElementById('editFrequency').value = cells[2].innerText.trim();
+    document.getElementById('editBandwidth').value = cells[3].innerText.trim();
+    document.getElementById('editChannel').value = cells[4].innerText.trim();
+    document.getElementById('editLatitude').value = cells[5]?.dataset?.latitude || '';
+    document.getElementById('editLongitude').value = cells[5]?.dataset?.longitude || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editPointModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
