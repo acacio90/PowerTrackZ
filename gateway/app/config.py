@@ -11,6 +11,7 @@ class Config:
     MAP_SERVICE_URL = "http://map_service:5001"
     ANALYSIS_SERVICE_URL = "http://analysis_service:5002"
     ACCESS_POINT_SERVICE_URL = "http://access_point_service:5004"
+    FRONTEND_SERVICE_URL = "http://frontend_service:3000"
     
     # Logging
     LOG_LEVEL = 'INFO'

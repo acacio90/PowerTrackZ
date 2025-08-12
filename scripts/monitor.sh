@@ -86,7 +86,7 @@ check_database() {
         log "Banco de dados está respondendo"
         echo "$(date +'%Y-%m-%d %H:%M:%S') - Banco de dados: OK" >> "$LOG_FILE"
     else
-        error "Banco de dados não está respondendo"
+        warn "Banco de dados não está respondendo"
         echo "$(date +'%Y-%m-%d %H:%M:%S') - Banco de dados: ERRO" >> "$LOG_FILE"
     fi
 }
@@ -111,8 +111,11 @@ main() {
     log "Iniciando monitoramento..."
     
     # Verifica serviços
-    check_service "Gateway" "http://localhost:5000/health"
-    check_service "API" "http://localhost:5001/health"
+    check_service "Gateway" "http://localhost:80/health"
+    check_service "Zabbix Service" "http://localhost:5003/health"
+    check_service "Map Service" "http://localhost:5001/health"
+    check_service "Analysis Service" "http://localhost:5002/health"
+    check_service "Access Point Service" "http://localhost:5004/health"
     
     # Verifica recursos
     check_resources

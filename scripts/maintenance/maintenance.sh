@@ -134,6 +134,49 @@ security_check() {
     done
 }
 
+# Atualiza o código
+update_code() {
+    log "Atualizando código do repositório..."
+    git pull origin main || warn "Falha ao atualizar código"
+}
+
+# Reconstrui as imagens
+rebuild_images() {
+    log "Reconstruindo imagens Docker..."
+    docker-compose build --no-cache || warn "Falha ao reconstruir imagens"
+}
+
+# Atualiza os containers
+update_containers() {
+    log "Atualizando containers..."
+    docker-compose down || warn "Falha ao parar containers"
+    docker-compose up -d || warn "Falha ao iniciar containers"
+}
+
+# Verifica saúde dos serviços
+check_health() {
+    log "Verificando saúde dos serviços..."
+    
+    services=(
+        "gateway:80"
+        "zabbix_service:5003"
+        "map_service:5001"
+        "analysis_service:5002"
+        "access_point_service:5004"
+    )
+    
+    for service in "${services[@]}"; do
+        IFS=':' read -r name port <<< "$service"
+        
+        if curl -s -f "http://localhost:$port/health" >/dev/null 2>&1 || \
+           curl -s -f "https://localhost:$port/health" >/dev/null 2>&1; then
+            log "$name está saudável ✓"
+        else
+            warn "$name pode não estar respondendo corretamente"
+        fi
+    done
+}
+
 # Função principal
 main() {
     log "Iniciando tarefas de manutenção..."
@@ -154,6 +197,15 @@ main() {
     
     # Segurança
     security_check
+    
+    # Atualização (opcional)
+    if [ "$1" = "--update" ]; then
+        log "Executando atualização completa..."
+        update_code
+        rebuild_images
+        update_containers
+        check_health
+    fi
     
     log "Tarefas de manutenção concluídas!"
 }

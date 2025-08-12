@@ -1,11 +1,17 @@
-from app import create_app
-import os
+from flask import Flask
+from .routes import routes
+from .config import Config
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    
+    # Registra as rotas
+    app.register_blueprint(routes)
+    
+    return app
 
 app = create_app()
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 80))
-    host = os.environ.get('HOST', '0.0.0.0')
-    debug = os.environ.get('FLASK_ENV') == 'development'
-    
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG)

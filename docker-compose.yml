@@ -85,6 +85,24 @@ services:
     networks:
       - app-network
 
+  frontend_service:
+    build: 
+      context: ./services/frontend_service
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./services/frontend_service:/app
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - app-network
+
   gateway:
     build: 
       context: ./gateway
@@ -97,6 +115,12 @@ services:
       - FLASK_APP=app.main
       - FLASK_ENV=development
       - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       zabbix_service:
         condition: service_healthy

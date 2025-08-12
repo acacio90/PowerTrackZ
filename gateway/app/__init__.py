@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask
 from flask_cors import CORS
 import logging
 from .config import Config
@@ -17,21 +17,6 @@ def create_app():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Rotas
-    app.register_blueprint(routes)
-    
-    # Rota principal
-    @app.route('/')
-    def index():
-        return render_template('pages/index.html')
-    
-    # Healthcheck
-    @app.route('/health')
-    def health_check():
-        return jsonify({
-            "status": "healthy",
-            "service": "gateway",
-            "port": 80
-        })
+        app.register_blueprint(routes)
     
     return app
