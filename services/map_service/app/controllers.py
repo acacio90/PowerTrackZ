@@ -11,10 +11,26 @@ logging.basicConfig(level=getattr(logging, Config.LOG_LEVEL), format=Config.LOG_
 logger = logging.getLogger(__name__)
 
 def get_map():
+    """Retorna o mapa HTML completo"""
+    return create_map_html()
+
+def get_map_points():
+    """Retorna apenas os pontos de acesso em formato JSON"""
+    try:
+        response = requests.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points", timeout=30)
+        response.raise_for_status()
+        access_points = response.json()
+        return jsonify(access_points)
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Erro ao buscar pontos de acesso: {str(e)}")
+        return jsonify({"message": "Erro ao buscar pontos de acesso", "error": str(e)}), 500
+
+def create_map_html(center_lat=-24.061258, center_lng=-52.386096, zoom=4):
+    """Cria mapa HTML com pontos de acesso"""
     # Cria mapa base com folium
     m = folium.Map(
-        location=[-24.061258, -52.386096],
-        zoom_start=4,
+        location=[center_lat, center_lng],
+        zoom_start=zoom,
         control_scale=True,
         prefer_canvas=True,
         height='100%',
@@ -34,11 +50,24 @@ def get_map():
     if access_points:
         for ap in access_points:
             try:
+                if ap.get('latitude') and ap.get('longitude'):
                 lat, lng = float(ap['latitude']), float(ap['longitude'])
+                    
+                    # Cria popup com informações do ponto
+                    popup_content = f"""
+                    <div style="min-width: 200px;">
+                        <h4>{ap.get('name', 'Ponto de Acesso')}</h4>
+                        <p><strong>Frequência:</strong> {ap.get('frequency', 'N/A')} GHz</p>
+                        <p><strong>Banda:</strong> {ap.get('bandwidth', 'N/A')} MHz</p>
+                        <p><strong>Canal:</strong> {ap.get('channel', 'N/A')}</p>
+                        <p><strong>Coordenadas:</strong> {lat}, {lng}</p>
+                    </div>
+                    """
+                    
                 folium.Marker(
                     location=[lat, lng],
-                    popup=f"{ap['description']}<br>Frequência: {ap['frequency']} GHz<br>Banda: {ap['bandwidth']} MHz<br>Canal: {ap['channel']}",
-                    icon=folium.Icon(icon="info-sign")
+                        popup=folium.Popup(popup_content, max_width=300),
+                        icon=folium.Icon(icon="wifi", color="blue")
                 ).add_to(m)
             except Exception as e:
                 logger.error(f"Erro ao adicionar ponto {ap.get('id')}: {str(e)}")
@@ -68,6 +97,9 @@ def get_map():
         .leaflet-container {
             width: 100% !important;
             height: 100% !important;
+        }
+        .leaflet-popup-content {
+            font-family: Arial, sans-serif;
         }
     </style>
     """

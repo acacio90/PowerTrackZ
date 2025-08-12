@@ -16,6 +16,10 @@ def health_check():
 def map():
     return get_map()
 
+@app.route('/points', methods=['GET'])
+def points():
+    return get_map_points()
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)
