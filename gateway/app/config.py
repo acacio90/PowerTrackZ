@@ -1,46 +1,49 @@
 import os
 
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+
 class Config:
-    # Configurações
-    DEBUG = os.environ.get('FLASK_ENV') == 'development'
-    PORT = int(os.environ.get('PORT', 80))
-    HOST = os.environ.get('HOST', '0.0.0.0')
-    
-    # URLs
-    ZABBIX_SERVICE_URL = "https://zabbix_service:5003"
-    MAP_SERVICE_URL = "http://map_service:5001"
-    ANALYSIS_SERVICE_URL = "http://analysis_service:5002"
-    ACCESS_POINT_SERVICE_URL = "http://access_point_service:5004"
-    FRONTEND_SERVICE_URL = "http://frontend_service:3000"
-    
-    # Logging
-    LOG_LEVEL = 'INFO'
-    LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    DEBUG = os.environ.get("FLASK_ENV", "development") == "development"
+    PORT = int(os.environ.get("PORT", 80))
+    HOST = os.environ.get("HOST", "0.0.0.0")
 
-    # Flask
-    SECRET_KEY = "zabbixtrack"
-    DEBUG = True
+    ZABBIX_SERVICE_URL = os.environ["ZABBIX_SERVICE_URL"]
+    MAP_SERVICE_URL = os.environ["MAP_SERVICE_URL"]
+    ANALYSIS_SERVICE_URL = os.environ["ANALYSIS_SERVICE_URL"]
+    ACCESS_POINT_SERVICE_URL = os.environ["ACCESS_POINT_SERVICE_URL"]
+    FRONTEND_SERVICE_URL = os.environ["FRONTEND_SERVICE_URL"]
 
-    # Configurações do HTTP
-    HTTP_TIMEOUT = 120
-    HTTP_RETRIES = 10
-    HTTP_BACKOFF_FACTOR = 2.0
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_FORMAT = os.environ.get(
+        "LOG_FORMAT",
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    SECRET_KEY = os.environ["GATEWAY_SECRET_KEY"]
+
+    HTTP_TIMEOUT = int(os.environ["GATEWAY_HTTP_TIMEOUT"])
+    HTTP_RETRIES = int(os.environ["GATEWAY_HTTP_RETRIES"])
+    HTTP_BACKOFF_FACTOR = float(os.environ["GATEWAY_HTTP_BACKOFF_FACTOR"])
+    HTTP_VERIFY_SSL = os.environ["GATEWAY_HTTP_VERIFY_SSL"].lower() == "true"
     HTTP_STATUS_FORCELIST = [
-        500,  # Internal Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-        504,  # Gateway Timeout
-        408,  # Request Timeout
-        429,  # Too Many Requests
-        104,  # Connection Reset
-        111,  # Connection Refused
-        110,  # Connection Timed Out
-        113,  # No Route to Host
-        99,   # Connection Reset by Peer
-        100,  # Connection Reset by Host
-        101,  # Connection Reset by Network
-        102,  # Connection Reset by Service
-        103   # Connection Reset by Gateway
+        500,
+        502,
+        503,
+        504,
+        408,
+        429,
+        104,
+        111,
+        110,
+        113,
+        99,
+        100,
+        101,
+        102,
+        103,
     ]
 
     @classmethod
@@ -49,9 +52,10 @@ class Config:
         retry = Retry(
             total=cls.HTTP_RETRIES,
             backoff_factor=cls.HTTP_BACKOFF_FACTOR,
-            status_forcelist=cls.HTTP_STATUS_FORCELIST
+            status_forcelist=cls.HTTP_STATUS_FORCELIST,
         )
         adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        return session 
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        session.verify = cls.HTTP_VERIFY_SSL
+        return session

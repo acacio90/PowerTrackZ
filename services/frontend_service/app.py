@@ -1,5 +1,6 @@
 from flask import Flask
 import logging
+import os
 
 from routes import routes
 
@@ -9,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'frontend_secret_key'
+    app.config['SECRET_KEY'] = os.environ["FRONTEND_SECRET_KEY"]
     app.register_blueprint(routes)
     return app
 
@@ -18,4 +19,7 @@ app = create_app()
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 3000))
+    debug = os.environ.get('FLASK_ENV', 'development') == 'development'
+    app.run(host=host, port=port, debug=debug)

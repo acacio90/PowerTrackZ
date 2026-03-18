@@ -30,10 +30,11 @@
 <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
 <script src="/static/js/analysis.js"></script>
 <script>
-    window.GATEWAY_URL = window.GATEWAY_URL || 'http://localhost';
     window.ANALYSIS_API = {
-        analyzeGraph: window.GATEWAY_URL + '/api/analysis/analyze-graph'
+        analyzeGraph: '/api/analysis/analyze-graph',
+        strategies: '/api/analysis/strategies'
     };
-    window.ACCESS_POINT_URL = window.ACCESS_POINT_URL || 'http://localhost:5004/access_points';
+    window.ACCESS_POINT_URL = '/api/access_points';
+    window.BACKEND_URL = '/api/analysis/collision-graph';
 </script>
 {% endblock %}

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///access_points.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["ACCESS_POINT_DATABASE_URI"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
@@ -129,4 +129,6 @@ def update_access_point(id):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('FLASK_ENV', 'development') == 'development'
+    app.run(host=host, port=port, debug=debug)

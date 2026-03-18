@@ -14,7 +14,7 @@ routes = Blueprint("routes", __name__)
 
 logger = logging.getLogger(__name__)
 
-ACCESS_POINT_SERVICE_URL = "http://access_point_service:5004"
+ACCESS_POINT_SERVICE_URL = os.environ["ACCESS_POINT_SERVICE_URL"]
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -109,7 +109,10 @@ def summarize_graph(graph):
 
 
 def load_access_points():
-    response = requests.get(f"{ACCESS_POINT_SERVICE_URL}/access_points")
+    response = requests.get(
+        f"{ACCESS_POINT_SERVICE_URL}/access_points",
+        timeout=int(os.environ["ANALYSIS_HTTP_TIMEOUT"]),
+    )
     if response.status_code != 200:
         raise RuntimeError("Erro ao buscar pontos de acesso")
     return response.json()
