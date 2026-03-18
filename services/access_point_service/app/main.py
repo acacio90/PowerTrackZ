@@ -15,8 +15,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["ACCESS_POINT_DATABASE_URI"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-@app.before_first_request
-def init_db():
+with app.app_context():
     create_tables()
 
 @app.route('/health')
