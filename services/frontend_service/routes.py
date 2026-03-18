@@ -1,12 +1,13 @@
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 import logging
+import os
 import requests
 
 routes = Blueprint('routes', __name__)
 
 logger = logging.getLogger(__name__)
 
-GATEWAY_URL = "http://gateway:80"
+GATEWAY_URL = os.environ["GATEWAY_URL"]
 
 
 def make_api_request(endpoint, method='GET', data=None):
@@ -38,7 +39,7 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "service": "frontend_service",
-        "port": 3000
+        "port": int(os.environ.get("PORT", 3000))
     })
 
 
@@ -136,4 +137,24 @@ def access_points_api():
 def access_point_detail_api(point_id):
     data = request.get_json(silent=True) if request.method == 'PUT' else None
     response_data, status_code = make_api_request(f'/access_points/{point_id}', request.method, data)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/analysis/strategies', methods=['GET'])
+def analysis_strategies_api():
+    response_data, status_code = make_api_request('/analysis/strategies', 'GET')
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/analysis/analyze-graph', methods=['POST'])
+def analysis_analyze_graph_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/analysis/analyze-graph', 'POST', data)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/analysis/collision-graph', methods=['POST'])
+def analysis_collision_graph_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/analysis/collision-graph', 'POST', data)
     return jsonify(response_data), status_code

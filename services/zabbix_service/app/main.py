@@ -46,11 +46,11 @@ if __name__ == '__main__':
     
     logger.info(f"Iniciando servidor na porta {port} com host {host}")
     
-    ssl_dir = Path(__file__).parent.parent / 'ssl'
+    ssl_dir = Path(os.environ.get('ZABBIX_SSL_DIR', Path(__file__).parent.parent / 'ssl'))
     ssl_dir.mkdir(exist_ok=True)
     
-    cert_path = ssl_dir / 'cert.pem'
-    key_path = ssl_dir / 'key.pem'
+    cert_path = Path(os.environ.get('ZABBIX_SSL_CERT_PATH', ssl_dir / 'cert.pem'))
+    key_path = Path(os.environ.get('ZABBIX_SSL_KEY_PATH', ssl_dir / 'key.pem'))
     
     if not (cert_path.exists() and key_path.exists()):
         logger.info("Gerando certificados SSL auto-assinados...")

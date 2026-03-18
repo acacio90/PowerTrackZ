@@ -6,10 +6,10 @@ import re
 from datetime import datetime
 import os
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
-ZABBIX_SERVICE_URL = os.getenv('ZABBIX_SERVICE_URL', 'http://zabbix_service:5000')
+ZABBIX_SERVICE_URL = os.environ["ZABBIX_SERVICE_URL"]
 
 def create_tables():
     db.create_all()
@@ -133,7 +133,10 @@ class AccessPointController:
     def sync_zabbix_data(self):
         """Sincroniza dados do Zabbix com banco local"""
         try:
-            response = requests.get(f"{ZABBIX_SERVICE_URL}/hosts_with_items")
+            response = requests.get(
+                f"{ZABBIX_SERVICE_URL}/hosts_with_items",
+                timeout=int(os.environ["ACCESS_POINT_HTTP_TIMEOUT"]),
+            )
             
             if response.status_code == 200:
                 processed_aps = process_zabbix_data(response.json())
