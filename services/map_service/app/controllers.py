@@ -51,7 +51,7 @@ def create_map_html(center_lat=-24.061258, center_lng=-52.386096, zoom=4):
         for ap in access_points:
             try:
                 if ap.get('latitude') and ap.get('longitude'):
-                lat, lng = float(ap['latitude']), float(ap['longitude'])
+                    lat, lng = float(ap['latitude']), float(ap['longitude'])
                     
                     # Cria popup com informações do ponto
                     popup_content = f"""
@@ -64,11 +64,11 @@ def create_map_html(center_lat=-24.061258, center_lng=-52.386096, zoom=4):
                     </div>
                     """
                     
-                folium.Marker(
-                    location=[lat, lng],
+                    folium.Marker(
+                        location=[lat, lng],
                         popup=folium.Popup(popup_content, max_width=300),
                         icon=folium.Icon(icon="wifi", color="blue")
-                ).add_to(m)
+                    ).add_to(m)
             except Exception as e:
                 logger.error(f"Erro ao adicionar ponto {ap.get('id')}: {str(e)}")
     

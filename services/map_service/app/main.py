@@ -1,5 +1,5 @@
 from flask import Flask, jsonify
-from app.controllers import get_map
+from app.controllers import get_map, get_map_points
 import os
 
 app = Flask(__name__)

@@ -51,7 +51,7 @@ def zabbix_hosts():
         if request.method == 'GET':
             response = session.get(f"{Config.ZABBIX_SERVICE_URL}/hosts")
         else:
-        response = session.post(f"{Config.ZABBIX_SERVICE_URL}/hosts", json=request.get_json() or {})
+            response = session.post(f"{Config.ZABBIX_SERVICE_URL}/hosts", json=request.get_json() or {})
         return response.json(), response.status_code
     except Exception as e:
         error_response, status_code = handle_error(e, "Zabbix")
@@ -115,9 +115,9 @@ def analyze_graph():
     try:
         response = session.post(f"{Config.ANALYSIS_SERVICE_URL}/analyze-graph", json=request.get_json())
         return response.json(), response.status_code
-        except Exception as e:
+    except Exception as e:
         error_response, status_code = handle_error(e, "analysis_service")
-            return jsonify(error_response), status_code
+        return jsonify(error_response), status_code
 
 @routes.route('/api/analysis/compare-strategies', methods=['POST'])
 def compare_strategies():
@@ -143,7 +143,7 @@ def collision_graph():
 def access_points():
     try:
         if request.method == 'GET':
-        response = session.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points")
+            response = session.get(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points")
         else:
             response = session.post(f"{Config.ACCESS_POINT_SERVICE_URL}/access_points", json=request.get_json())
         return response.json(), response.status_code

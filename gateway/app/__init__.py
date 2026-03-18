@@ -17,6 +17,6 @@ def create_app():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-        app.register_blueprint(routes)
+    app.register_blueprint(routes)
     
     return app
