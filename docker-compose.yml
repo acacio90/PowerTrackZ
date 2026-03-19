@@ -71,7 +71,7 @@ services:
       - PYTHONPATH=${PYTHONPATH:-/app}
       - HOST=${HOST:-0.0.0.0}
       - PORT=5002
-      - ACCESS_POINT_SERVICE_URL=${ACCESS_POINT_SERVICE_URL}
+      - GATEWAY_URL=${GATEWAY_URL}
       - ANALYSIS_HTTP_TIMEOUT=${ANALYSIS_HTTP_TIMEOUT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
