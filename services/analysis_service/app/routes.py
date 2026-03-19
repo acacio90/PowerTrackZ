@@ -8,6 +8,7 @@ from networkx.readwrite import json_graph
 import requests
 
 from strategies import StrategyFactory
+from strategies.common import build_color_from_key, build_configuration_key
 
 
 routes = Blueprint("routes", __name__)
@@ -64,7 +65,8 @@ def build_collision_graph(access_points):
 
     graph = nx.Graph()
     for ap in access_points:
-        canal = str(ap.get("canal", "")).strip() if ap.get("canal") else None
+        channel_value = ap.get("canal") if ap.get("canal") is not None else ap.get("channel")
+        canal = str(channel_value).strip() if channel_value else None
         graph.add_node(
             ap["id"],
             x=ap["x"],
@@ -72,6 +74,17 @@ def build_collision_graph(access_points):
             raio=ap["raio"],
             label=ap.get("label"),
             canal=canal,
+            channel=canal,
+            bandwidth=ap.get("bandwidth"),
+            frequency=ap.get("frequency"),
+            locked=ap.get("locked", False),
+            cor=build_color_from_key(
+                build_configuration_key(
+                    canal,
+                    ap.get("bandwidth"),
+                    ap.get("frequency"),
+                )
+            ),
         )
 
     for index in range(len(access_points)):
@@ -111,6 +124,12 @@ def summarize_graph(graph):
         "density": nx.density(graph),
         "connected_components": nx.number_connected_components(graph),
     }
+
+
+def run_strategy_analysis(strategy_name, graph, strategy_params):
+    """Executa a estrategia solicitada a partir do nome informado."""
+    strategy = StrategyFactory.get_strategy(strategy_name)
+    return strategy.analyze(graph, **strategy_params)
 
 
 def load_access_points():
@@ -172,14 +191,14 @@ def analyze_graph():
             return graph_error
 
         try:
-            strategy = StrategyFactory.get_strategy(strategy_name)
+            analysis = run_strategy_analysis(strategy_name, graph, strategy_params)
         except ValueError as exc:
             return error_response(str(exc), 400)
 
         return jsonify({
             "success": True,
             "strategy_used": strategy_name,
-            "analysis": strategy.analyze(graph, **strategy_params),
+            "analysis": analysis,
             "graph_data": json_graph.node_link_data(graph),
             "summary": summarize_graph(graph),
         })
@@ -203,9 +222,10 @@ def compare_strategies():
         comparison_results = {}
         for strategy_name in strategy_names:
             try:
-                strategy = StrategyFactory.get_strategy(strategy_name)
-                comparison_results[strategy_name] = strategy.analyze(
-                    graph, **strategy_params.get(strategy_name, {})
+                comparison_results[strategy_name] = run_strategy_analysis(
+                    strategy_name,
+                    graph,
+                    strategy_params.get(strategy_name, {}),
                 )
             except Exception as exc:
                 logger.error(f"Erro na estrategia {strategy_name}: {str(exc)}")

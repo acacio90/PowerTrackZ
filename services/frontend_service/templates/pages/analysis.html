@@ -1,32 +1,270 @@
 {% extends 'base.html' %}
 {% block title %}Análise de Pontos de Acesso{% endblock %}
 
+{% block extra_css %}
+<style>
+    .page-analysis {
+        padding: 0;
+    }
+
+    .analysis-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .analysis-hero {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1.75rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .analysis-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #3f5f7b;
+        margin-bottom: 0.65rem;
+    }
+
+    .analysis-hero h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1.05;
+        color: #18222d;
+    }
+
+    .analysis-subtitle {
+        margin: 0.85rem 0 0;
+        max-width: 780px;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: #526272;
+    }
+
+    .analysis-toolbar {
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(42, 58, 75, 0.1);
+    }
+
+    .analysis-toolbar-label {
+        display: block;
+        margin-bottom: 0.85rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #5d6c79;
+    }
+
+    .page-analysis .strategy-buttons-container {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.9rem;
+        margin: 0;
+        justify-content: stretch;
+    }
+
+    .page-analysis .strategy-button-wrapper {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .page-analysis .btn-server-analysis {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        width: 100%;
+        min-height: 54px;
+        border-radius: 14px;
+        border-width: 1px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(6px);
+    }
+
+    .page-analysis .btn-server-analysis i {
+        font-size: 0.95rem;
+    }
+
+    .analysis-changes {
+        padding: 1.5rem;
+    }
+
+    .app-table.analysis-table col:nth-child(1) {
+        width: 28%;
+    }
+
+    .app-table.analysis-table col:nth-child(2),
+    .app-table.analysis-table col:nth-child(3) {
+        width: 30%;
+    }
+
+    .app-table.analysis-table col:nth-child(4) {
+        width: 12%;
+    }
+
+    .analysis-ap-name {
+        font-weight: 600;
+        color: #18222d;
+    }
+
+    .analysis-config {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        color: #3f5263;
+    }
+
+    .analysis-config-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: #eef4f8;
+        color: #304556;
+        font-size: 0.82rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .analysis-config-pill.is-new {
+        background: #e8f3ff;
+        color: #0b5ed7;
+    }
+
+    .analysis-change-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 999px;
+        background: #e8f3ff;
+        color: #0b5ed7;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .analysis-edit-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        min-width: 88px;
+        padding: 0.55rem 0.8rem;
+        border: 1px solid #c8d4df;
+        border-radius: 10px;
+        background: #fff;
+        color: #304556;
+        font-weight: 600;
+        cursor: pointer;
+        transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .analysis-edit-button:hover {
+        border-color: #8aa3b8;
+        background: #f7fafc;
+    }
+
+    .analysis-edit-button.is-saving {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: #fff;
+    }
+
+    .analysis-inline-edit {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .analysis-inline-edit input {
+        min-width: 0;
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid #cbd5df;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        color: #22313f;
+        background: #fff;
+    }
+
+    @media (max-width: 900px) {
+        .page-analysis .strategy-buttons-container {
+            grid-template-columns: 1fr;
+        }
+
+        .analysis-hero {
+            padding: 1.25rem;
+        }
+
+        .analysis-changes {
+            padding: 1rem;
+        }
+
+        .app-table-title.analysis-changes-title {
+            font-size: 1.35rem;
+        }
+
+        .app-table.analysis-table col {
+            width: auto !important;
+        }
+
+        .analysis-inline-edit {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="page-analysis">
+<section class="page-analysis">
     <div class="container">
-        <h1>Análise de Pontos de Acesso</h1>
+        <section class="analysis-shell">
+            <div class="analysis-hero">
+                <span class="analysis-kicker">
+                    <i class="fa-solid fa-chart-line"></i>
+                    Painel de Análise
+                </span>
+                <h1>Análise de Pontos de Acesso</h1>
+                <p class="analysis-subtitle">
+                    Compare estratégias de otimização, visualize colisões e acompanhe as configurações propostas
+                    para cada AP sem dispersar a leitura do grafo.
+                </p>
 
-        <div class="strategy-buttons-container">
-            <div class="strategy-button-wrapper">
-                <button class="btn btn-outline-primary w-100 btn-server-analysis" data-strategy="backtracking">
-                    <i class="fa-solid fa-sitemap"></i> Backtracking (Servidor)
-                </button>
+                <div class="analysis-toolbar">
+                    <span class="analysis-toolbar-label">Estratégia ativa</span>
+                    <div class="strategy-buttons-container">
+                        <div class="strategy-button-wrapper">
+                            <button class="btn btn-outline-primary btn-server-analysis" data-strategy="backtracking">
+                                <i class="fa-solid fa-sitemap"></i> Backtracking
+                            </button>
+                        </div>
+                        <div class="strategy-button-wrapper">
+                            <button class="btn btn-outline-secondary btn-server-analysis" data-strategy="greedy">
+                                <i class="fa-solid fa-bolt"></i> Greedy
+                            </button>
+                        </div>
+                        <div class="strategy-button-wrapper">
+                            <button class="btn btn-outline-success btn-server-analysis" data-strategy="genetic">
+                                <i class="fa-solid fa-dna"></i> Genetic
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="strategy-button-wrapper">
-                <button class="btn btn-outline-secondary w-100 btn-server-analysis" data-strategy="greedy">
-                    <i class="fa-solid fa-bolt"></i> Greedy (Servidor)
-                </button>
-            </div>
-            <div class="strategy-button-wrapper">
-                <button class="btn btn-outline-success w-100 btn-server-analysis" data-strategy="genetic">
-                    <i class="fa-solid fa-dna"></i> Genetic (ML) (Servidor)
-                </button>
-            </div>
-        </div>
-
+        </section>
     </div>
-</main>
-<!-- Importa Cytoscape.js via CDN -->
+</section>
 <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
 <script src="/static/js/analysis.js"></script>
 <script>

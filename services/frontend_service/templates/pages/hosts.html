@@ -2,28 +2,113 @@
 
 {% block title %}Pontos de Acesso{% endblock %}
 
+{% block extra_css %}
+<style>
+    .page-hosts {
+        padding: 0;
+    }
+
+    .hosts-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .hosts-hero {
+        background: #fff;
+        border-radius: 8px;
+        padding: 1.5rem 1.75rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .hosts-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-bottom: 0.7rem;
+        color: #3f5f7b;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .hosts-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .hosts-title {
+        margin: 0;
+        color: #18222d;
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .hosts-subtitle {
+        margin: 0.7rem 0 0;
+        color: #526272;
+        font-size: 0.98rem;
+        line-height: 1.6;
+        max-width: 760px;
+    }
+
+    .hosts-content {
+        padding: 1.5rem;
+    }
+
+    .hosts-empty {
+        margin: 0;
+    }
+
+    @media (max-width: 900px) {
+        .hosts-hero {
+            padding: 1.25rem;
+        }
+
+        .hosts-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Pontos de Acesso</h5>
-                    <button class="btn btn-primary" id="btn-save-all">
+<section class="page-hosts">
+    <div class="container">
+        <section class="hosts-shell">
+            <div class="hosts-hero">
+                <span class="hosts-kicker">
+                    <i class="fa-solid fa-server"></i>
+                    Painel de Pontos
+                </span>
+                <div class="hosts-header">
+                    <h1 class="hosts-title">Pontos de Acesso</h1>
+                    <button class="btn btn-primary" id="btn-save-all" type="button">
                         <i class="fa-solid fa-floppy-disk"></i> Salvar
                     </button>
                 </div>
-                <div class="card-body">
-                    {% if error %}
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle"></i>
-                            {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
-                        </div>
-                    {% endif %}
+                <p class="hosts-subtitle">
+                    Consulte os APs carregados do monitoramento e salve suas configurações atuais no sistema.
+                </p>
+            </div>
 
-                    {% if hosts %}
-                        <div class="table-responsive">
-                            <table class="table table-striped">
+            <div class="card app-table-card hosts-content">
+                {% if error %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        {{ error.get('details', error.get('error', 'Erro desconhecido')) }}
+                    </div>
+                {% endif %}
+
+                {% if hosts %}
+                    <div class="app-table-shell">
+                        <div class="table-responsive app-table-wrap">
+                            <table class="app-table">
                                 <thead>
                                     <tr>
                                         <th>Nome</th>
@@ -46,17 +131,17 @@
                                 </tbody>
                             </table>
                         </div>
-                    {% else %}
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            Nenhum ponto de acesso encontrado.
-                        </div>
-                    {% endif %}
-                </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info hosts-empty">
+                        <i class="fas fa-info-circle"></i>
+                        Nenhum ponto de acesso encontrado.
+                    </div>
+                {% endif %}
             </div>
-        </div>
+        </section>
     </div>
-</div>
+</section>
 
 <!-- Modal de edição -->
 <div class="modal fade" id="editPointModal" tabindex="-1" aria-hidden="true">
@@ -106,14 +191,13 @@
 
 {% block scripts %}
 <script>
-// Salvar pontos da tabela
 const btnSaveAll = document.getElementById('btn-save-all');
 if (btnSaveAll) {
     btnSaveAll.addEventListener('click', async function() {
         const rows = document.querySelectorAll('table tbody tr');
         let successCount = 0;
         let errorCount = 0;
-        
+
         for (const row of rows) {
             const cells = row.querySelectorAll('td');
             const ponto = {
@@ -123,7 +207,7 @@ if (btnSaveAll) {
                 bandwidth: cells[3].innerText.trim(),
                 channel: cells[4].innerText.trim()
             };
-            
+
             try {
                 const response = await fetch('/api/access_points', {
                     method: 'POST',
@@ -146,7 +230,6 @@ if (btnSaveAll) {
     });
 }
 
-// Exibe alertas
 function showAlert(type, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -154,18 +237,17 @@ function showAlert(type, message) {
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('.card-body').firstChild);
+    document.querySelector('.hosts-content').insertBefore(alertDiv, document.querySelector('.hosts-content').firstChild);
 }
 
-// Abre modal de edição
 function openEditModal(itemId) {
     const row = Array.from(document.querySelectorAll('table tbody tr')).find(tr => {
         const btn = tr.querySelector('.btn-location');
         return btn && btn.getAttribute('onclick').includes(itemId);
     });
-    
+
     if (!row) return;
-    
+
     const cells = row.querySelectorAll('td');
     document.getElementById('editName').value = cells[0].innerText.trim();
     document.getElementById('editIndex').value = cells[1].innerText.trim();
@@ -174,7 +256,7 @@ function openEditModal(itemId) {
     document.getElementById('editChannel').value = cells[4].innerText.trim();
     document.getElementById('editLatitude').value = cells[5]?.dataset?.latitude || '';
     document.getElementById('editLongitude').value = cells[5]?.dataset?.longitude || '';
-    
+
     const modal = new bootstrap.Modal(document.getElementById('editPointModal'));
     modal.show();
 }
