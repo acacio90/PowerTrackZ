@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import networkx as nx
+
 
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
 if str(APP_DIR) not in sys.path:
@@ -43,6 +45,24 @@ class StrategyFactoryTests(unittest.TestCase):
         self.assertIn("backtracking", strategies)
         self.assertIn("greedy", strategies)
         self.assertIn("genetic", strategies)
+
+    def test_backtracking_strategy_finds_maximum_clique_with_manual_backtracking(self):
+        graph = nx.Graph()
+        graph.add_edges_from([
+            ("ap-1", "ap-2"),
+            ("ap-1", "ap-3"),
+            ("ap-2", "ap-3"),
+            ("ap-3", "ap-4"),
+        ])
+
+        analysis = StrategyFactory.get_strategy("backtracking").analyze(graph)
+
+        self.assertEqual(analysis["max_clique_size"], 3)
+        self.assertEqual(set(analysis["max_clique_nodes"]), {"ap-1", "ap-2", "ap-3"})
+        self.assertGreaterEqual(analysis["total_cliques"], 2)
+        self.assertIn("ap-1", analysis["proposed_configurations"])
+        self.assertIn("color", analysis["proposed_configurations"]["ap-1"])
+        self.assertIn("proposed_channel", graph.nodes["ap-1"])
 
 
 class GraphHelperTests(unittest.TestCase):

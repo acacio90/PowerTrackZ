@@ -5,7 +5,7 @@ import random
 import networkx as nx
 
 from .base import GraphAnalysisStrategy
-from .common import calculate_basic_graph_metrics
+from .common import apply_configurations_to_graph, assign_configurations, calculate_basic_graph_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,16 @@ class GeneticStrategy(GraphAnalysisStrategy):
         generations = kwargs.get("generations", 100)
 
         best_solution = self._genetic_algorithm(graph, population_size, generations)
+        selected_nodes = best_solution.get("selected_nodes", [])
+        ordered_nodes = selected_nodes + [node for node in graph.nodes() if node not in selected_nodes]
+        proposed_configurations = assign_configurations(graph, ordered_nodes)
+        apply_configurations_to_graph(graph, proposed_configurations)
 
         analysis = {
             "strategy": self.get_name(),
             "description": self.get_description(),
             "best_solution": best_solution,
+            "proposed_configurations": proposed_configurations,
             "genetic_metrics": {
                 "population_size": population_size,
                 "generations": generations,

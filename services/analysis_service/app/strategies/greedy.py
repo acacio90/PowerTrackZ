@@ -4,7 +4,7 @@ import logging
 import networkx as nx
 
 from .base import GraphAnalysisStrategy
-from .common import calculate_basic_graph_metrics
+from .common import apply_configurations_to_graph, assign_configurations, calculate_basic_graph_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +23,15 @@ class GreedyStrategy(GraphAnalysisStrategy):
 
         selected_nodes = self._greedy_node_selection(graph)
         coverage_analysis = self._analyze_coverage(graph, selected_nodes)
+        ordered_nodes = selected_nodes + [node for node in graph.nodes() if node not in selected_nodes]
+        proposed_configurations = assign_configurations(graph, ordered_nodes)
+        apply_configurations_to_graph(graph, proposed_configurations)
 
         analysis = {
             "strategy": self.get_name(),
             "description": self.get_description(),
             "selected_nodes": selected_nodes,
+            "proposed_configurations": proposed_configurations,
             "coverage_analysis": coverage_analysis,
             "graph_metrics": self._calculate_graph_metrics(graph),
             "optimization_score": self._calculate_optimization_score(graph, selected_nodes),
