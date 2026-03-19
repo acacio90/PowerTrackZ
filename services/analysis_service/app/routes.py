@@ -14,10 +14,11 @@ routes = Blueprint("routes", __name__)
 
 logger = logging.getLogger(__name__)
 
-ACCESS_POINT_SERVICE_URL = os.environ["ACCESS_POINT_SERVICE_URL"]
+GATEWAY_URL = os.environ.get("GATEWAY_URL")
 
 
 def haversine(lat1, lon1, lat2, lon2):
+    """Calcula a distancia em metros entre duas coordenadas geograficas."""
     radius = 6371000
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -28,36 +29,37 @@ def haversine(lat1, lon1, lat2, lon2):
     return radius * c
 
 
-def calcular_area_intersecao(r1, r2, distancia):
+def calculate_intersection_area(r1, r2, distance):
     """Calcula a area de interseccao entre dois circulos."""
-    if distancia >= r1 + r2:
+    if distance >= r1 + r2:
         return 0
-    if distancia <= abs(r1 - r2):
+    if distance <= abs(r1 - r2):
         return math.pi * min(r1, r2) ** 2
 
-    termo1 = r1 ** 2 * math.acos((distancia ** 2 + r1 ** 2 - r2 ** 2) / (2 * distancia * r1))
-    termo2 = r2 ** 2 * math.acos((distancia ** 2 + r2 ** 2 - r1 ** 2) / (2 * distancia * r2))
-    termo3 = 0.5 * math.sqrt(
-        (-distancia + r1 + r2)
-        * (distancia + r1 - r2)
-        * (distancia - r1 + r2)
-        * (distancia + r1 + r2)
+    term1 = r1 ** 2 * math.acos((distance ** 2 + r1 ** 2 - r2 ** 2) / (2 * distance * r1))
+    term2 = r2 ** 2 * math.acos((distance ** 2 + r2 ** 2 - r1 ** 2) / (2 * distance * r2))
+    term3 = 0.5 * math.sqrt(
+        (-distance + r1 + r2)
+        * (distance + r1 - r2)
+        * (distance - r1 + r2)
+        * (distance + r1 + r2)
     )
 
-    return termo1 + termo2 - termo3
+    return term1 + term2 - term3
 
 
 def build_collision_graph(access_points):
-    """Constroi o grafo de colisoes a partir dos pontos de acesso."""
+    """Constroi o grafo de colisoes com base na sobreposicao entre os pontos de acesso."""
 
     def colidem(ap1, ap2):
+        """Verifica se dois pontos de acesso colidem e calcula o peso da sobreposicao."""
         distancia = haversine(ap1["x"], ap1["y"], ap2["x"], ap2["y"])
         if distancia >= (ap1["raio"] + ap2["raio"]):
             return False, 0
 
-        area_intersecao = calcular_area_intersecao(ap1["raio"], ap2["raio"], distancia)
-        area_total = math.pi * (ap1["raio"] ** 2 + ap2["raio"] ** 2)
-        porcentagem = (area_intersecao / area_total) * 100
+        area_intersecao = calculate_intersection_area(ap1["raio"], ap2["raio"], distancia)
+        smaller_area = math.pi * min(ap1["raio"], ap2["raio"]) ** 2
+        porcentagem = (area_intersecao / smaller_area) * 100
         return True, porcentagem
 
     graph = nx.Graph()
@@ -82,12 +84,14 @@ def build_collision_graph(access_points):
 
 
 def error_response(message, status_code=400, **extra):
+    """Monta uma resposta de erro padronizada da API."""
     payload = {"success": False, "error": message}
     payload.update(extra)
     return jsonify(payload), status_code
 
 
 def build_graph_from_request_payload(payload):
+    """Valida o payload da requisicao e gera o grafo de colisoes."""
     access_points = payload.get("aps", [])
     if not access_points:
         return None, error_response("Lista de pontos de acesso vazia", 400)
@@ -100,6 +104,7 @@ def build_graph_from_request_payload(payload):
 
 
 def summarize_graph(graph):
+    """Resume as principais metricas estruturais do grafo."""
     return {
         "total_nodes": graph.number_of_nodes(),
         "total_edges": graph.number_of_edges(),
@@ -109,8 +114,12 @@ def summarize_graph(graph):
 
 
 def load_access_points():
+    """Busca os pontos de acesso por meio do gateway da API."""
+    if not GATEWAY_URL:
+        raise RuntimeError("Variavel de ambiente GATEWAY_URL nao configurada")
+
     response = requests.get(
-        f"{ACCESS_POINT_SERVICE_URL}/access_points",
+        f"{GATEWAY_URL}/api/access_points",
         timeout=int(os.environ["ANALYSIS_HTTP_TIMEOUT"]),
     )
     if response.status_code != 200:
@@ -120,6 +129,7 @@ def load_access_points():
 
 @routes.route("/health")
 def health_check():
+    """Retorna o estado de saude do servico de analise."""
     return jsonify({
         "status": "healthy",
         "service": "analysis_service",
@@ -129,6 +139,7 @@ def health_check():
 
 @routes.route("/strategies", methods=["GET"])
 def get_available_strategies():
+    """Lista as estrategias de analise de grafo disponiveis."""
     try:
         return jsonify({
             "success": True,
@@ -142,6 +153,7 @@ def get_available_strategies():
 
 @routes.route("/collision-graph", methods=["POST"])
 def collision_graph():
+    """Gera e retorna o grafo de colisoes a partir do payload recebido."""
     data = request.get_json() or {}
     graph = build_collision_graph(data.get("aps", []))
     return jsonify(json_graph.node_link_data(graph))
@@ -149,6 +161,7 @@ def collision_graph():
 
 @routes.route("/analyze-graph", methods=["POST"])
 def analyze_graph():
+    """Executa a estrategia solicitada sobre o grafo gerado no payload."""
     try:
         data = request.get_json() or {}
         strategy_name = data.get("strategy", "backtracking")
@@ -177,6 +190,7 @@ def analyze_graph():
 
 @routes.route("/compare-strategies", methods=["POST"])
 def compare_strategies():
+    """Compara multiplas estrategias de analise sobre o mesmo grafo."""
     try:
         data = request.get_json() or {}
         strategy_names = data.get("strategies", ["backtracking", "greedy", "genetic"])
@@ -232,6 +246,7 @@ def compare_strategies():
 
 @routes.route("/analyze", methods=["GET"])
 def analyze():
+    """Consolida estatisticas gerais dos pontos de acesso cadastrados."""
     try:
         access_points = load_access_points()
         analysis = {

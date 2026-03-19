@@ -1,15 +1,17 @@
+import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
+import routes  # noqa: E402
 from main import app  # noqa: E402
-from routes import build_collision_graph, summarize_graph  # noqa: E402
+from routes import build_collision_graph, calculate_intersection_area, load_access_points, summarize_graph  # noqa: E402
 from strategies import (  # noqa: E402
     BacktrackingStrategy,
     GeneticStrategy,
@@ -44,6 +46,16 @@ class StrategyFactoryTests(unittest.TestCase):
 
 
 class GraphHelperTests(unittest.TestCase):
+    def test_calculate_intersection_area_returns_zero_when_circles_do_not_overlap(self):
+        area = calculate_intersection_area(100, 50, 200)
+
+        self.assertEqual(area, 0)
+
+    def test_calculate_intersection_area_returns_smaller_circle_area_when_fully_contained(self):
+        area = calculate_intersection_area(100, 50, 20)
+
+        self.assertAlmostEqual(area, 3.141592653589793 * 50 ** 2)
+
     def test_build_collision_graph_creates_nodes_and_edges(self):
         graph = build_collision_graph(sample_access_points())
 
@@ -51,6 +63,15 @@ class GraphHelperTests(unittest.TestCase):
         self.assertGreaterEqual(graph.number_of_edges(), 1)
         self.assertIn("ap-1", graph.nodes)
         self.assertIn("ap-2", graph.nodes)
+
+    def test_build_collision_graph_uses_100_percent_weight_when_smaller_ap_is_fully_contained(self):
+        graph = build_collision_graph([
+            {"id": "ap-1", "x": -23.55052, "y": -46.633308, "raio": 100, "label": "AP 1", "canal": "1"},
+            {"id": "ap-2", "x": -23.55052, "y": -46.633308, "raio": 50, "label": "AP 2", "canal": "36"},
+        ])
+
+        self.assertEqual(graph.number_of_edges(), 1)
+        self.assertAlmostEqual(graph["ap-1"]["ap-2"]["peso"], 100.0)
 
     def test_summarize_graph_returns_expected_metrics(self):
         graph = build_collision_graph(sample_access_points())
@@ -60,6 +81,41 @@ class GraphHelperTests(unittest.TestCase):
         self.assertEqual(summary["total_edges"], graph.number_of_edges())
         self.assertIn("density", summary)
         self.assertIn("connected_components", summary)
+
+
+class LoadAccessPointsTests(unittest.TestCase):
+    @patch("routes.requests.get")
+    def test_load_access_points_fetches_data_from_gateway(self, mock_get):
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"id": "ap-1"}]
+        mock_get.return_value = mock_response
+
+        with patch.dict(os.environ, {"ANALYSIS_HTTP_TIMEOUT": "120"}, clear=False):
+            with patch.object(routes, "GATEWAY_URL", "http://gateway:80"):
+                access_points = load_access_points()
+
+        self.assertEqual(access_points, [{"id": "ap-1"}])
+        mock_get.assert_called_once_with(
+            "http://gateway:80/api/access_points",
+            timeout=120,
+        )
+
+    def test_load_access_points_raises_when_gateway_url_is_missing(self):
+        with patch.object(routes, "GATEWAY_URL", None):
+            with self.assertRaisesRegex(RuntimeError, "GATEWAY_URL"):
+                load_access_points()
+
+    @patch("routes.requests.get")
+    def test_load_access_points_raises_when_gateway_returns_error(self, mock_get):
+        mock_response = Mock()
+        mock_response.status_code = 503
+        mock_get.return_value = mock_response
+
+        with patch.dict(os.environ, {"ANALYSIS_HTTP_TIMEOUT": "120"}, clear=False):
+            with patch.object(routes, "GATEWAY_URL", "http://gateway:80"):
+                with self.assertRaisesRegex(RuntimeError, "Erro ao buscar pontos de acesso"):
+                    load_access_points()
 
 
 class AnalysisRoutesTests(unittest.TestCase):
