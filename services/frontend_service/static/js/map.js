@@ -71,7 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         document.querySelectorAll('.data-table tbody tr').forEach(row => {
-            const frequency = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
+            const name = row.querySelector('td:nth-child(2)')?.textContent.trim() || '';
+            const frequency = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
             const lat = parseFloat(row.dataset.latitude || '');
             const lng = parseFloat(row.dataset.longitude || '');
             if (Number.isNaN(lat) || Number.isNaN(lng)) {
@@ -84,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             L.marker(latLng, { icon: buildMarkerIcon(iconColor) })
                 .addTo(accessPointLayer)
-                .bindPopup(row.querySelector('td:first-child').textContent.trim());
+                .bindPopup(name);
 
             createCircle(latLng, iconColor, freq).addTo(accessPointLayer);
             markerBounds.push(latLng);

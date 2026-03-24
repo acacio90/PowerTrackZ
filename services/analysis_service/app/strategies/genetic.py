@@ -5,7 +5,12 @@ import random
 import networkx as nx
 
 from .base import GraphAnalysisStrategy
-from .common import apply_configurations_to_graph, assign_configurations, calculate_basic_graph_metrics
+from .common import (
+    apply_configurations_to_graph,
+    assign_configurations,
+    calculate_basic_graph_metrics,
+    ensure_not_cancelled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +29,12 @@ class GeneticStrategy(GraphAnalysisStrategy):
 
         population_size = kwargs.get("population_size", 50)
         generations = kwargs.get("generations", 100)
+        cancel_check = kwargs.get("cancel_check")
 
-        best_solution = self._genetic_algorithm(graph, population_size, generations)
+        best_solution = self._genetic_algorithm(graph, population_size, generations, cancel_check=cancel_check)
         selected_nodes = best_solution.get("selected_nodes", [])
         ordered_nodes = selected_nodes + [node for node in graph.nodes() if node not in selected_nodes]
-        proposed_configurations = assign_configurations(graph, ordered_nodes)
+        proposed_configurations = assign_configurations(graph, ordered_nodes, cancel_check=cancel_check)
         apply_configurations_to_graph(graph, proposed_configurations)
 
         analysis = {
@@ -47,7 +53,7 @@ class GeneticStrategy(GraphAnalysisStrategy):
 
         return analysis
 
-    def _genetic_algorithm(self, graph: nx.Graph, population_size: int, generations: int) -> Dict[str, Any]:
+    def _genetic_algorithm(self, graph: nx.Graph, population_size: int, generations: int, cancel_check=None) -> Dict[str, Any]:
         nodes = list(graph.nodes())
         population = self._generate_initial_population(nodes, population_size)
 
@@ -55,7 +61,9 @@ class GeneticStrategy(GraphAnalysisStrategy):
         best_fitness = -float("inf")
 
         for _ in range(generations):
+            ensure_not_cancelled(cancel_check)
             for solution in population:
+                ensure_not_cancelled(cancel_check)
                 fitness = self._calculate_fitness(graph, solution)
                 if fitness > best_fitness:
                     best_fitness = fitness

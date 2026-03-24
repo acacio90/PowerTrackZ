@@ -4,7 +4,12 @@ import logging
 import networkx as nx
 
 from .base import GraphAnalysisStrategy
-from .common import apply_configurations_to_graph, assign_configurations, calculate_basic_graph_metrics
+from .common import (
+    apply_configurations_to_graph,
+    assign_configurations,
+    calculate_basic_graph_metrics,
+    ensure_not_cancelled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +25,12 @@ class GreedyStrategy(GraphAnalysisStrategy):
 
     def analyze(self, graph: nx.Graph, **kwargs) -> Dict[str, Any]:
         logger.info("Executando analise com estrategia Greedy")
+        cancel_check = kwargs.get("cancel_check")
 
-        selected_nodes = self._greedy_node_selection(graph)
+        selected_nodes = self._greedy_node_selection(graph, cancel_check=cancel_check)
         coverage_analysis = self._analyze_coverage(graph, selected_nodes)
         ordered_nodes = selected_nodes + [node for node in graph.nodes() if node not in selected_nodes]
-        proposed_configurations = assign_configurations(graph, ordered_nodes)
+        proposed_configurations = assign_configurations(graph, ordered_nodes, cancel_check=cancel_check)
         apply_configurations_to_graph(graph, proposed_configurations)
 
         analysis = {
@@ -40,12 +46,13 @@ class GreedyStrategy(GraphAnalysisStrategy):
 
         return analysis
 
-    def _greedy_node_selection(self, graph: nx.Graph) -> List[str]:
+    def _greedy_node_selection(self, graph: nx.Graph, cancel_check=None) -> List[str]:
         nodes = list(graph.nodes())
         selected = []
         remaining = set(nodes)
 
         while remaining:
+            ensure_not_cancelled(cancel_check)
             best_node = max(remaining, key=lambda node: self._weighted_degree(graph, node))
             selected.append(best_node)
 

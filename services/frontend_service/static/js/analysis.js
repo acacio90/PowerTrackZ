@@ -1,5 +1,5 @@
 window.addEventListener('DOMContentLoaded', function() {
-    window.selectedStrategy = 'backtracking';
+    window.selectedStrategy = null;
 
     const style = document.createElement('style');
     style.textContent = `
@@ -106,11 +106,103 @@ window.addEventListener('DOMContentLoaded', function() {
             background-color: #198754;
             border-color: #198754;
         }
+        .analysis-loading-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(3px);
+            z-index: 20;
+        }
+        .analysis-loading-overlay.is-visible {
+            display: flex;
+        }
+        .analysis-loading-card {
+            width: min(420px, 100%);
+            padding: 1.25rem 1.35rem;
+            border: 1px solid rgba(13, 110, 253, 0.15);
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 18px 36px rgba(24, 34, 45, 0.12);
+        }
+        .analysis-loading-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.9rem;
+        }
+        .analysis-loading-spinner {
+            width: 1.1rem;
+            height: 1.1rem;
+            border: 2px solid rgba(13, 110, 253, 0.18);
+            border-top-color: #0d6efd;
+            border-radius: 999px;
+            animation: analysis-spin 0.9s linear infinite;
+            flex-shrink: 0;
+        }
+        .analysis-loading-title {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #18222d;
+        }
+        .analysis-loading-description {
+            margin: 0 0 1rem;
+            color: #526272;
+            font-size: 0.92rem;
+            line-height: 1.45;
+        }
+        .analysis-loading-bar {
+            width: 100%;
+            height: 0.7rem;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #e9eef4;
+        }
+        .analysis-loading-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #0d6efd 0%, #4dabf7 100%);
+            transition: width 0.2s ease;
+        }
+        .analysis-loading-fill.is-indeterminate {
+            width: 38%;
+            animation: analysis-loading-slide 1.2s ease-in-out infinite;
+        }
+        .analysis-loading-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 0.8rem;
+            font-size: 0.84rem;
+            color: #526272;
+        }
+        .analysis-loading-cancel {
+            margin-top: 1rem;
+            width: 100%;
+        }
+        @keyframes analysis-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes analysis-loading-slide {
+            0% { transform: translateX(-120%); }
+            50% { transform: translateX(120%); }
+            100% { transform: translateX(-120%); }
+        }
     `;
     document.head.appendChild(style);
 
     let apsOriginais = [];
     let apsOtimizado = [];
+    let analysisRequestToken = 0;
+    let currentAnalysisJobId = null;
+    let currentAnalysisAbortController = null;
+    const graphInstances = {};
     let existingGraphContainer = document.querySelector('.content-container');
     let pageContainer = document.querySelector('.page-container');
 
@@ -156,13 +248,117 @@ window.addEventListener('DOMContentLoaded', function() {
         const legenda = document.createElement('div');
         legenda.className = 'legenda';
 
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'analysis-loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="analysis-loading-card">
+                <div class="analysis-loading-header">
+                    <div class="analysis-loading-spinner"></div>
+                    <p class="analysis-loading-title">Processando analise</p>
+                </div>
+                <p class="analysis-loading-description">Preparando dados do grafo.</p>
+                <div class="analysis-loading-bar">
+                    <div class="analysis-loading-fill is-indeterminate"></div>
+                </div>
+                <div class="analysis-loading-meta">
+                    <span class="analysis-loading-step">Aguardando resposta do servidor</span>
+                    <span class="analysis-loading-percent">Progresso do algoritmo: --</span>
+                </div>
+                <button type="button" class="analysis-loading-cancel btn btn-outline-danger">Cancelar</button>
+            </div>
+        `;
+
         container.appendChild(cyDiv);
         container.appendChild(legenda);
+        container.appendChild(loadingOverlay);
         return container;
     }
 
     function getLegendaDiv(containerId) {
         return document.getElementById(containerId).parentNode.querySelector('.legenda');
+    }
+
+    function getLoadingOverlay(containerId) {
+        return document.getElementById(containerId).parentNode.querySelector('.analysis-loading-overlay');
+    }
+
+    function getStrategyDisplayName(strategy) {
+        return {
+            backtracking: 'Backtracking',
+            greedy: 'Greedy',
+            genetic: 'Genetic (AG)'
+        }[strategy] || 'Selecione uma estrategia';
+    }
+
+    function setAnalysisButtonsDisabled(disabled) {
+        document.querySelectorAll('.btn-server-analysis').forEach(button => {
+            button.disabled = disabled;
+        });
+    }
+
+    function setEmptyOptimizedState(message) {
+        if (graphInstances.cy2) {
+            graphInstances.cy2.destroy();
+            delete graphInstances.cy2;
+        }
+
+        const cy2 = document.getElementById('cy2');
+        if (cy2) {
+            cy2.innerHTML = `<p style="color:#526272; text-align:center; padding-top:3rem;">${message}</p>`;
+        }
+
+        const legenda = getLegendaDiv('cy2');
+        if (legenda) {
+            legenda.innerHTML = '';
+        }
+
+        const tableContainer = document.getElementById('tabela-alteracoes-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = '';
+            tableContainer.className = '';
+        }
+    }
+
+    function setGraphLoading(containerId, options = {}) {
+        const overlay = getLoadingOverlay(containerId);
+        if (!overlay) {
+            return;
+        }
+
+        const {
+            visible = true,
+            title = 'Processando analise',
+            description = 'Preparando dados do grafo.',
+            step = 'Aguardando resposta do servidor',
+            percentage = null
+        } = options;
+
+        overlay.classList.toggle('is-visible', visible);
+        if (!visible) {
+            return;
+        }
+
+        overlay.querySelector('.analysis-loading-title').textContent = title;
+        overlay.querySelector('.analysis-loading-description').textContent = description;
+        overlay.querySelector('.analysis-loading-step').textContent = step;
+        const cancelButton = overlay.querySelector('.analysis-loading-cancel');
+        if (cancelButton) {
+            cancelButton.hidden = !visible;
+        }
+
+        const percentEl = overlay.querySelector('.analysis-loading-percent');
+        const fillEl = overlay.querySelector('.analysis-loading-fill');
+
+        if (typeof percentage === 'number' && Number.isFinite(percentage)) {
+            const normalized = Math.max(0, Math.min(100, percentage));
+            percentEl.textContent = `Progresso do algoritmo: ${normalized.toFixed(0)}%`;
+            fillEl.classList.remove('is-indeterminate');
+            fillEl.style.width = `${normalized}%`;
+        } else {
+            percentEl.textContent = 'Progresso do algoritmo: --';
+            fillEl.classList.add('is-indeterminate');
+            fillEl.style.width = '';
+        }
     }
 
     function atualizarBotoesEstrategia() {
@@ -241,7 +437,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     ${node.label || node.id}<br>
                     Canal: ${channel || 'N/A'}<br>
                     Bandwidth: ${bandwidth || 'N/A'}<br>
-                    Frequência: ${frequency || 'N/A'}
+                    Frequencia: ${frequency || 'N/A'}
                 </div>
             `;
             legendaDiv.appendChild(legendaItem);
@@ -249,6 +445,15 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderizarCytoscape(containerId, graphData) {
+        if (graphInstances[containerId]) {
+            graphInstances[containerId].destroy();
+        }
+
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = '';
+        }
+
         const elements = [];
 
         graphData.nodes.forEach(node => {
@@ -271,8 +476,8 @@ window.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        cytoscape({
-            container: document.getElementById(containerId),
+        graphInstances[containerId] = cytoscape({
+            container,
             elements,
             style: [
                 {
@@ -391,9 +596,9 @@ window.addEventListener('DOMContentLoaded', function() {
             <thead>
                 <tr>
                     <th>Nome do AP</th>
-                    <th>Configura\u00e7\u00e3o Original</th>
-                    <th>Configura\u00e7\u00e3o Proposta</th>
-                    <th>A\u00e7\u00f5es</th>
+                    <th>Configuracao Original</th>
+                    <th>Configuracao Proposta</th>
+                    <th>Acoes</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -455,14 +660,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const titulo = document.createElement('h3');
         const estrategiaNome = estrategia || window.selectedStrategy;
-        const nomeEstrategia = {
-            backtracking: 'Backtracking',
-            greedy: 'Greedy',
-            genetic: 'Genetic (AG)'
-        }[estrategiaNome] || 'Backtracking';
+        const nomeEstrategia = getStrategyDisplayName(estrategiaNome);
 
         titulo.className = 'app-table-title analysis-changes-title';
-        titulo.textContent = `Altera\u00e7\u00f5es de Configura\u00e7\u00e3o Propostas pelo ${nomeEstrategia}`;
+        titulo.textContent = `Alteracoes de Configuracao Propostas pelo ${nomeEstrategia}`;
         container.appendChild(titulo);
 
         const tableShell = document.createElement('div');
@@ -479,7 +680,7 @@ window.addEventListener('DOMContentLoaded', function() {
     function renderConfigPills(config, highlight = false) {
         const pillClass = highlight ? 'analysis-config-pill is-new' : 'analysis-config-pill';
         const changeIcon = highlight
-            ? '<span class="analysis-change-icon" title="Configura\u00e7\u00e3o alterada">&#8635;</span>'
+            ? '<span class="analysis-change-icon" title="Configuracao alterada">&#8635;</span>'
             : '';
 
         return `
@@ -510,28 +711,224 @@ window.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    function criarAnaliseOtimizada() {
-        fetch((window.ANALYSIS_API && window.ANALYSIS_API.analyzeGraph) || '/api/analysis/analyze-graph', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(montarPayloadAnalise(apsOtimizado))
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    throw new Error(data.error || 'Falha na análise');
+    async function cancelarAnaliseEmExecucao() {
+        analysisRequestToken += 1;
+
+        if (!currentAnalysisJobId) {
+            if (currentAnalysisAbortController) {
+                currentAnalysisAbortController.abort();
+                currentAnalysisAbortController = null;
+            }
+            setGraphLoading('cy2', { visible: false });
+            setAnalysisButtonsDisabled(false);
+            return;
+        }
+
+        try {
+            await fetch(
+                (window.ANALYSIS_API && window.ANALYSIS_API.cancelAnalysis) || '/api/analysis/cancel-analysis',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_id: currentAnalysisJobId })
+                }
+            );
+        } catch (error) {
+            console.warn('Falha ao solicitar cancelamento da analise:', error);
+        }
+
+        if (currentAnalysisAbortController) {
+            currentAnalysisAbortController.abort();
+            currentAnalysisAbortController = null;
+        }
+
+        currentAnalysisJobId = null;
+        setGraphLoading('cy2', { visible: false });
+        setAnalysisButtonsDisabled(false);
+        setEmptyOptimizedState('Execucao cancelada. Selecione uma estrategia para iniciar novamente.');
+    }
+
+    function aplicarResultadoAnalise(data, requestToken) {
+        if (requestToken !== analysisRequestToken) {
+            return;
+        }
+
+        if (!data.success) {
+            throw new Error(data.error || 'Falha na analise');
+        }
+
+        const graphData = data.graph_data || { nodes: [], links: [] };
+        renderizarCytoscape('cy2', graphData);
+        renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
+        atualizarInfoConsumo('cy2', graphData.nodes, true);
+        exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);
+        setGraphLoading('cy2', {
+            visible: true,
+            title: `Executando ${getStrategyDisplayName(data.strategy_used)}`,
+            description: 'Analise concluida com sucesso.',
+            step: 'Processamento finalizado',
+            percentage: 100
+        });
+        setAnalysisButtonsDisabled(false);
+        currentAnalysisJobId = null;
+        currentAnalysisAbortController = null;
+        setTimeout(() => {
+            if (requestToken === analysisRequestToken) {
+                setGraphLoading('cy2', { visible: false });
+            }
+        }, 500);
+    }
+
+    async function consumirStreamAnalise(payload, requestToken) {
+        currentAnalysisAbortController = new AbortController();
+        const response = await fetch(
+            (window.ANALYSIS_API && window.ANALYSIS_API.analyzeGraphStream) || '/api/analysis/analyze-graph-stream',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: currentAnalysisAbortController.signal
+            }
+        );
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Falha ao iniciar a analise');
+        }
+
+        if (!response.body || typeof TextDecoder === 'undefined') {
+            const fallback = await fetch(
+                (window.ANALYSIS_API && window.ANALYSIS_API.analyzeGraph) || '/api/analysis/analyze-graph',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }
+            );
+            const fallbackData = await fallback.json();
+            aplicarResultadoAnalise(fallbackData, requestToken);
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalResult = null;
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+                break;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            let lineBreakIndex = buffer.indexOf('\n');
+
+            while (lineBreakIndex >= 0) {
+                const line = buffer.slice(0, lineBreakIndex).trim();
+                buffer = buffer.slice(lineBreakIndex + 1);
+
+                if (line) {
+                    const event = JSON.parse(line);
+                    if (requestToken !== analysisRequestToken) {
+                        return;
+                    }
+
+                    if (event.type === 'started') {
+                        currentAnalysisJobId = event.payload.job_id || null;
+                        setGraphLoading('cy2', {
+                            visible: true,
+                            title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
+                            description: 'Aplicando a estrategia escolhida sobre o grafo de colisoes.',
+                            step: event.payload.message || 'Iniciando processamento',
+                            percentage: null
+                        });
+                    } else if (event.type === 'progress') {
+                        const progress = event.payload || {};
+                        const totalNodes = progress.total_nodes || 0;
+                        const currentNode = progress.current_node ? ` | Atual: ${progress.current_node}` : '';
+                        const isSearchStage = progress.stage === 'search';
+                        const processedNodes = isSearchStage
+                            ? (progress.processed_nodes || 0)
+                            : (progress.painted_nodes || 0);
+                        const description = isSearchStage
+                            ? 'Buscando cliques maximos no grafo antes da coloracao.'
+                            : 'Colorindo os nos do grafo conforme a estrategia selecionada.';
+                        const stepText = isSearchStage
+                            ? `${processedNodes}/${totalNodes} nos-base explorados${currentNode}`
+                            : `${processedNodes}/${totalNodes} nos pintados${currentNode}`;
+                        setGraphLoading('cy2', {
+                            visible: true,
+                            title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
+                            description,
+                            step: stepText,
+                            percentage: progress.percentage
+                        });
+                    } else if (event.type === 'result') {
+                        finalResult = event.payload;
+                    } else if (event.type === 'cancelled') {
+                        throw new Error((event.payload && event.payload.error) || 'Analise cancelada pelo usuario');
+                    } else if (event.type === 'error') {
+                        throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+                    }
                 }
 
-                const graphData = data.graph_data || { nodes: [], links: [] };
-                renderizarCytoscape('cy2', graphData);
-                renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
-                atualizarInfoConsumo('cy2', graphData.nodes, true);
-                exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);
-            })
-            .catch(error => {
-                document.getElementById('cy2').innerHTML = '<p style="color:red">Erro ao carregar a análise.</p>';
-                console.error('Erro ao carregar análise otimizada:', error);
-            });
+                lineBreakIndex = buffer.indexOf('\n');
+            }
+        }
+
+        buffer += decoder.decode();
+        if (buffer.trim()) {
+            const event = JSON.parse(buffer.trim());
+            if (event.type === 'result') {
+                finalResult = event.payload;
+            } else if (event.type === 'error') {
+                throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+            }
+        }
+
+        if (!finalResult) {
+            throw new Error('Resposta de analise incompleta.');
+        }
+
+        aplicarResultadoAnalise(finalResult, requestToken);
+    }
+
+    async function criarAnaliseOtimizada() {
+        if (!window.selectedStrategy) {
+            return;
+        }
+
+        const payload = montarPayloadAnalise(apsOtimizado);
+        const requestToken = ++analysisRequestToken;
+
+        setAnalysisButtonsDisabled(true);
+        currentAnalysisJobId = null;
+        setGraphLoading('cy2', {
+            visible: true,
+            title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
+            description: 'Preparando a analise otimizada do grafo.',
+            step: 'Enviando dados para o servidor',
+            percentage: null
+        });
+
+        try {
+            await consumirStreamAnalise(payload, requestToken);
+        } catch (error) {
+            if (requestToken !== analysisRequestToken) {
+                return;
+            }
+
+            currentAnalysisJobId = null;
+            currentAnalysisAbortController = null;
+            setGraphLoading('cy2', { visible: false });
+            setAnalysisButtonsDisabled(false);
+            if (error && error.name === 'AbortError') {
+                return;
+            }
+            document.getElementById('cy2').innerHTML = '<p style="color:red">Erro ao carregar a analise.</p>';
+            console.error('Erro ao carregar analise otimizada:', error);
+        }
     }
 
     const strategyInfo = document.getElementById('strategyInfo');
@@ -542,10 +939,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
             const data = await res.json();
             if (data && data.success && data.strategies && strategyInfo) {
-                strategyInfo.textContent = 'Estratégias: ' + Object.keys(data.strategies).join(', ');
+                strategyInfo.textContent = 'Estrategias: ' + Object.keys(data.strategies).join(', ');
             }
         } catch (error) {
-            console.warn('Não foi possível obter estratégias do servidor:', error);
+            console.warn('Nao foi possivel obter estrategias do servidor:', error);
         }
     }
 
@@ -557,11 +954,17 @@ window.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    document.querySelectorAll('.analysis-loading-cancel').forEach(button => {
+        button.addEventListener('click', () => {
+            cancelarAnaliseEmExecucao();
+        });
+    });
+
     fetchStrategiesFromServer();
     atualizarBotoesEstrategia();
 
     carregarAPs(() => {
         criarGrafoOriginal();
-        criarAnaliseOtimizada();
+        setEmptyOptimizedState('Selecione uma estrategia para executar a analise otimizada.');
     });
 });

@@ -53,6 +53,9 @@
                                 <button class="btn btn-primary" id="btn-import-json" type="button">
                                     <i class="fas fa-file-import"></i> Importar JSON
                                 </button>
+                                <button class="btn btn-secondary" id="btn-delete-selected" type="button">
+                                    <i class="fas fa-trash"></i> Excluir Selecionados
+                                </button>
                             </div>
                         </div>
                         <div id="import-feedback" class="import-feedback" hidden></div>
@@ -61,12 +64,15 @@
                             <table class="data-table app-table">
                                 <thead>
                                     <tr>
+                                        <th>
+                                            <input type="checkbox" id="select-all-points" aria-label="Selecionar todos">
+                                        </th>
                                         <th>AP</th>
                                         <th>Coord.</th>
                                         <th>Frq.</th>
                                         <th>Banda</th>
                                         <th>Cn</th>
-                                        <th aria-label="Acoes"></th>
+                                        <th aria-label="Editar"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -77,20 +83,23 @@
                                         data-longitude="{{ point.longitude if point.longitude is not none else '' }}"
                                         class="{% if not point.latitude or not point.longitude %}row-missing-coords{% else %}row-has-coords{% endif %}"
                                     >
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                class="point-checkbox"
+                                                value="{{ point.id }}"
+                                                aria-label="Selecionar {{ point.name }}"
+                                            >
+                                        </td>
                                         <td><i class="fas fa-wifi"></i> {{ point.name }}</td>
                                         <td><span class="coords">{{ point.latitude if point.latitude is not none else '-' }}, {{ point.longitude if point.longitude is not none else '-' }}</span></td>
                                         <td>{{ point.frequency }}</td>
                                         <td>{{ point.bandwidth }}</td>
                                         <td>{{ point.channel }}</td>
                                         <td>
-                                            <div class="table-actions">
                                             <button class="action-button" onclick="openEditModal('{{ point.id }}')" title="Editar ponto de acesso">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="action-button action-button-danger" onclick='deleteAccessPoint({{ point.id|tojson }})' title="Excluir ponto de acesso">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -262,6 +271,40 @@
         document.getElementById('modal-edit-point').style.display = 'none';
     };
 
+    const selectAllPoints = document.getElementById('select-all-points');
+    const deleteSelectedButton = document.getElementById('btn-delete-selected');
+
+    function getPointCheckboxes() {
+        return Array.from(document.querySelectorAll('.point-checkbox'));
+    }
+
+    function syncSelectAllCheckbox() {
+        if (!selectAllPoints) {
+            return;
+        }
+
+        const checkboxes = getPointCheckboxes();
+        const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+        selectAllPoints.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+        selectAllPoints.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+    }
+
+    async function removeAccessPointRow(pointId) {
+        const response = await fetch(`/api/access_points/${encodeURIComponent(pointId)}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || `Erro ao remover ponto ${pointId}.`);
+        }
+
+        const row = document.querySelector(`tr[data-point-id="${CSS.escape(pointId)}"]`);
+        if (row) {
+            row.remove();
+        }
+    }
+
     document.getElementById('form-edit-point').onsubmit = async function(e) {
         e.preventDefault();
         const id = document.getElementById('edit-id').value.trim();
@@ -300,38 +343,48 @@
         }
     };
 
-    async function deleteAccessPoint(pointId) {
-        if (!pointId) {
-            alert('ID do ponto de acesso nao encontrado. Nao e possivel excluir.');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/access_points/${encodeURIComponent(pointId)}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json().catch(() => ({}));
-
-            if (response.ok && result.success) {
-                const row = document.querySelector(`tr[data-point-id="${CSS.escape(pointId)}"]`);
-                if (row) {
-                    row.remove();
-                }
-                if (typeof window.refreshAccessPointMap === 'function') {
-                    window.refreshAccessPointMap();
-                }
-            } else {
-                alert(result.error || 'Erro ao remover ponto de acesso.');
-            }
-        } catch (err) {
-            alert('Erro ao remover ponto de acesso: ' + err);
-        }
-    }
-
-    window.deleteAccessPoint = deleteAccessPoint;
-
     document.addEventListener('DOMContentLoaded', function() {
         const formAdd = document.getElementById('form-add-point');
+        const checkboxes = getPointCheckboxes();
+
+        if (selectAllPoints) {
+            selectAllPoints.addEventListener('change', function() {
+                getPointCheckboxes().forEach(checkbox => {
+                    checkbox.checked = selectAllPoints.checked;
+                });
+                syncSelectAllCheckbox();
+            });
+        }
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', syncSelectAllCheckbox);
+        });
+
+        if (deleteSelectedButton) {
+            deleteSelectedButton.addEventListener('click', async function() {
+                const selectedIds = getPointCheckboxes()
+                    .filter(checkbox => checkbox.checked)
+                    .map(checkbox => checkbox.value);
+
+                if (!selectedIds.length) {
+                    return;
+                }
+
+                try {
+                    for (const pointId of selectedIds) {
+                        await removeAccessPointRow(pointId);
+                    }
+
+                    syncSelectAllCheckbox();
+                    if (typeof window.refreshAccessPointMap === 'function') {
+                        window.refreshAccessPointMap();
+                    }
+                } catch (err) {
+                    alert(err.message || 'Erro ao remover pontos selecionados.');
+                }
+            });
+        }
+
         if (formAdd) {
             formAdd.addEventListener('submit', async function(event) {
                 event.preventDefault();
@@ -352,28 +405,29 @@
                     bandwidth: bwInput.value.includes('MHz') ? bwInput.value : bwInput.value + ' MHz',
                     channel: channelInput.value,
                     latitude: latInput.value,
-                    longitude: lngInput.value,
-                    coordenadas: `${latInput.value},${lngInput.value}`
+                    longitude: lngInput.value
                 };
 
-                const response = await fetch('/register', {
+                const response = await fetch('/api/access_points', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
 
+                let result = {};
+                try {
+                    result = await response.json();
+                } catch (e) {}
+
                 if (response.ok) {
-                    alert('Ponto cadastrado com sucesso!');
                     window.location.reload();
                 } else {
-                    let result = {};
-                    try {
-                        result = await response.json();
-                    } catch (e) {}
                     alert(result.error || 'Erro ao cadastrar ponto.');
                 }
             });
         }
+
+        syncSelectAllCheckbox();
     });
     </script>
 </body>

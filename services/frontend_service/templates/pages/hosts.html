@@ -110,6 +110,29 @@
         margin: 0;
     }
 
+    .hosts-generator-note {
+        margin: 0;
+        color: #526272;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+
+    #modal-generate-hosts.modal {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem 1rem;
+    }
+
+    #modal-generate-hosts .modal-content {
+        width: min(560px, 100%);
+        max-width: 560px;
+    }
+
+    #modal-generate-hosts .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     @media (max-width: 900px) {
         .hosts-hero {
             padding: 1.25rem;
@@ -149,13 +172,16 @@
                         <button class="btn btn-secondary" id="btn-import-hosts-json" type="button">
                             <i class="fa-solid fa-file-import"></i> Importar JSON
                         </button>
+                        <button class="btn btn-secondary" id="btn-generate-hosts-json" type="button">
+                            <i class="fa-solid fa-diagram-project"></i> Gerar JSON
+                        </button>
                         <button class="btn btn-primary" id="btn-save-all" type="button">
                             <i class="fa-solid fa-floppy-disk"></i> Salvar
                         </button>
                     </div>
                 </div>
                 <p class="hosts-subtitle">
-                    Consulte os APs do Zabbix. Se a conexao nao estiver disponivel, importe um JSON local, revise a tabela e use Salvar para persistir no banco.
+                    Consulte os APs do Zabbix. Se a conexao nao estiver disponivel, importe um JSON local, gere uma topologia aleatoria ou use Salvar para persistir no banco.
                 </p>
             </div>
 
@@ -208,12 +234,48 @@
 
                 <div class="alert alert-info hosts-empty" id="hosts-empty-state"{% if hosts %} hidden{% endif %}>
                     <i class="fas fa-info-circle"></i>
-                    Nenhum ponto de acesso carregado. Importe um arquivo JSON ou ajuste a conexao com o Zabbix.
+                    Nenhum ponto de acesso carregado. Importe um arquivo JSON, gere uma topologia ou ajuste a conexao com o Zabbix.
                 </div>
             </div>
         </section>
     </div>
 </section>
+
+<div id="modal-generate-hosts" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-diagram-project"></i> Gerar Infraestrutura</h2>
+            <span class="close" id="close-generate-modal">&times;</span>
+        </div>
+        <form id="form-generate-hosts-json">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="generate-node-count">
+                        <i class="fa-solid fa-circle-nodes"></i> Quantidade de nos
+                    </label>
+                    <input type="number" id="generate-node-count" min="2" max="500" value="12" required>
+                </div>
+                <div class="form-group">
+                    <label for="generate-clique-factor">
+                        <i class="fa-solid fa-share-nodes"></i> Fator de clique
+                    </label>
+                    <input type="number" id="generate-clique-factor" min="1" max="20" value="2" required>
+                </div>
+                <div class="form-group full-width">
+                    <p class="hosts-generator-note">
+                        O fator de clique define o minimo de conexoes que cada AP tentara manter na topologia gerada.
+                    </p>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-generate-modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="submit-generate-hosts-json">
+                    <i class="fa-solid fa-download"></i> Gerar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -224,6 +286,7 @@ let stagedSource = stagedAccessPoints.length ? 'zabbix' : 'none';
 
 const btnSaveAll = document.getElementById('btn-save-all');
 const btnImportHostsJson = document.getElementById('btn-import-hosts-json');
+const btnGenerateHostsJson = document.getElementById('btn-generate-hosts-json');
 const inputImportHostsJson = document.getElementById('input-import-hosts-json');
 const hostsTableBody = document.getElementById('hosts-table-body');
 const hostsTableWrap = document.getElementById('hosts-table-wrap');
@@ -231,6 +294,13 @@ const hostsEmptyState = document.getElementById('hosts-empty-state');
 const hostsTableSummary = document.getElementById('hosts-table-summary');
 const hostsSourceText = document.getElementById('hosts-source-text');
 const hostsFeedback = document.getElementById('hosts-feedback');
+const generateModal = document.getElementById('modal-generate-hosts');
+const closeGenerateModal = document.getElementById('close-generate-modal');
+const cancelGenerateModal = document.getElementById('cancel-generate-modal');
+const generateHostsForm = document.getElementById('form-generate-hosts-json');
+const generateNodeCountInput = document.getElementById('generate-node-count');
+const generateCliqueFactorInput = document.getElementById('generate-clique-factor');
+const generateSubmitButton = document.getElementById('submit-generate-hosts-json');
 
 function normalizeZabbixHosts(items) {
     if (!Array.isArray(items)) return [];
@@ -253,11 +323,17 @@ function normalizeZabbixHosts(items) {
 }
 
 function normalizeImportedHosts(items) {
-    if (!Array.isArray(items)) {
-        throw new Error('O arquivo deve conter uma lista JSON de pontos de acesso.');
+    const sourceItems = Array.isArray(items)
+        ? items
+        : Array.isArray(items?.aps)
+            ? items.aps
+            : null;
+
+    if (!sourceItems) {
+        throw new Error('O arquivo deve conter uma lista JSON de pontos de acesso ou um objeto com a chave "aps".');
     }
 
-    return items.map((item, index) => {
+    return sourceItems.map((item, index) => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) {
             throw new Error(`Item ${index + 1}: formato invalido.`);
         }
@@ -316,6 +392,18 @@ function renderTable() {
     hostsSourceText.textContent = stagedSource === 'import' ? 'JSON importado' : 'Zabbix';
 }
 
+function openGenerateModal() {
+    if (generateModal) {
+        generateModal.style.display = 'flex';
+    }
+}
+
+function closeGenerateModalHandler() {
+    if (generateModal) {
+        generateModal.style.display = 'none';
+    }
+}
+
 function showHostsFeedback(type, message, details = []) {
     if (!hostsFeedback) return;
 
@@ -329,6 +417,35 @@ function showHostsFeedback(type, message, details = []) {
         <div>${message}</div>
         ${list}
     `;
+}
+
+async function saveGeneratedJsonFile(payload) {
+    const fileName = `powertrackz-infra-${payload.metadata.node_count}-aps.json`;
+    const fileContents = JSON.stringify(payload, null, 2);
+
+    if ('showSaveFilePicker' in window) {
+        const handle = await window.showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{
+                description: 'JSON',
+                accept: { 'application/json': ['.json'] }
+            }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(fileContents);
+        await writable.close();
+        return;
+    }
+
+    const blob = new Blob([fileContents], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(blobUrl);
 }
 
 async function handleImportHosts(event) {
@@ -346,6 +463,65 @@ async function handleImportHosts(event) {
         showHostsFeedback('danger', 'Falha ao importar o arquivo JSON.', [error.message]);
     } finally {
         event.target.value = '';
+    }
+}
+
+async function handleGenerateInfrastructure(event) {
+    event.preventDefault();
+
+    const nodeCount = Number.parseInt(generateNodeCountInput?.value || '', 10);
+    const cliqueFactor = Number.parseInt(generateCliqueFactorInput?.value || '', 10);
+
+    if (!Number.isInteger(nodeCount) || nodeCount < 2) {
+        showHostsFeedback('danger', 'Quantidade de nos invalida.', ['Informe um valor inteiro maior ou igual a 2.']);
+        return;
+    }
+
+    if (!Number.isInteger(cliqueFactor) || cliqueFactor < 1) {
+        showHostsFeedback('danger', 'Fator de clique invalido.', ['Informe um valor inteiro maior ou igual a 1.']);
+        return;
+    }
+
+    if (cliqueFactor >= nodeCount) {
+        showHostsFeedback('danger', 'Fator de clique invalido.', ['O fator de clique deve ser menor que a quantidade de nos.']);
+        return;
+    }
+
+    if (generateSubmitButton) {
+        generateSubmitButton.disabled = true;
+    }
+
+    try {
+        const response = await fetch('/api/access_points/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                node_count: nodeCount,
+                clique_factor: cliqueFactor
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Falha ao gerar a infraestrutura.');
+        }
+
+        const payload = result.payload;
+        await saveGeneratedJsonFile(payload);
+        closeGenerateModalHandler();
+        showHostsFeedback('success', 'Infraestrutura gerada com sucesso.', [
+            `${payload.metadata.node_count} AP(s) gerados`,
+            `${payload.links.length} ligacao(oes) criadas`
+        ]);
+    } catch (error) {
+        if (error && error.name === 'AbortError') {
+            return;
+        }
+        showHostsFeedback('danger', 'Falha ao gerar o JSON de infraestrutura.', [error.message]);
+    } finally {
+        if (generateSubmitButton) {
+            generateSubmitButton.disabled = false;
+        }
     }
 }
 
@@ -407,6 +583,34 @@ if (btnImportHostsJson && inputImportHostsJson) {
     });
     inputImportHostsJson.addEventListener('change', handleImportHosts);
 }
+
+if (btnGenerateHostsJson) {
+    btnGenerateHostsJson.addEventListener('click', openGenerateModal);
+}
+
+if (closeGenerateModal) {
+    closeGenerateModal.addEventListener('click', closeGenerateModalHandler);
+}
+
+if (cancelGenerateModal) {
+    cancelGenerateModal.addEventListener('click', closeGenerateModalHandler);
+}
+
+if (generateHostsForm) {
+    generateHostsForm.addEventListener('submit', handleGenerateInfrastructure);
+}
+
+window.addEventListener('click', function(event) {
+    if (event.target === generateModal) {
+        closeGenerateModalHandler();
+    }
+});
+
+window.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && generateModal && generateModal.style.display === 'flex') {
+        closeGenerateModalHandler();
+    }
+});
 
 renderTable();
 </script>
