@@ -1,32 +1,21 @@
-// Inicializa o mapa
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('map');
-    if (!mapElement) return;
-    
-    let selectedCoordinates = null;
-    let mapInstance = null;
-    
-    if (typeof L === 'undefined') {
-        console.error('Leaflet não carregado');
+    if (!mapElement || typeof L === 'undefined') {
         return;
     }
-    
-    const mapIframe = mapElement.querySelector('iframe');
-    
-    // Inicializa mapa de acordo com estado atual
-    if (mapIframe) {
-        mapElement.innerHTML = '';
-        initMap();
-    } else if (mapElement.innerHTML.includes('leaflet')) {
-        setTimeout(addClickListenerToExistingMap, 500);
-    } else if (mapElement.childElementCount === 0) {
-        initMap();
-    } else {
-        mapElement.innerHTML = '';
-        initMap();
-    }
-    
-    // Botão para adicionar ponto
+
+    const DEFAULT_CENTER = [-24.061072, -52.386024];
+    const DEFAULT_ZOOM = 20;
+
+    let selectedCoordinates = null;
+    let mapInstance = null;
+    let currentMarker = null;
+    let currentCircle = null;
+    let accessPointLayer = null;
+    let lastMarkerBounds = [];
+
+    initMap();
+
     const btnAddPoint = document.getElementById('btn-add-point');
     if (btnAddPoint) {
         btnAddPoint.addEventListener('click', () => {
@@ -35,148 +24,152 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
-    // Inicializa mapa
+
     function initMap() {
         try {
-            const map = L.map('map').setView([-24.061072, -52.386024], 20);
-            mapInstance = map;
-            
+            mapElement.innerHTML = '';
+            mapInstance = L.map('map').setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
-            
-            let currentMarker = null;
-            let currentCircle = null;
-            
-            // Cria círculo baseado na frequência
-            function createCircle(latlng, color = 'red', frequency = '2.4') {
-                let radius = frequency === '5' ? 15 : frequency === '6' ? 10 : 20;
-                
-                return L.circle(latlng, {
-                    color: color,
-                    fillColor: color === 'red' ? '#f03' : color === 'green' ? '#0f0' : color === 'yellow' ? '#ff0' : '#03f',
-                    fillOpacity: 0.2,
-                    radius: radius
-                });
-            }
-            
-            // Gerencia cliques
-            function onMapClick(e) {
-                if (currentMarker) map.removeLayer(currentMarker);
-                if (currentCircle) map.removeLayer(currentCircle);
-                
-                const redIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                });
-                
-                currentMarker = L.marker(e.latlng, {icon: redIcon}).addTo(map);
-                currentCircle = createCircle(e.latlng, 'red').addTo(map);
-                
-                selectedCoordinates = { lat: e.latlng.lat, lng: e.latlng.lng };
-                storeCoordinates(e.latlng.lat, e.latlng.lng);
-            }
-            
-            map.on('click', onMapClick);
-            
-            // Carrega pontos da tabela
-            document.querySelectorAll('.data-table tbody tr').forEach(row => {
-                const coords = row.querySelector('.coords')?.textContent.trim().split(',');
-                const frequency = row.querySelector('td:nth-child(3)')?.textContent.trim();
-                
-                if (coords?.length === 2) {
-                    const [lat, lng] = coords.map(c => parseFloat(c.trim()));
-                    
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const iconColor = frequency.includes('5') ? 'green' : frequency.includes('6') ? 'yellow' : 'blue';
-                        const freq = frequency.includes('5') ? '5' : frequency.includes('6') ? '6' : '2.4';
-                        
-                        L.marker([lat, lng], {
-                            icon: L.icon({
-                                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${iconColor}.png`,
-                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                                iconSize: [25, 41],
-                                iconAnchor: [12, 41],
-                                popupAnchor: [1, -34],
-                                shadowSize: [41, 41]
-                            })
-                        }).addTo(map).bindPopup(row.querySelector('td:first-child').textContent.trim());
-                        
-                        createCircle([lat, lng], iconColor, freq).addTo(map);
-                    }
-                }
-            });
-            
-            document.dispatchEvent(new CustomEvent('mapReady', { detail: map }));
+            }).addTo(mapInstance);
+
+            accessPointLayer = L.layerGroup().addTo(mapInstance);
+            mapInstance.on('click', onMapClick);
+            refreshAccessPointMap();
+            window.setTimeout(refreshAccessPointMap, 250);
+
+            document.dispatchEvent(new CustomEvent('mapReady', { detail: mapInstance }));
         } catch (error) {
-            console.error("Erro ao inicializar mapa:", error);
+            console.error('Erro ao inicializar mapa:', error);
         }
     }
-    
-    // Gerencia mapa existente
-    function addClickListenerToExistingMap() {
-        try {
-            const leafletContainer = document.querySelector('.leaflet-container');
-            
-            if (leafletContainer) {
-                let leafletMap = mapElement._leaflet_id ? mapElement._leaflet_map : null;
-                
-                if (!leafletMap) {
-                    document.querySelectorAll('[class*="leaflet"]').forEach(el => {
-                        if (el._leaflet_id) leafletMap = el._leaflet_map;
-                    });
-                }
-                
-                if (!leafletMap) {
-                    mapElement.innerHTML = '';
-                    initMap();
-                    return;
-                }
-                
-                mapInstance = leafletMap;
-                leafletMap.off('click').on('click', e => handleMapClick(leafletMap, e.latlng.lat, e.latlng.lng));
-                document.dispatchEvent(new CustomEvent('mapReady', { detail: leafletMap }));
-            } else {
-                setTimeout(() => {
-                    if (!document.querySelector('.leaflet-container')) {
-                        mapElement.innerHTML = '';
-                        initMap();
-                    } else {
-                        addClickListenerToExistingMap();
-                    }
-                }, 1000);
-            }
-        } catch (error) {
-            console.error('Erro ao acessar mapa:', error);
-            mapElement.innerHTML = '';
-            initMap();
+
+    function onMapClick(event) {
+        if (currentMarker) {
+            mapInstance.removeLayer(currentMarker);
         }
+        if (currentCircle) {
+            mapInstance.removeLayer(currentCircle);
+        }
+
+        const redIcon = buildMarkerIcon('red');
+        currentMarker = L.marker(event.latlng, { icon: redIcon }).addTo(mapInstance);
+        currentCircle = createCircle(event.latlng, 'red').addTo(mapInstance);
+
+        selectedCoordinates = {
+            lat: event.latlng.lat,
+            lng: event.latlng.lng
+        };
+        storeCoordinates(selectedCoordinates.lat, selectedCoordinates.lng);
     }
-    
-    function handleMapClick(map, lat, lng) {
-        L.popup()
-            .setLatLng([lat, lng])
-            .setContent(`Você clicou em: ${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-            .openOn(map);
-        
-        selectedCoordinates = { lat, lng };
-        storeCoordinates(lat, lng);
+
+    function renderStoredAccessPoints() {
+        const markerBounds = [];
+        if (accessPointLayer) {
+            accessPointLayer.clearLayers();
+        }
+
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            const frequency = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
+            const lat = parseFloat(row.dataset.latitude || '');
+            const lng = parseFloat(row.dataset.longitude || '');
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                return;
+            }
+
+            const iconColor = frequency.includes('5') ? 'green' : frequency.includes('6') ? 'yellow' : 'blue';
+            const freq = frequency.includes('5') ? '5' : frequency.includes('6') ? '6' : '2.4';
+            const latLng = [lat, lng];
+
+            L.marker(latLng, { icon: buildMarkerIcon(iconColor) })
+                .addTo(accessPointLayer)
+                .bindPopup(row.querySelector('td:first-child').textContent.trim());
+
+            createCircle(latLng, iconColor, freq).addTo(accessPointLayer);
+            markerBounds.push(latLng);
+        });
+
+        lastMarkerBounds = markerBounds;
+        focusMap(markerBounds);
     }
-    
+
+    function focusMap(markerBounds) {
+        mapInstance.invalidateSize();
+
+        if (!markerBounds.length) {
+            mapInstance.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+            return;
+        }
+
+        if (markerBounds.length === 1) {
+            mapInstance.setView(markerBounds[0], 18);
+            return;
+        }
+
+        const bounds = L.latLngBounds(markerBounds);
+        mapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 18 });
+    }
+
+    function refreshAccessPointMap() {
+        window.requestAnimationFrame(() => {
+            if (!mapInstance) {
+                return;
+            }
+
+            mapInstance.invalidateSize();
+            renderStoredAccessPoints();
+        });
+    }
+
+    window.addEventListener('load', refreshAccessPointMap);
+    window.addEventListener('resize', () => {
+        if (!mapInstance) {
+            return;
+        }
+
+        mapInstance.invalidateSize();
+        focusMap(lastMarkerBounds);
+    });
+
+    function buildMarkerIcon(color) {
+        return L.icon({
+            iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+    }
+
+    function createCircle(latlng, color = 'red', frequency = '2.4') {
+        const radius = frequency === '5' ? 15 : frequency === '6' ? 10 : 20;
+        const fillColor = color === 'red'
+            ? '#f03'
+            : color === 'green'
+                ? '#0f0'
+                : color === 'yellow'
+                    ? '#ff0'
+                    : '#03f';
+
+        return L.circle(latlng, {
+            color: color,
+            fillColor: fillColor,
+            fillOpacity: 0.2,
+            radius: radius
+        });
+    }
+
     function storeCoordinates(lat, lng) {
         window.lastSelectedCoordinates = { lat, lng };
     }
-    
+
     function updateFormCoordinates(lat, lng) {
         if (typeof window.updateCoordinates === 'function') {
             window.updateCoordinates(lat, lng);
-        } else {
-            console.error("Função updateCoordinates não encontrada");
         }
     }
+
+    window.refreshAccessPointMap = refreshAccessPointMap;
 });

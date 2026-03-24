@@ -38,10 +38,24 @@
             <div class="register-grid">
                 <section class="table-section">
                     <div class="card app-table-card">
-                        <h2 class="card-title">
-                            <i class="fas fa-list"></i>
-                            Pontos de Acesso Registrados
-                        </h2>
+                        <div class="table-section-header">
+                            <h2 class="card-title">
+                                <i class="fas fa-list"></i>
+                                Pontos de Acesso Registrados
+                            </h2>
+                            <div class="table-section-actions">
+                                <input
+                                    type="file"
+                                    id="input-import-json"
+                                    accept=".json,application/json"
+                                    hidden
+                                >
+                                <button class="btn btn-primary" id="btn-import-json" type="button">
+                                    <i class="fas fa-file-import"></i> Importar JSON
+                                </button>
+                            </div>
+                        </div>
+                        <div id="import-feedback" class="import-feedback" hidden></div>
                         <div class="app-table-shell">
                             <div class="table-wrapper app-table-wrap">
                             <table class="data-table app-table">
@@ -51,22 +65,32 @@
                                         <th>Coord.</th>
                                         <th>Frq.</th>
                                         <th>Banda</th>
-                                        <th>Canal</th>
-                                        <th aria-label="Editar"></th>
+                                        <th>Cn</th>
+                                        <th aria-label="Acoes"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for point in points %}
-                                    <tr class="{% if not point.latitude or not point.longitude %}row-missing-coords{% else %}row-has-coords{% endif %}">
+                                    <tr
+                                        data-point-id="{{ point.id }}"
+                                        data-latitude="{{ point.latitude if point.latitude is not none else '' }}"
+                                        data-longitude="{{ point.longitude if point.longitude is not none else '' }}"
+                                        class="{% if not point.latitude or not point.longitude %}row-missing-coords{% else %}row-has-coords{% endif %}"
+                                    >
                                         <td><i class="fas fa-wifi"></i> {{ point.name }}</td>
                                         <td><span class="coords">{{ point.latitude if point.latitude is not none else '-' }}, {{ point.longitude if point.longitude is not none else '-' }}</span></td>
                                         <td>{{ point.frequency }}</td>
                                         <td>{{ point.bandwidth }}</td>
                                         <td>{{ point.channel }}</td>
                                         <td>
-                                            <button class="action-button" onclick="openEditModal('{{ point.id }}')">
+                                            <div class="table-actions">
+                                            <button class="action-button" onclick="openEditModal('{{ point.id }}')" title="Editar ponto de acesso">
                                                 <i class="fas fa-edit"></i>
                                             </button>
+                                            <button class="action-button action-button-danger" onclick='deleteAccessPoint({{ point.id|tojson }})' title="Excluir ponto de acesso">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -267,7 +291,6 @@
                 return;
             }
             if (response.ok && result.success) {
-                alert('Ponto de acesso atualizado com sucesso!');
                 window.location.reload();
             } else {
                 alert(result.error || 'Erro ao atualizar ponto de acesso.');
@@ -276,6 +299,36 @@
             alert('Erro ao atualizar ponto de acesso: ' + err);
         }
     };
+
+    async function deleteAccessPoint(pointId) {
+        if (!pointId) {
+            alert('ID do ponto de acesso nao encontrado. Nao e possivel excluir.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/access_points/${encodeURIComponent(pointId)}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json().catch(() => ({}));
+
+            if (response.ok && result.success) {
+                const row = document.querySelector(`tr[data-point-id="${CSS.escape(pointId)}"]`);
+                if (row) {
+                    row.remove();
+                }
+                if (typeof window.refreshAccessPointMap === 'function') {
+                    window.refreshAccessPointMap();
+                }
+            } else {
+                alert(result.error || 'Erro ao remover ponto de acesso.');
+            }
+        } catch (err) {
+            alert('Erro ao remover ponto de acesso: ' + err);
+        }
+    }
+
+    window.deleteAccessPoint = deleteAccessPoint;
 
     document.addEventListener('DOMContentLoaded', function() {
         const formAdd = document.getElementById('form-add-point');

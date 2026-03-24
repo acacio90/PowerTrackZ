@@ -143,6 +143,21 @@ def update_access_point(id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/access_points/<id>", methods=["DELETE"])
+def delete_access_point(id):
+    try:
+        ap = AccessPoint.query.get(id)
+        if not ap:
+            return jsonify({"error": "Ponto de acesso nao encontrado"}), 404
+
+        db.session.delete(ap)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Ponto de acesso removido com sucesso!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5004))
     host = os.environ.get("HOST", "0.0.0.0")

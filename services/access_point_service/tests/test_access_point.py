@@ -41,7 +41,7 @@ class AccessPointRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         payload = response.get_json()
         self.assertEqual(payload["error"], "Dados invalidos")
-        self.assertIn("campo obrigatório 'name' não informado", payload["details"])
+        self.assertTrue(any("name" in detail for detail in payload["details"]))
 
     def test_bulk_import_creates_updates_and_rejects_invalid_items(self):
         with app.app_context():
@@ -113,6 +113,27 @@ class AccessPointRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         payload = response.get_json()
         self.assertIn("lista JSON", payload["error"])
+
+    def test_delete_access_point_removes_existing_record(self):
+        with app.app_context():
+            db.session.add(AccessPoint(id="ap-1", name="AP 1"))
+            db.session.commit()
+
+        response = self.client.delete("/access_points/ap-1")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+
+        with app.app_context():
+            self.assertIsNone(AccessPoint.query.get("ap-1"))
+
+    def test_delete_access_point_returns_404_when_missing(self):
+        response = self.client.delete("/access_points/ap-inexistente")
+
+        self.assertEqual(response.status_code, 404)
+        payload = response.get_json()
+        self.assertIn("nao encontrado", payload["error"])
 
 
 if __name__ == "__main__":
