@@ -187,6 +187,11 @@ class AnalysisRoutesTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertEqual(payload["strategy_used"], "backtracking")
         self.assertIn("analysis", payload)
+        self.assertIn("execution", payload)
+        self.assertEqual(payload["execution"]["strategy"], "backtracking")
+        self.assertIn("duration_ms", payload["execution"])
+        self.assertIn("parameters", payload["execution"])
+        self.assertIn("graph_snapshot", payload["execution"])
         self.assertIn("graph_data", payload)
         self.assertIn("summary", payload)
 
@@ -205,6 +210,9 @@ class AnalysisRoutesTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertIn("backtracking", payload["comparison_results"])
         self.assertIn("greedy", payload["comparison_results"])
+        self.assertIn("execution", payload["comparison_results"]["backtracking"])
+        self.assertIn("duration_ms", payload["comparison_results"]["backtracking"]["execution"])
+        self.assertIn("execution", payload["comparison_results"]["greedy"])
 
     @patch("routes.load_access_points")
     def test_analyze_endpoint_returns_summary_from_access_points(self, mock_load_access_points):

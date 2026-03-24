@@ -5,6 +5,7 @@ import math
 import os
 from queue import Queue
 import threading
+import time
 from uuid import uuid4
 
 import networkx as nx
@@ -138,6 +139,24 @@ def run_strategy_analysis(strategy_name, graph, strategy_params):
     return strategy.analyze(graph, **strategy_params)
 
 
+def build_execution_metadata(strategy_name, graph, strategy_params, started_at, completed_at):
+    """Extrai metadados padronizados sobre a execucao da estrategia."""
+    duration_seconds = max(0.0, completed_at - started_at)
+    return {
+        "strategy": strategy_name,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "duration_seconds": round(duration_seconds, 6),
+        "duration_ms": round(duration_seconds * 1000, 3),
+        "parameters": strategy_params,
+        "graph_snapshot": {
+            "nodes": graph.number_of_nodes(),
+            "edges": graph.number_of_edges(),
+            "density": nx.density(graph),
+        },
+    }
+
+
 def load_access_points():
     """Busca os pontos de acesso por meio do gateway da API."""
     if not GATEWAY_URL:
@@ -190,14 +209,16 @@ def analyze_graph():
     try:
         data = request.get_json() or {}
         strategy_name = data.get("strategy", "backtracking")
-        strategy_params = data.get("parameters", {})
+        strategy_params = dict(data.get("parameters", {}))
 
         graph, graph_error = build_graph_from_request_payload(data)
         if graph_error:
             return graph_error
 
         try:
+            started_at = time.perf_counter()
             analysis = run_strategy_analysis(strategy_name, graph, strategy_params)
+            completed_at = time.perf_counter()
         except ValueError as exc:
             return error_response(str(exc), 400)
 
@@ -205,6 +226,13 @@ def analyze_graph():
             "success": True,
             "strategy_used": strategy_name,
             "analysis": analysis,
+            "execution": build_execution_metadata(
+                strategy_name,
+                graph,
+                strategy_params,
+                started_at,
+                completed_at,
+            ),
             "graph_data": json_graph.node_link_data(graph),
             "summary": summarize_graph(graph),
         })
@@ -250,6 +278,7 @@ def analyze_graph_stream():
                         "strategy": strategy_name,
                         "message": f"Executando estrategia {strategy_name}",
                     })
+                    started_at = time.perf_counter()
                     analysis = run_strategy_analysis(
                         strategy_name,
                         graph,
@@ -259,10 +288,18 @@ def analyze_graph_stream():
                             "cancel_check": cancel_event.is_set,
                         },
                     )
+                    completed_at = time.perf_counter()
                     push_event("result", {
                         "success": True,
                         "strategy_used": strategy_name,
                         "analysis": analysis,
+                        "execution": build_execution_metadata(
+                            strategy_name,
+                            graph,
+                            strategy_params,
+                            started_at,
+                            completed_at,
+                        ),
                         "graph_data": json_graph.node_link_data(graph),
                         "summary": summarize_graph(graph),
                     })
@@ -343,10 +380,21 @@ def compare_strategies():
         comparison_results = {}
         for strategy_name in strategy_names:
             try:
-                comparison_results[strategy_name] = run_strategy_analysis(
+                params_for_strategy = dict(strategy_params.get(strategy_name, {}))
+                started_at = time.perf_counter()
+                analysis = run_strategy_analysis(
                     strategy_name,
                     graph,
-                    strategy_params.get(strategy_name, {}),
+                    params_for_strategy,
+                )
+                completed_at = time.perf_counter()
+                comparison_results[strategy_name] = analysis
+                comparison_results[strategy_name]["execution"] = build_execution_metadata(
+                    strategy_name,
+                    graph,
+                    params_for_strategy,
+                    started_at,
+                    completed_at,
                 )
             except Exception as exc:
                 logger.error(f"Erro na estrategia {strategy_name}: {str(exc)}")

@@ -185,6 +185,46 @@ window.addEventListener('DOMContentLoaded', function() {
             margin-top: 1rem;
             width: 100%;
         }
+        .analysis-execution-card {
+            margin-top: 1rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid #d9e2ec;
+            border-radius: 14px;
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(24, 34, 45, 0.06);
+        }
+        .analysis-execution-card[hidden] {
+            display: none;
+        }
+        .analysis-execution-title {
+            margin: 0 0 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #18222d;
+        }
+        .analysis-execution-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.7rem 1rem;
+        }
+        .analysis-execution-item {
+            min-width: 0;
+        }
+        .analysis-execution-label {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #607080;
+        }
+        .analysis-execution-value {
+            display: block;
+            color: #22313f;
+            font-size: 0.92rem;
+            word-break: break-word;
+        }
         @keyframes analysis-spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
@@ -225,6 +265,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
     const grafoContainer1 = criarContainerGrafo('cy1');
     const grafoContainer2 = criarContainerGrafo('cy2');
+    const executionContainer = document.createElement('div');
+    executionContainer.id = 'analysis-execution-container';
+    executionContainer.className = 'analysis-execution-card';
+    executionContainer.hidden = true;
     const tabelaContainer = document.createElement('div');
     tabelaContainer.id = 'tabela-alteracoes-container';
     tabelaContainer.style.margin = '30px 0 0 0';
@@ -232,6 +276,7 @@ window.addEventListener('DOMContentLoaded', function() {
     if (existingGraphContainer) {
         existingGraphContainer.appendChild(grafoContainer1);
         existingGraphContainer.appendChild(grafoContainer2);
+        existingGraphContainer.appendChild(executionContainer);
     }
     if (pageContainer) {
         pageContainer.appendChild(tabelaContainer);
@@ -312,11 +357,67 @@ window.addEventListener('DOMContentLoaded', function() {
             legenda.innerHTML = '';
         }
 
+        renderExecutionMetadata(null);
+
         const tableContainer = document.getElementById('tabela-alteracoes-container');
         if (tableContainer) {
             tableContainer.innerHTML = '';
             tableContainer.className = '';
         }
+    }
+
+    function formatExecutionParameters(parameters) {
+        const items = Object.entries(parameters || {});
+        if (!items.length) {
+            return 'Padrao';
+        }
+
+        return items.map(([key, value]) => `${key}: ${value}`).join(' | ');
+    }
+
+    function renderExecutionMetadata(execution) {
+        const container = document.getElementById('analysis-execution-container');
+        if (!container) {
+            return;
+        }
+
+        if (!execution) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
+
+        const graphSnapshot = execution.graph_snapshot || {};
+        container.hidden = false;
+        container.innerHTML = `
+            <h3 class="analysis-execution-title">Metadados de Execucao</h3>
+            <div class="analysis-execution-grid">
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Estrategia</span>
+                    <span class="analysis-execution-value">${execution.strategy || '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Tempo</span>
+                    <span class="analysis-execution-value">${execution.duration_ms != null ? `${execution.duration_ms} ms` : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Nos</span>
+                    <span class="analysis-execution-value">${graphSnapshot.nodes ?? '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Arestas</span>
+                    <span class="analysis-execution-value">${graphSnapshot.edges ?? '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Densidade</span>
+                    <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Parametros</span>
+                    <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters)}</span>
+                </div>
+            </div>
+        `;
     }
 
     function setGraphLoading(containerId, options = {}) {
@@ -719,6 +820,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 currentAnalysisAbortController.abort();
                 currentAnalysisAbortController = null;
             }
+            renderExecutionMetadata(null);
             setGraphLoading('cy2', { visible: false });
             setAnalysisButtonsDisabled(false);
             return;
@@ -761,6 +863,7 @@ window.addEventListener('DOMContentLoaded', function() {
         renderizarCytoscape('cy2', graphData);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData.nodes, true);
+        renderExecutionMetadata(data.execution || null);
         exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);
         setGraphLoading('cy2', {
             visible: true,
@@ -921,6 +1024,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
             currentAnalysisJobId = null;
             currentAnalysisAbortController = null;
+            renderExecutionMetadata(null);
             setGraphLoading('cy2', { visible: false });
             setAnalysisButtonsDisabled(false);
             if (error && error.name === 'AbortError') {
