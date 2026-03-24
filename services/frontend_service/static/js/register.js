@@ -65,6 +65,20 @@ document.addEventListener('DOMContentLoaded', function() {
         return lines;
     }
 
+    function normalizeImportedAccessPoints(items) {
+        const sourceItems = Array.isArray(items)
+            ? items
+            : Array.isArray(items?.aps)
+                ? items.aps
+                : null;
+
+        if (!sourceItems) {
+            throw new Error('O arquivo deve conter uma lista JSON de APs ou um objeto com a chave "aps".');
+        }
+
+        return sourceItems;
+    }
+
     async function handleImportSelection(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
@@ -91,8 +105,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (!Array.isArray(payload)) {
-                showImportFeedback('error', 'O arquivo deve conter uma lista JSON de APs.', []);
+            try {
+                payload = normalizeImportedAccessPoints(payload);
+            } catch (validationError) {
+                showImportFeedback('error', validationError.message, []);
                 return;
             }
 

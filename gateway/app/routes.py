@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 import logging
 
 import requests
@@ -137,6 +137,48 @@ def analyze_graph():
         return jsonify(error_response), status_code
 
 
+@routes.route("/api/analysis/analyze-graph-stream", methods=["POST"])
+def analyze_graph_stream():
+    try:
+        response = session.post(
+            f"{Config.ANALYSIS_SERVICE_URL}/analyze-graph-stream",
+            json=request.get_json(),
+            timeout=None,
+            stream=True,
+        )
+
+        def generate():
+            try:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
+
+        return Response(
+            stream_with_context(generate()),
+            status=response.status_code,
+            content_type=response.headers.get("Content-Type", "application/x-ndjson"),
+        )
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "analysis_service")
+        return jsonify(error_response), status_code
+
+
+@routes.route("/api/analysis/cancel-analysis", methods=["POST"])
+def cancel_analysis():
+    try:
+        response = session.post(
+            f"{Config.ANALYSIS_SERVICE_URL}/cancel-analysis",
+            json=request.get_json(),
+            timeout=Config.HTTP_TIMEOUT,
+        )
+        return response.json(), response.status_code
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "analysis_service")
+        return jsonify(error_response), status_code
+
+
 @routes.route("/api/analysis/compare-strategies", methods=["POST"])
 def compare_strategies():
     try:
@@ -190,6 +232,20 @@ def import_access_points():
     try:
         response = session.post(
             f"{Config.ACCESS_POINT_SERVICE_URL}/access_points/import",
+            json=request.get_json(),
+            timeout=Config.HTTP_TIMEOUT,
+        )
+        return response.json(), response.status_code
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "access_point_service")
+        return jsonify(error_response), status_code
+
+
+@routes.route("/api/access_points/generate", methods=["POST"])
+def generate_access_points():
+    try:
+        response = session.post(
+            f"{Config.ACCESS_POINT_SERVICE_URL}/access_points/generate",
             json=request.get_json(),
             timeout=Config.HTTP_TIMEOUT,
         )

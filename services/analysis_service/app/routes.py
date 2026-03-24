@@ -1,14 +1,18 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, stream_with_context
+import json
 import logging
 import math
 import os
+from queue import Queue
+import threading
+from uuid import uuid4
 
 import networkx as nx
 from networkx.readwrite import json_graph
 import requests
 
 from strategies import StrategyFactory
-from strategies.common import build_color_from_key, build_configuration_key
+from strategies.common import AnalysisCancelledError, build_color_from_key, build_configuration_key
 
 
 routes = Blueprint("routes", __name__)
@@ -16,6 +20,8 @@ routes = Blueprint("routes", __name__)
 logger = logging.getLogger(__name__)
 
 GATEWAY_URL = os.environ.get("GATEWAY_URL")
+analysis_jobs = {}
+analysis_jobs_lock = threading.Lock()
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -205,6 +211,121 @@ def analyze_graph():
     except Exception as exc:
         logger.error(f"Erro na analise do grafo: {str(exc)}")
         return error_response(f"Erro interno: {str(exc)}", 500)
+
+
+@routes.route("/analyze-graph-stream", methods=["POST"])
+def analyze_graph_stream():
+    """Executa a analise com stream de progresso incremental."""
+    try:
+        data = request.get_json() or {}
+        strategy_name = data.get("strategy", "backtracking")
+        strategy_params = dict(data.get("parameters", {}))
+
+        graph, graph_error = build_graph_from_request_payload(data)
+        if graph_error:
+            return graph_error
+
+        def generate():
+            events: Queue = Queue()
+            sentinel = object()
+            job_id = f"job-{uuid4().hex}"
+            cancel_event = threading.Event()
+
+            with analysis_jobs_lock:
+                analysis_jobs[job_id] = cancel_event
+
+            def push_event(event_type, payload):
+                events.put({
+                    "type": event_type,
+                    "payload": payload,
+                })
+
+            def progress_callback(payload):
+                push_event("progress", payload)
+
+            def worker():
+                try:
+                    push_event("started", {
+                        "job_id": job_id,
+                        "strategy": strategy_name,
+                        "message": f"Executando estrategia {strategy_name}",
+                    })
+                    analysis = run_strategy_analysis(
+                        strategy_name,
+                        graph,
+                        {
+                            **strategy_params,
+                            "progress_callback": progress_callback,
+                            "cancel_check": cancel_event.is_set,
+                        },
+                    )
+                    push_event("result", {
+                        "success": True,
+                        "strategy_used": strategy_name,
+                        "analysis": analysis,
+                        "graph_data": json_graph.node_link_data(graph),
+                        "summary": summarize_graph(graph),
+                    })
+                except AnalysisCancelledError as exc:
+                    push_event("cancelled", {
+                        "success": False,
+                        "error": str(exc),
+                        "job_id": job_id,
+                    })
+                except ValueError as exc:
+                    push_event("error", {
+                        "success": False,
+                        "error": str(exc),
+                        "status_code": 400,
+                    })
+                except Exception as exc:
+                    logger.error(f"Erro na analise com stream: {str(exc)}")
+                    push_event("error", {
+                        "success": False,
+                        "error": f"Erro interno: {str(exc)}",
+                        "status_code": 500,
+                    })
+                finally:
+                    with analysis_jobs_lock:
+                        analysis_jobs.pop(job_id, None)
+                    events.put(sentinel)
+
+            threading.Thread(target=worker, daemon=True).start()
+
+            while True:
+                event = events.get()
+                if event is sentinel:
+                    break
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype="application/x-ndjson",
+        )
+    except Exception as exc:
+        logger.error(f"Erro ao iniciar stream da analise: {str(exc)}")
+        return error_response(f"Erro interno: {str(exc)}", 500)
+
+
+@routes.route("/cancel-analysis", methods=["POST"])
+def cancel_analysis():
+    data = request.get_json() or {}
+    job_id = data.get("job_id")
+    if not job_id:
+        return error_response("job_id obrigatorio", 400)
+
+    with analysis_jobs_lock:
+        cancel_event = analysis_jobs.get(job_id)
+
+    if not cancel_event:
+        return error_response("Execucao nao encontrada ou ja finalizada", 404)
+
+    cancel_event.set()
+    return jsonify({
+        "success": True,
+        "job_id": job_id,
+        "message": "Cancelamento solicitado",
+    })
 
 
 @routes.route("/compare-strategies", methods=["POST"])

@@ -1,7 +1,16 @@
 from hashlib import md5
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 import networkx as nx
+
+
+class AnalysisCancelledError(Exception):
+    """Indica que a execucao da analise foi cancelada pelo usuario."""
+
+
+def ensure_not_cancelled(cancel_check: Optional[Callable[[], bool]]) -> None:
+    if cancel_check and cancel_check():
+        raise AnalysisCancelledError("Analise cancelada pelo usuario")
 
 
 def calculate_basic_graph_metrics(graph: nx.Graph) -> Dict[str, Any]:
@@ -54,6 +63,9 @@ def generate_possible_configurations(graph: nx.Graph) -> List[str]:
 def assign_configurations(
     graph: nx.Graph,
     node_order: Iterable[Any],
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    cancel_check: Optional[Callable[[], bool]] = None,
+    progress_range: Optional[Dict[str, float]] = None,
 ) -> Dict[Any, Dict[str, Any]]:
     configs_disponiveis = generate_possible_configurations(graph)
     ordered_links = sorted(
@@ -66,7 +78,11 @@ def assign_configurations(
     )
 
     configuracoes: Dict[Any, Optional[str]] = {}
+    total_nodes = graph.number_of_nodes()
+    painted_nodes = 0
+
     for node in graph.nodes():
+        ensure_not_cancelled(cancel_check)
         data = graph.nodes[node]
         if data.get("locked"):
             configuracoes[node] = build_configuration_key(
@@ -74,10 +90,28 @@ def assign_configurations(
                 data.get("bandwidth"),
                 data.get("frequency"),
             )
+            painted_nodes += 1
         else:
             configuracoes[node] = None
 
+    if progress_callback and total_nodes > 0:
+        base_percentage = round((painted_nodes / total_nodes) * 100, 2)
+        overall_percentage = base_percentage
+        if progress_range:
+            start = float(progress_range.get("start", 0))
+            end = float(progress_range.get("end", 100))
+            overall_percentage = round(start + ((end - start) * (base_percentage / 100)), 2)
+        progress_callback({
+            "stage": "coloring",
+            "painted_nodes": painted_nodes,
+            "total_nodes": total_nodes,
+            "percentage": overall_percentage,
+            "stage_percentage": base_percentage,
+            "current_node": None,
+        })
+
     for node in node_order:
+        ensure_not_cancelled(cancel_check)
         node_data = graph.nodes[node]
         if node_data.get("locked"):
             continue
@@ -103,8 +137,10 @@ def assign_configurations(
         lowest_conflict = float("inf")
 
         for config in valid_configs or [best_config]:
+            ensure_not_cancelled(cancel_check)
             conflict = 0
             for neighbor in graph.neighbors(node):
+                ensure_not_cancelled(cancel_check)
                 if configuracoes.get(neighbor) != config:
                     continue
 
@@ -123,6 +159,23 @@ def assign_configurations(
                 best_config = config
 
         configuracoes[node] = best_config
+        painted_nodes += 1
+
+        if progress_callback and total_nodes > 0:
+            base_percentage = round((painted_nodes / total_nodes) * 100, 2)
+            overall_percentage = base_percentage
+            if progress_range:
+                start = float(progress_range.get("start", 0))
+                end = float(progress_range.get("end", 100))
+                overall_percentage = round(start + ((end - start) * (base_percentage / 100)), 2)
+            progress_callback({
+                "stage": "coloring",
+                "painted_nodes": painted_nodes,
+                "total_nodes": total_nodes,
+                "percentage": overall_percentage,
+                "stage_percentage": base_percentage,
+                "current_node": node,
+            })
 
     result: Dict[Any, Dict[str, Any]] = {}
     for node, config in configuracoes.items():

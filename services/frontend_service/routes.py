@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, jsonify, redirect, render_template, request, stream_with_context, url_for
 import logging
 import os
 import requests
@@ -140,6 +140,13 @@ def access_points_import_api():
     return jsonify(response_data), status_code
 
 
+@routes.route('/api/access_points/generate', methods=['POST'])
+def access_points_generate_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/access_points/generate', 'POST', data)
+    return jsonify(response_data), status_code
+
+
 @routes.route('/api/access_points/<point_id>', methods=['GET', 'PUT', 'DELETE'])
 def access_point_detail_api(point_id):
     data = request.get_json(silent=True) if request.method == 'PUT' else None
@@ -157,6 +164,41 @@ def analysis_strategies_api():
 def analysis_analyze_graph_api():
     data = request.get_json(silent=True) or {}
     response_data, status_code = make_api_request('/analysis/analyze-graph', 'POST', data)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/analysis/analyze-graph-stream', methods=['POST'])
+def analysis_analyze_graph_stream_api():
+    data = request.get_json(silent=True) or {}
+    try:
+        response = requests.post(
+            f"{GATEWAY_URL}/api/analysis/analyze-graph-stream",
+            json=data,
+            stream=True,
+        )
+
+        def generate():
+            try:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
+
+        return Response(
+            stream_with_context(generate()),
+            status=response.status_code,
+            content_type=response.headers.get('Content-Type', 'application/x-ndjson'),
+        )
+    except Exception as e:
+        logger.error(f"Erro na requisicao stream para /analysis/analyze-graph-stream: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@routes.route('/api/analysis/cancel-analysis', methods=['POST'])
+def analysis_cancel_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/analysis/cancel-analysis', 'POST', data)
     return jsonify(response_data), status_code
 
 

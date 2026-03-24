@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+from access_point_generator import generate_access_point_infrastructure
 from access_point_import import import_access_points, upsert_access_point, validate_access_point_payload
 from controllers import AccessPointController, create_tables
 from models import AccessPoint, db
@@ -99,6 +100,20 @@ def bulk_import_access_points():
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/access_points/generate", methods=["POST"])
+def generate_access_points():
+    try:
+        data = request.get_json() or {}
+        node_count = int(data.get("node_count", 0))
+        clique_factor = int(data.get("clique_factor", 0))
+        payload = generate_access_point_infrastructure(node_count, clique_factor)
+        return jsonify({"success": True, "payload": payload}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
