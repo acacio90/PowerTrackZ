@@ -56,8 +56,54 @@
         max-width: 760px;
     }
 
+    .hosts-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
     .hosts-content {
         padding: 1.5rem;
+    }
+
+    .hosts-feedback {
+        margin-bottom: 1rem;
+    }
+
+    .hosts-feedback[hidden],
+    .hosts-empty[hidden],
+    .hosts-table-wrap[hidden] {
+        display: none !important;
+    }
+
+    .hosts-table-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .hosts-table-summary {
+        margin: 0;
+        color: #526272;
+        font-size: 0.92rem;
+    }
+
+    .hosts-source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: #e8f1fb;
+        color: #2a567a;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
 
     .hosts-empty {
@@ -72,6 +118,11 @@
         .hosts-header {
             flex-direction: column;
             align-items: stretch;
+        }
+
+        .hosts-actions .btn {
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>
@@ -88,16 +139,29 @@
                 </span>
                 <div class="hosts-header">
                     <h1 class="hosts-title">Pontos de Acesso</h1>
-                    <button class="btn btn-primary" id="btn-save-all" type="button">
-                        <i class="fa-solid fa-floppy-disk"></i> Salvar
-                    </button>
+                    <div class="hosts-actions">
+                        <input
+                            type="file"
+                            id="input-import-hosts-json"
+                            accept=".json,application/json"
+                            hidden
+                        >
+                        <button class="btn btn-secondary" id="btn-import-hosts-json" type="button">
+                            <i class="fa-solid fa-file-import"></i> Importar JSON
+                        </button>
+                        <button class="btn btn-primary" id="btn-save-all" type="button">
+                            <i class="fa-solid fa-floppy-disk"></i> Salvar
+                        </button>
+                    </div>
                 </div>
                 <p class="hosts-subtitle">
-                    Consulte os APs carregados do monitoramento e salve suas configurações atuais no sistema.
+                    Consulte os APs do Zabbix. Se a conexao nao estiver disponivel, importe um JSON local, revise a tabela e use Salvar para persistir no banco.
                 </p>
             </div>
 
             <div class="card app-table-card hosts-content">
+                <div id="hosts-feedback" class="hosts-feedback" hidden></div>
+
                 {% if error %}
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
@@ -105,160 +169,245 @@
                     </div>
                 {% endif %}
 
-                {% if hosts %}
-                    <div class="app-table-shell">
-                        <div class="table-responsive app-table-wrap">
-                            <table class="app-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>Índice</th>
-                                        <th>Frequência</th>
-                                        <th>Largura de Banda</th>
-                                        <th>Canal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in hosts %}
-                                    <tr>
-                                        <td>{% if item.name %}{{ item.name.split(' - ')[0] ~ '.' ~ (item.index.split('.')[-1] if '.' in item.index else item.index) }}{% else %}{{ item.host }}{% endif %}</td>
-                                        <td>{{ item.index }}</td>
-                                        <td>{{ item.frequency }}</td>
-                                        <td>{{ item.bandwidth }}</td>
-                                        <td>{{ item.channel }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                <div class="hosts-table-meta">
+                    <p class="hosts-table-summary" id="hosts-table-summary"></p>
+                    <span class="hosts-source-badge" id="hosts-source-badge">
+                        <i class="fa-solid fa-database"></i>
+                        <span id="hosts-source-text">Zabbix</span>
+                    </span>
+                </div>
+
+                <div class="app-table-shell hosts-table-wrap" id="hosts-table-wrap"{% if not hosts %} hidden{% endif %}>
+                    <div class="table-responsive app-table-wrap">
+                        <table class="app-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>ID</th>
+                                    <th>Frequencia</th>
+                                    <th>Largura de Banda</th>
+                                    <th>Canal</th>
+                                    <th>Coordenadas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hosts-table-body">
+                                {% for item in hosts %}
+                                <tr>
+                                    <td>{% if item.name %}{{ item.name.split(' - ')[0] ~ '.' ~ (item.index.split('.')[-1] if '.' in item.index else item.index) }}{% else %}{{ item.host }}{% endif %}</td>
+                                    <td>{{ item.index }}</td>
+                                    <td>{{ item.frequency }}</td>
+                                    <td>{{ item.bandwidth }}</td>
+                                    <td>{{ item.channel }}</td>
+                                    <td>-</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
-                {% else %}
-                    <div class="alert alert-info hosts-empty">
-                        <i class="fas fa-info-circle"></i>
-                        Nenhum ponto de acesso encontrado.
-                    </div>
-                {% endif %}
+                </div>
+
+                <div class="alert alert-info hosts-empty" id="hosts-empty-state"{% if hosts %} hidden{% endif %}>
+                    <i class="fas fa-info-circle"></i>
+                    Nenhum ponto de acesso carregado. Importe um arquivo JSON ou ajuste a conexao com o Zabbix.
+                </div>
             </div>
         </section>
     </div>
 </section>
-
-<!-- Modal de edição -->
-<div class="modal fade" id="editPointModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Alterar Ponto de Acesso</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editPointForm">
-                    <div class="mb-3">
-                        <label for="editName" class="form-label">Nome</label>
-                        <input type="text" class="form-control" id="editName" name="name" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editIndex" class="form-label">Índice</label>
-                        <input type="text" class="form-control" id="editIndex" name="index" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editFrequency" class="form-label">Frequência</label>
-                        <input type="text" class="form-control" id="editFrequency" name="frequency">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editBandwidth" class="form-label">Largura de Banda</label>
-                        <input type="text" class="form-control" id="editBandwidth" name="bandwidth">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editChannel" class="form-label">Canal</label>
-                        <input type="text" class="form-control" id="editChannel" name="channel">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editLatitude" class="form-label">Latitude</label>
-                        <input type="text" class="form-control" id="editLatitude" name="latitude">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editLongitude" class="form-label">Longitude</label>
-                        <input type="text" class="form-control" id="editLongitude" name="longitude">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+const initialHosts = {{ (hosts or [])|tojson }};
+let stagedAccessPoints = normalizeZabbixHosts(initialHosts);
+let stagedSource = stagedAccessPoints.length ? 'zabbix' : 'none';
+
 const btnSaveAll = document.getElementById('btn-save-all');
+const btnImportHostsJson = document.getElementById('btn-import-hosts-json');
+const inputImportHostsJson = document.getElementById('input-import-hosts-json');
+const hostsTableBody = document.getElementById('hosts-table-body');
+const hostsTableWrap = document.getElementById('hosts-table-wrap');
+const hostsEmptyState = document.getElementById('hosts-empty-state');
+const hostsTableSummary = document.getElementById('hosts-table-summary');
+const hostsSourceText = document.getElementById('hosts-source-text');
+const hostsFeedback = document.getElementById('hosts-feedback');
+
+function normalizeZabbixHosts(items) {
+    if (!Array.isArray(items)) return [];
+
+    return items.map(item => {
+        const rawId = item.index || item.id || '';
+        const suffix = typeof rawId === 'string' && rawId.includes('.') ? rawId.split('.').pop() : rawId;
+        const rawName = item.name ? item.name.split(' - ')[0] : (item.host || rawId);
+
+        return {
+            id: String(rawId || '').trim(),
+            name: `${rawName}.${suffix}`.replace(/\.$/, ''),
+            frequency: item.frequency || '',
+            bandwidth: item.bandwidth || '',
+            channel: item.channel || '',
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null
+        };
+    }).filter(item => item.id && item.name);
+}
+
+function normalizeImportedHosts(items) {
+    if (!Array.isArray(items)) {
+        throw new Error('O arquivo deve conter uma lista JSON de pontos de acesso.');
+    }
+
+    return items.map((item, index) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+            throw new Error(`Item ${index + 1}: formato invalido.`);
+        }
+        if (!item.id || !String(item.id).trim()) {
+            throw new Error(`Item ${index + 1}: campo "id" obrigatorio.`);
+        }
+        if (!item.name || !String(item.name).trim()) {
+            throw new Error(`Item ${index + 1}: campo "name" obrigatorio.`);
+        }
+
+        return {
+            id: String(item.id).trim(),
+            name: String(item.name).trim(),
+            frequency: item.frequency || '',
+            bandwidth: item.bandwidth || '',
+            channel: item.channel || '',
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null
+        };
+    });
+}
+
+function formatCoordinates(item) {
+    if (item.latitude === null || item.latitude === undefined || item.longitude === null || item.longitude === undefined) {
+        return '-';
+    }
+    return `${item.latitude}, ${item.longitude}`;
+}
+
+function renderTable() {
+    if (!hostsTableBody || !hostsTableWrap || !hostsEmptyState || !hostsTableSummary || !hostsSourceText) return;
+
+    if (!stagedAccessPoints.length) {
+        hostsTableBody.innerHTML = '';
+        hostsTableWrap.hidden = true;
+        hostsEmptyState.hidden = false;
+        hostsTableSummary.textContent = 'Nenhum AP preparado para salvamento.';
+        hostsSourceText.textContent = 'Sem dados';
+        return;
+    }
+
+    hostsTableBody.innerHTML = stagedAccessPoints.map(item => `
+        <tr>
+            <td>${item.name}</td>
+            <td>${item.id}</td>
+            <td>${item.frequency || '-'}</td>
+            <td>${item.bandwidth || '-'}</td>
+            <td>${item.channel || '-'}</td>
+            <td>${formatCoordinates(item)}</td>
+        </tr>
+    `).join('');
+
+    hostsTableWrap.hidden = false;
+    hostsEmptyState.hidden = true;
+    hostsTableSummary.textContent = `${stagedAccessPoints.length} AP(s) prontos para salvar no banco.`;
+    hostsSourceText.textContent = stagedSource === 'import' ? 'JSON importado' : 'Zabbix';
+}
+
+function showHostsFeedback(type, message, details = []) {
+    if (!hostsFeedback) return;
+
+    const list = Array.isArray(details) && details.length
+        ? `<ul class="mb-0 mt-2">${details.map(item => `<li>${item}</li>`).join('')}</ul>`
+        : '';
+
+    hostsFeedback.hidden = false;
+    hostsFeedback.className = `hosts-feedback alert alert-${type}`;
+    hostsFeedback.innerHTML = `
+        <div>${message}</div>
+        ${list}
+    `;
+}
+
+async function handleImportHosts(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    try {
+        const content = await file.text();
+        const parsed = JSON.parse(content);
+        stagedAccessPoints = normalizeImportedHosts(parsed);
+        stagedSource = 'import';
+        renderTable();
+        showHostsFeedback('info', 'Arquivo importado na tabela. Clique em Salvar para persistir no banco.');
+    } catch (error) {
+        showHostsFeedback('danger', 'Falha ao importar o arquivo JSON.', [error.message]);
+    } finally {
+        event.target.value = '';
+    }
+}
+
 if (btnSaveAll) {
     btnSaveAll.addEventListener('click', async function() {
-        const rows = document.querySelectorAll('table tbody tr');
+        if (!stagedAccessPoints.length) {
+            showHostsFeedback('warning', 'Nao ha APs carregados para salvar.');
+            return;
+        }
+
         let successCount = 0;
         let errorCount = 0;
+        const errors = [];
 
-        for (const row of rows) {
-            const cells = row.querySelectorAll('td');
-            const ponto = {
-                name: cells[0].innerText.trim(),
-                id: cells[1].innerText.trim(),
-                frequency: cells[2].innerText.trim(),
-                bandwidth: cells[3].innerText.trim(),
-                channel: cells[4].innerText.trim()
+        for (const item of stagedAccessPoints) {
+            const payload = {
+                id: item.id,
+                name: item.name,
+                frequency: item.frequency,
+                bandwidth: item.bandwidth,
+                channel: item.channel,
+                latitude: item.latitude,
+                longitude: item.longitude
             };
 
             try {
                 const response = await fetch('/api/access_points', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(ponto)
+                    body: JSON.stringify(payload)
                 });
-                response.ok ? successCount++ : errorCount++;
-            } catch (e) {
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    const result = await response.json().catch(() => ({}));
+                    errors.push(`${item.id}: ${result.error || 'falha ao salvar'}`);
+                }
+            } catch (error) {
                 errorCount++;
+                errors.push(`${item.id}: ${error.message}`);
             }
         }
 
         if (successCount > 0 && errorCount === 0) {
-            showAlert('success', 'Todos os pontos foram salvos com sucesso!');
+            showHostsFeedback('success', 'Todos os pontos foram salvos com sucesso.');
         } else if (successCount > 0) {
-            showAlert('warning', `${successCount} ponto(s) salvo(s), ${errorCount} falha(s).`);
+            showHostsFeedback('warning', `${successCount} ponto(s) salvo(s), ${errorCount} falha(s).`, errors);
         } else {
-            showAlert('danger', 'Nenhum ponto foi salvo.');
+            showHostsFeedback('danger', 'Nenhum ponto foi salvo.', errors);
         }
     });
 }
 
-function showAlert(type, message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.querySelector('.hosts-content').insertBefore(alertDiv, document.querySelector('.hosts-content').firstChild);
-}
-
-function openEditModal(itemId) {
-    const row = Array.from(document.querySelectorAll('table tbody tr')).find(tr => {
-        const btn = tr.querySelector('.btn-location');
-        return btn && btn.getAttribute('onclick').includes(itemId);
+if (btnImportHostsJson && inputImportHostsJson) {
+    btnImportHostsJson.addEventListener('click', function() {
+        inputImportHostsJson.click();
     });
-
-    if (!row) return;
-
-    const cells = row.querySelectorAll('td');
-    document.getElementById('editName').value = cells[0].innerText.trim();
-    document.getElementById('editIndex').value = cells[1].innerText.trim();
-    document.getElementById('editFrequency').value = cells[2].innerText.trim();
-    document.getElementById('editBandwidth').value = cells[3].innerText.trim();
-    document.getElementById('editChannel').value = cells[4].innerText.trim();
-    document.getElementById('editLatitude').value = cells[5]?.dataset?.latitude || '';
-    document.getElementById('editLongitude').value = cells[5]?.dataset?.longitude || '';
-
-    const modal = new bootstrap.Modal(document.getElementById('editPointModal'));
-    modal.show();
+    inputImportHostsJson.addEventListener('change', handleImportHosts);
 }
+
+renderTable();
 </script>
 {% endblock %}

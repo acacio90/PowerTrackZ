@@ -1,0 +1,43 @@
+[
+  {
+    "id": "ap-001",
+    "name": "AP Sala 1",
+    "channel": "36",
+    "frequency": "5 GHz",
+    "bandwidth": "80 MHz",
+    "latitude": -23.5505,
+    "longitude": -46.6333
+  },
+  {
+    "id": "ap-002",
+    "name": "AP Sala 2",
+    "channel": "1",
+    "frequency": "2.4 GHz",
+    "bandwidth": "20 MHz",
+    "latitude": -23.551,
+    "longitude": -46.634
+  },
+  {
+    "id": "ap-003",
+    "name": "AP Laboratorio",
+    "channel": "44",
+    "frequency": "5 GHz",
+    "bandwidth": "40 MHz",
+    "latitude": -23.5498,
+    "longitude": -46.6324
+  },
+  {
+    "id": "ap-004",
+    "name": "AP Corredor Norte",
+    "channel": "6",
+    "frequency": "2.4 GHz",
+    "bandwidth": "20 MHz"
+  },
+  {
+    "id": "ap-005",
+    "name": "AP Auditorio",
+    "channel": "149",
+    "frequency": "5 GHz",
+    "bandwidth": "80 MHz"
+  }
+]

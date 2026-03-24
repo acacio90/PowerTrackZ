@@ -222,6 +222,22 @@ input[type="number"]:focus {
     color: white;
 }
 
+.table-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.action-button-danger {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.action-button-danger:hover {
+    background-color: #dc2626;
+    color: white;
+}
+
 /* Mapa */
 .map-container {
     height: 400px;
@@ -360,32 +376,32 @@ input[type="number"]:focus {
 
 .table-section .data-table th:nth-child(1),
 .table-section .data-table td:nth-child(1) {
-    width: 28%;
+    width: 23%;
 }
 
 .table-section .data-table th:nth-child(2),
 .table-section .data-table td:nth-child(2) {
-    width: 28%;
+    width: 25%;
 }
 
 .table-section .data-table th:nth-child(3),
 .table-section .data-table td:nth-child(3) {
-    width: 10%;
+    width: 13%;
 }
 
 .table-section .data-table th:nth-child(4),
 .table-section .data-table td:nth-child(4) {
-    width: 12%;
+    width: 14%;
 }
 
 .table-section .data-table th:nth-child(5),
 .table-section .data-table td:nth-child(5) {
-    width: 12%;
+    width: 8%;
 }
 
 .table-section .data-table th:nth-child(6),
 .table-section .data-table td:nth-child(6) {
-    width: 8%;
+    width: 13%;
 }
 
 .table-section .card-title,
@@ -572,4 +588,70 @@ body > .footer {
 .map-section .card {
     flex: none;
     align-self: start;
+}
+
+.table-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.table-section-header .card-title {
+    margin-bottom: 0;
+}
+
+.table-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.import-feedback {
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+}
+
+.import-feedback-title {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.import-feedback-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--gray-700);
+}
+
+.import-feedback-success {
+    background: #ecfdf3;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.import-feedback-warning {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    color: #92400e;
+}
+
+.import-feedback-error {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+@media (max-width: 768px) {
+    .table-section-actions {
+        width: 100%;
+    }
+
+    .table-section-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
