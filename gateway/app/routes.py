@@ -185,6 +185,20 @@ def access_points():
         return jsonify(error_response), status_code
 
 
+@routes.route("/api/access_points/import", methods=["POST"])
+def import_access_points():
+    try:
+        response = session.post(
+            f"{Config.ACCESS_POINT_SERVICE_URL}/access_points/import",
+            json=request.get_json(),
+            timeout=Config.HTTP_TIMEOUT,
+        )
+        return response.json(), response.status_code
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "access_point_service")
+        return jsonify(error_response), status_code
+
+
 @routes.route("/api/access_points/<id>", methods=["GET", "PUT", "DELETE"])
 def access_point_by_id(id):
     try:

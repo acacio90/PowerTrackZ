@@ -133,6 +133,13 @@ def access_points_api():
     return jsonify(response_data), status_code
 
 
+@routes.route('/api/access_points/import', methods=['POST'])
+def access_points_import_api():
+    data = request.get_json(silent=True)
+    response_data, status_code = make_api_request('/access_points/import', 'POST', data)
+    return jsonify(response_data), status_code
+
+
 @routes.route('/api/access_points/<point_id>', methods=['GET', 'PUT', 'DELETE'])
 def access_point_detail_api(point_id):
     data = request.get_json(silent=True) if request.method == 'PUT' else None
