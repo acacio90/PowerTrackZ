@@ -160,10 +160,23 @@ def analysis_strategies_api():
     return jsonify(response_data), status_code
 
 
+@routes.route('/api/analysis/capabilities', methods=['GET'])
+def analysis_capabilities_api():
+    response_data, status_code = make_api_request('/analysis/capabilities', 'GET')
+    return jsonify(response_data), status_code
+
+
 @routes.route('/api/analysis/analyze-graph', methods=['POST'])
 def analysis_analyze_graph_api():
     data = request.get_json(silent=True) or {}
     response_data, status_code = make_api_request('/analysis/analyze-graph', 'POST', data)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/analysis/backtracking', methods=['POST'])
+def analysis_backtracking_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/analysis/backtracking', 'POST', data)
     return jsonify(response_data), status_code
 
 
@@ -179,7 +192,7 @@ def analysis_analyze_graph_stream_api():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1024):
+                for chunk in response.iter_content(chunk_size=1):
                     if chunk:
                         yield chunk
             finally:
@@ -195,6 +208,34 @@ def analysis_analyze_graph_stream_api():
         return jsonify({"error": str(e)}), 500
 
 
+@routes.route('/api/analysis/backtracking-stream', methods=['POST'])
+def analysis_backtracking_stream_api():
+    data = request.get_json(silent=True) or {}
+    try:
+        response = requests.post(
+            f"{GATEWAY_URL}/api/analysis/backtracking-stream",
+            json=data,
+            stream=True,
+        )
+
+        def generate():
+            try:
+                for chunk in response.iter_content(chunk_size=1):
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
+
+        return Response(
+            stream_with_context(generate()),
+            status=response.status_code,
+            content_type=response.headers.get('Content-Type', 'application/x-ndjson'),
+        )
+    except Exception as e:
+        logger.error(f"Erro na requisicao stream para /analysis/backtracking-stream: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @routes.route('/api/analysis/cancel-analysis', methods=['POST'])
 def analysis_cancel_api():
     data = request.get_json(silent=True) or {}
@@ -207,3 +248,4 @@ def analysis_collision_graph_api():
     data = request.get_json(silent=True) or {}
     response_data, status_code = make_api_request('/analysis/collision-graph', 'POST', data)
     return jsonify(response_data), status_code
+

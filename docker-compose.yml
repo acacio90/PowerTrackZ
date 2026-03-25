@@ -66,9 +66,6 @@ services:
     volumes:
       - ./services/analysis_service:/app
     environment:
-      - FLASK_APP=app.main
-      - FLASK_ENV=${FLASK_ENV:-development}
-      - PYTHONPATH=${PYTHONPATH:-/app}
       - HOST=${HOST:-0.0.0.0}
       - PORT=5002
       - GATEWAY_URL=${GATEWAY_URL}

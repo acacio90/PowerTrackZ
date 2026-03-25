@@ -123,11 +123,35 @@ def get_analysis_strategies():
         return jsonify(error_response), status_code
 
 
+@routes.route("/api/analysis/capabilities", methods=["GET"])
+def get_analysis_capabilities():
+    try:
+        response = session.get(f"{Config.ANALYSIS_SERVICE_URL}/capabilities", timeout=Config.HTTP_TIMEOUT)
+        return response.json(), response.status_code
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "analysis_service")
+        return jsonify(error_response), status_code
+
+
 @routes.route("/api/analysis/analyze-graph", methods=["POST"])
 def analyze_graph():
     try:
         response = session.post(
             f"{Config.ANALYSIS_SERVICE_URL}/analyze-graph",
+            json=request.get_json(),
+            timeout=Config.HTTP_TIMEOUT,
+        )
+        return response.json(), response.status_code
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "analysis_service")
+        return jsonify(error_response), status_code
+
+
+@routes.route("/api/analysis/backtracking", methods=["POST"])
+def analyze_backtracking():
+    try:
+        response = session.post(
+            f"{Config.ANALYSIS_SERVICE_URL}/backtracking",
             json=request.get_json(),
             timeout=Config.HTTP_TIMEOUT,
         )
@@ -149,7 +173,35 @@ def analyze_graph_stream():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1024):
+                for chunk in response.iter_content(chunk_size=1):
+                    if chunk:
+                        yield chunk
+            finally:
+                response.close()
+
+        return Response(
+            stream_with_context(generate()),
+            status=response.status_code,
+            content_type=response.headers.get("Content-Type", "application/x-ndjson"),
+        )
+    except Exception as exc:
+        error_response, status_code = handle_error(exc, "analysis_service")
+        return jsonify(error_response), status_code
+
+
+@routes.route("/api/analysis/backtracking-stream", methods=["POST"])
+def analyze_backtracking_stream():
+    try:
+        response = session.post(
+            f"{Config.ANALYSIS_SERVICE_URL}/backtracking-stream",
+            json=request.get_json(),
+            timeout=None,
+            stream=True,
+        )
+
+        def generate():
+            try:
+                for chunk in response.iter_content(chunk_size=1):
                     if chunk:
                         yield chunk
             finally:
@@ -388,3 +440,4 @@ def frontend_proxy(path):
     except Exception as exc:
         logger.error(f"Erro ao redirecionar para frontend: {str(exc)}")
         return jsonify({"message": "Erro ao acessar frontend"}), 500
+

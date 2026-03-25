@@ -114,6 +114,32 @@ class AccessPointRoutesTests(unittest.TestCase):
         payload = response.get_json()
         self.assertIn("lista JSON", payload["error"])
 
+    def test_generate_access_points_uses_frequency_profiles_with_fixed_settings(self):
+        response = self.client.post("/access_points/generate", json={
+            "node_count": 12,
+            "clique_factor": 2,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+
+        aps = payload["payload"]["aps"]
+        self.assertEqual(len(aps), 12)
+
+        for ap in aps:
+            self.assertIsNotNone(ap["latitude"])
+            self.assertIsNotNone(ap["longitude"])
+
+            if ap["frequency"] == "2.4 GHz":
+                self.assertEqual(ap["channel"], "1")
+                self.assertEqual(ap["bandwidth"], "20 MHz")
+            elif ap["frequency"] == "5 GHz":
+                self.assertEqual(ap["channel"], "36")
+                self.assertEqual(ap["bandwidth"], "80 MHz")
+            else:
+                self.fail(f"Frequencia inesperada gerada: {ap['frequency']}")
+
     def test_delete_access_point_removes_existing_record(self):
         with app.app_context():
             db.session.add(AccessPoint(id="ap-1", name="AP 1"))

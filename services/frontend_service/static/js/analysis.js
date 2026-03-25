@@ -242,6 +242,7 @@ window.addEventListener('DOMContentLoaded', function() {
     let analysisRequestToken = 0;
     let currentAnalysisJobId = null;
     let currentAnalysisAbortController = null;
+    let availableAnalysisThreads = null;
     const graphInstances = {};
     let existingGraphContainer = document.querySelector('.content-container');
     let pageContainer = document.querySelector('.page-container');
@@ -388,6 +389,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const graphSnapshot = execution.graph_snapshot || {};
+        const comparison = execution.comparison || {};
         container.hidden = false;
         container.innerHTML = `
             <h3 class="analysis-execution-title">Metadados de Execucao</h3>
@@ -411,6 +413,14 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Densidade</span>
                     <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Arestas Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.edges_before != null ? comparison.edges_before : '-'} / ${comparison.edges_after != null ? comparison.edges_after : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Densidade Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.density_before != null ? comparison.density_before : '-'} / ${comparison.density_after != null ? comparison.density_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
@@ -499,12 +509,19 @@ window.addEventListener('DOMContentLoaded', function() {
 
                 apsOriginais = aps.map(ap => ({ ...ap }));
                 apsOtimizado = aps.map(ap => ({ ...ap }));
+                updateThreadAvailabilityInfo();
 
                 if (callback) callback();
             });
     }
 
     function montarPayloadAnalise(aps) {
+        const threadCountInput = document.getElementById('analysis-thread-count');
+        const parsedThreadCount = parseInt(threadCountInput?.value || '1', 10);
+        const threadCount = Number.isFinite(parsedThreadCount) && parsedThreadCount > 0
+            ? Math.min(parsedThreadCount, getUsefulThreadLimit())
+            : 1;
+
         return {
             aps: aps.map(ap => ({
                 id: ap.id,
@@ -518,34 +535,109 @@ window.addEventListener('DOMContentLoaded', function() {
                 locked: Boolean(ap.locked)
             })),
             strategy: window.selectedStrategy,
-            parameters: {}
+            parameters: {
+                thread_count: threadCount
+            }
+        };
+    }
+
+    function getCurrentGraphNodeCount() {
+        const nodes = Array.isArray(apsOtimizado) && apsOtimizado.length > 0
+            ? apsOtimizado
+            : apsOriginais;
+        return Array.isArray(nodes) && nodes.length > 0 ? nodes.length : 1;
+    }
+
+    function getUsefulThreadLimit() {
+        const graphNodeCount = getCurrentGraphNodeCount();
+        if (Number.isFinite(availableAnalysisThreads) && availableAnalysisThreads > 0) {
+            return Math.max(1, Math.min(availableAnalysisThreads, graphNodeCount));
+        }
+        return Math.max(1, graphNodeCount);
+    }
+
+    function updateThreadAvailabilityInfo() {
+        const threadInput = document.getElementById('analysis-thread-count');
+        const usefulThreadLimit = getUsefulThreadLimit();
+
+        if (threadInput) {
+            threadInput.max = String(usefulThreadLimit);
+            const currentValue = parseInt(threadInput.value || '1', 10);
+            if (!Number.isFinite(currentValue) || currentValue < 1) {
+                threadInput.value = '1';
+            } else if (currentValue > usefulThreadLimit) {
+                threadInput.value = String(usefulThreadLimit);
+            }
+        }
+
+        if (threadAvailabilityInfo) {
+            if (Number.isFinite(availableAnalysisThreads) && availableAnalysisThreads > 0) {
+                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit} de ${availableAnalysisThreads} disponiveis`;
+            } else {
+                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit}`;
+            }
+        }
+    }
+
+    function getAnalysisRequestUrls() {
+        const api = window.ANALYSIS_API || {};
+        if (window.selectedStrategy === 'backtracking') {
+            return {
+                analyze: api.backtracking || '/api/analysis/backtracking',
+                stream: api.backtrackingStream || '/api/analysis/backtracking-stream'
+            };
+        }
+
+        return {
+            analyze: api.analyzeGraph || '/api/analysis/analyze-graph',
+            stream: api.analyzeGraphStream || '/api/analysis/analyze-graph-stream'
         };
     }
 
     function renderizarLegenda(legendaDiv, nodes, usarConfiguracaoProposta) {
         legendaDiv.innerHTML = '';
 
+        const legendGroups = new Map();
+
         nodes.forEach(node => {
             const channel = usarConfiguracaoProposta ? node.proposed_channel : node.channel;
             const bandwidth = usarConfiguracaoProposta ? node.proposed_bandwidth : node.bandwidth;
             const frequency = usarConfiguracaoProposta ? node.proposed_frequency : node.frequency;
+            const color = usarConfiguracaoProposta
+                ? (node.proposed_cor || node.cor || '#cccccc')
+                : (node.cor || '#cccccc');
+            const legendKey = [color, channel || '', bandwidth || '', frequency || ''].join('|');
 
+            if (!legendGroups.has(legendKey)) {
+                legendGroups.set(legendKey, {
+                    color,
+                    channel: channel || 'N/A',
+                    bandwidth: bandwidth || 'N/A',
+                    frequency: frequency || 'N/A',
+                    count: 0
+                });
+            }
+
+            legendGroups.get(legendKey).count += 1;
+        });
+
+        Array.from(legendGroups.values()).forEach(item => {
             const legendaItem = document.createElement('div');
             legendaItem.className = 'legenda-item';
             legendaItem.innerHTML = `
-                <div class="cor-amostra" style="background-color: ${node.cor || '#cccccc'}"></div>
+                <div class="cor-amostra" style="background-color: ${item.color}"></div>
                 <div class="nome-ap">
-                    ${node.label || node.id}<br>
-                    Canal: ${channel || 'N/A'}<br>
-                    Bandwidth: ${bandwidth || 'N/A'}<br>
-                    Frequencia: ${frequency || 'N/A'}
+                    ${item.count} AP(s)<br>
+                    Canal: ${item.channel}<br>
+                    Bandwidth: ${item.bandwidth}<br>
+                    Frequencia: ${item.frequency}
                 </div>
             `;
             legendaDiv.appendChild(legendaItem);
         });
     }
 
-    function renderizarCytoscape(containerId, graphData) {
+    function renderizarCytoscape(containerId, graphData, usarConfiguracaoProposta = false) {
         if (graphInstances[containerId]) {
             graphInstances[containerId].destroy();
         }
@@ -562,7 +654,9 @@ window.addEventListener('DOMContentLoaded', function() {
                 data: {
                     id: node.id,
                     label: node.label || node.id,
-                    cor: node.cor || '#cccccc'
+                    cor: usarConfiguracaoProposta
+                        ? (node.proposed_cor || node.cor || '#cccccc')
+                        : (node.cor || '#cccccc')
                 }
             });
         });
@@ -802,7 +896,7 @@ window.addEventListener('DOMContentLoaded', function() {
         })
             .then(response => response.json())
             .then(graphData => {
-                renderizarCytoscape('cy1', graphData);
+                renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
                 atualizarInfoConsumo('cy1', graphData.nodes, false);
             })
@@ -850,6 +944,30 @@ window.addEventListener('DOMContentLoaded', function() {
         setEmptyOptimizedState('Execucao cancelada. Selecione uma estrategia para iniciar novamente.');
     }
 
+    function cancelarAnaliseSilenciosamenteAoSair() {
+        if (!currentAnalysisJobId) {
+            return;
+        }
+
+        const url = (window.ANALYSIS_API && window.ANALYSIS_API.cancelAnalysis) || '/api/analysis/cancel-analysis';
+        const body = JSON.stringify({ job_id: currentAnalysisJobId });
+
+        try {
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+            } else {
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body,
+                    keepalive: true
+                }).catch(() => {});
+            }
+        } catch (error) {
+            console.warn('Falha ao solicitar cancelamento ao sair da pagina:', error);
+        }
+    }
+
     function aplicarResultadoAnalise(data, requestToken) {
         if (requestToken !== analysisRequestToken) {
             return;
@@ -860,7 +978,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const graphData = data.graph_data || { nodes: [], links: [] };
-        renderizarCytoscape('cy2', graphData);
+        renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData.nodes, true);
         renderExecutionMetadata(data.execution || null);
@@ -883,9 +1001,10 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     async function consumirStreamAnalise(payload, requestToken) {
+        const requestUrls = getAnalysisRequestUrls();
         currentAnalysisAbortController = new AbortController();
         const response = await fetch(
-            (window.ANALYSIS_API && window.ANALYSIS_API.analyzeGraphStream) || '/api/analysis/analyze-graph-stream',
+            requestUrls.stream,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -901,7 +1020,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         if (!response.body || typeof TextDecoder === 'undefined') {
             const fallback = await fetch(
-                (window.ANALYSIS_API && window.ANALYSIS_API.analyzeGraph) || '/api/analysis/analyze-graph',
+                requestUrls.analyze,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -942,24 +1061,31 @@ window.addEventListener('DOMContentLoaded', function() {
                         setGraphLoading('cy2', {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
-                            description: 'Aplicando a estrategia escolhida sobre o grafo de colisoes.',
+                            description: 'Aplicando a estrategia escolhida para atribuir configuracoes com menor interferencia.',
                             step: event.payload.message || 'Iniciando processamento',
                             percentage: null
                         });
                     } else if (event.type === 'progress') {
                         const progress = event.payload || {};
-                        const totalNodes = progress.total_nodes || 0;
-                        const currentNode = progress.current_node ? ` | Atual: ${progress.current_node}` : '';
-                        const isSearchStage = progress.stage === 'search';
-                        const processedNodes = isSearchStage
-                            ? (progress.processed_nodes || 0)
-                            : (progress.painted_nodes || 0);
-                        const description = isSearchStage
-                            ? 'Buscando cliques maximos no grafo antes da coloracao.'
-                            : 'Colorindo os nos do grafo conforme a estrategia selecionada.';
-                        const stepText = isSearchStage
-                            ? `${processedNodes}/${totalNodes} nos-base explorados${currentNode}`
-                            : `${processedNodes}/${totalNodes} nos pintados${currentNode}`;
+                        const stage = progress.stage || 'assignment';
+                        let description = 'Processando estrategia.';
+                        let stepText = 'Executando';
+
+                        if (stage === 'assignment') {
+                            const assignedNodes = progress.assigned_nodes || 0;
+                            const totalNodes = progress.total_nodes || 0;
+                            const completeAssignmentFound = Boolean(progress.complete_assignment_found);
+                            const bestConflicts = Number.isFinite(progress.best_conflicts) && progress.best_conflicts >= 0
+                                ? ` | Melhor conflito: ${progress.best_conflicts}`
+                                : '';
+                            description = 'Atribuindo configuracoes aos APs para minimizar interferencia real.';
+                            stepText = completeAssignmentFound
+                                ? `Atribuicao completa encontrada, validando alternativas${bestConflicts}`
+                                : `${assignedNodes}/${totalNodes} nos com configuracao atribuida${bestConflicts}`;
+                        } else {
+                            description = 'Montando dados para a atribuicao de configuracoes.';
+                            stepText = 'Preparando busca';
+                        }
                         setGraphLoading('cy2', {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
@@ -1036,6 +1162,7 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     const strategyInfo = document.getElementById('strategyInfo');
+    const threadAvailabilityInfo = document.getElementById('analysis-thread-availability');
     async function fetchStrategiesFromServer() {
         try {
             const res = await fetch((window.ANALYSIS_API && window.ANALYSIS_API.strategies) || '/api/analysis/strategies');
@@ -1047,6 +1174,24 @@ window.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.warn('Nao foi possivel obter estrategias do servidor:', error);
+        }
+    }
+
+    async function fetchAnalysisCapabilities() {
+        try {
+            const res = await fetch((window.ANALYSIS_API && window.ANALYSIS_API.capabilities) || '/api/analysis/capabilities');
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const availableThreads = parseInt(data && data.available_threads, 10);
+            if (!Number.isFinite(availableThreads) || availableThreads < 1) {
+                return;
+            }
+
+            availableAnalysisThreads = availableThreads;
+            updateThreadAvailabilityInfo();
+        } catch (error) {
+            console.warn('Nao foi possivel obter capacidades do servidor de analise:', error);
         }
     }
 
@@ -1064,7 +1209,11 @@ window.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    window.addEventListener('pagehide', cancelarAnaliseSilenciosamenteAoSair);
+    window.addEventListener('beforeunload', cancelarAnaliseSilenciosamenteAoSair);
+
     fetchStrategiesFromServer();
+    fetchAnalysisCapabilities();
     atualizarBotoesEstrategia();
 
     carregarAPs(() => {
