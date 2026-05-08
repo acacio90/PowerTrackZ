@@ -25,7 +25,7 @@
 #endif
 
 #include "analysis_service.h"
-#include "strategies/backtracking.h"
+#include "strategies/strategy.h"
 
 typedef struct {
     int fd;
@@ -557,14 +557,12 @@ static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposa
             right_bandwidth,
             right_frequency
         );
-        if (interference_weight <= 0.0) {
-            continue;
-        }
-
         cJSON *item = cJSON_CreateObject();
         cJSON_AddStringToObject(item, "source", left_node->id);
         cJSON_AddStringToObject(item, "target", right_node->id);
-        cJSON_AddNumberToObject(item, "peso", interference_weight);
+        cJSON_AddNumberToObject(item, "peso", edge->peso);
+        cJSON_AddNumberToObject(item, "collision_peso", edge->peso);
+        cJSON_AddNumberToObject(item, "interference_peso", interference_weight);
         cJSON_AddItemToArray(links, item);
     }
     return json;
@@ -586,7 +584,7 @@ static cJSON *build_execution_json(const char *strategy, const Graph *graph, int
     return json;
 }
 
-static void add_backtracking_comparison_to_execution(cJSON *execution, const Graph *graph, const ProposedConfig *proposals) {
+static void add_strategy_comparison_to_execution(cJSON *execution, const Graph *graph, const ProposedConfig *proposals) {
     if (!execution || !graph || !proposals) {
         return;
     }
@@ -609,10 +607,10 @@ static cJSON *build_summary_json(const Graph *graph) {
     return json;
 }
 
-static cJSON *build_backtracking_analysis_json(const Graph *graph, int thread_count) {
+static cJSON *build_strategy_analysis_json(const AnalysisStrategy *strategy, const Graph *graph, int thread_count) {
     cJSON *json = cJSON_CreateObject();
-    cJSON_AddStringToObject(json, "strategy", "backtracking");
-    cJSON_AddStringToObject(json, "description", "Algoritmo de backtracking para atribuicao de configuracoes minimizando interferencia real");
+    cJSON_AddStringToObject(json, "strategy", strategy->name);
+    cJSON_AddStringToObject(json, "description", strategy->description);
     cJSON_AddNumberToObject(json, "configured_nodes", graph->node_count);
 
     cJSON *graph_metrics = cJSON_AddObjectToObject(json, "graph_metrics");
@@ -622,7 +620,7 @@ static cJSON *build_backtracking_analysis_json(const Graph *graph, int thread_co
 
     cJSON *parallelism = cJSON_AddObjectToObject(json, "parallelism");
     cJSON_AddNumberToObject(parallelism, "thread_count", thread_count);
-    cJSON_AddStringToObject(parallelism, "mode", "pthread-root-branches");
+    cJSON_AddStringToObject(parallelism, "mode", strategy->mode);
     cJSON_AddStringToObject(parallelism, "service", "analysis_service_c");
     return json;
 }
@@ -646,17 +644,23 @@ static cJSON *build_placeholder_analysis_json(const char *strategy, const Graph 
     return json;
 }
 
-static cJSON *build_backtracking_response_json(Graph *graph, int thread_count, Job *job, int stream_fd, pthread_mutex_t *stream_lock, double started_at) {
+static cJSON *build_strategy_response_json(const AnalysisStrategy *strategy, Graph *graph, int thread_count, Job *job, int stream_fd, pthread_mutex_t *stream_lock, double started_at) {
     int effective_threads = effective_thread_count(graph, thread_count);
 
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
-    cJSON_AddStringToObject(json, "strategy_used", "backtracking");
-    cJSON_AddItemToObject(json, "analysis", build_backtracking_analysis_json(graph, effective_threads));
-    ProposedConfig *proposals = build_backtracking_proposals(graph, job, effective_threads, stream_fd, stream_lock);
+    cJSON_AddStringToObject(json, "strategy_used", strategy->name);
+    cJSON_AddItemToObject(json, "analysis", build_strategy_analysis_json(strategy, graph, effective_threads));
+    AnalysisExecutionContext context = {
+        .job = job,
+        .thread_count = effective_threads,
+        .stream_fd = stream_fd,
+        .stream_lock = stream_lock,
+    };
+    ProposedConfig *proposals = strategy->run(graph, &context);
     double completed_at = now_seconds();
-    cJSON *execution = build_execution_json("backtracking", graph, effective_threads, started_at, completed_at);
-    add_backtracking_comparison_to_execution(execution, graph, proposals);
+    cJSON *execution = build_execution_json(strategy->name, graph, effective_threads, started_at, completed_at);
+    add_strategy_comparison_to_execution(execution, graph, proposals);
     cJSON_AddItemToObject(json, "execution", execution);
     cJSON_AddItemToObject(json, "graph_data", build_graph_json(graph, proposals));
     cJSON_AddItemToObject(json, "summary", build_summary_json(graph));
@@ -876,9 +880,11 @@ static void handle_strategies(int fd) {
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
     cJSON *strategies = cJSON_AddObjectToObject(json, "strategies");
-    cJSON_AddStringToObject(strategies, "backtracking", "Algoritmo de backtracking para atribuicao de configuracoes minimizando interferencia real");
-    cJSON_AddStringToObject(strategies, "greedy", "Placeholder para preservar o frontend");
-    cJSON_AddStringToObject(strategies, "genetic", "Placeholder para preservar o frontend");
+    size_t strategy_count = 0;
+    const AnalysisStrategy *registered_strategies = analysis_strategies(&strategy_count);
+    for (size_t index = 0; index < strategy_count; index++) {
+        cJSON_AddStringToObject(strategies, registered_strategies[index].name, registered_strategies[index].description);
+    }
     cJSON_AddStringToObject(json, "message", "Estrategias disponiveis para analise de grafos");
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -912,9 +918,11 @@ static void handle_analyze_overview(int fd) {
     cJSON *channel_distribution = cJSON_AddObjectToObject(json, "channel_distribution");
     cJSON *bandwidth_distribution = cJSON_AddObjectToObject(json, "bandwidth_distribution");
     cJSON *available_strategies = cJSON_AddObjectToObject(json, "available_strategies");
-    cJSON_AddStringToObject(available_strategies, "backtracking", "Algoritmo de backtracking para atribuicao de configuracoes minimizando interferencia real");
-    cJSON_AddStringToObject(available_strategies, "greedy", "Placeholder para preservar o frontend");
-    cJSON_AddStringToObject(available_strategies, "genetic", "Placeholder para preservar o frontend");
+    size_t strategy_count = 0;
+    const AnalysisStrategy *registered_strategies = analysis_strategies(&strategy_count);
+    for (size_t index = 0; index < strategy_count; index++) {
+        cJSON_AddStringToObject(available_strategies, registered_strategies[index].name, registered_strategies[index].description);
+    }
 
     for (int i = 0; i < total; i++) {
         cJSON *ap = cJSON_GetArrayItem(aps, i);
@@ -970,20 +978,20 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
     const char *strategy = json_string(cJSON_GetObjectItemCaseSensitive(payload, "strategy"), "backtracking");
     int thread_count = parse_thread_count(payload);
     analysis_log(ANALYSIS_LOG_INFO, NULL, "POST /analyze-graph strategy=%s threads=%d", strategy, thread_count);
+    const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
+    if (!selected_strategy) {
+        send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
+        return;
+    }
     if (!build_graph(payload, &graph, &error_message)) {
         send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
         free(error_message);
         return;
     }
-    if (strcmp(strategy, "backtracking") != 0 && strcmp(strategy, "greedy") != 0 && strcmp(strategy, "genetic") != 0) {
-        free_graph(&graph);
-        send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
-        return;
-    }
     double started_at = now_seconds();
-    cJSON *json = strcmp(strategy, "backtracking") == 0
-        ? build_backtracking_response_json(&graph, thread_count, NULL, -1, NULL, started_at)
-        : build_placeholder_response_json(strategy, &graph, thread_count, started_at);
+    cJSON *json = selected_strategy->run
+        ? build_strategy_response_json(selected_strategy, &graph, thread_count, NULL, -1, NULL, started_at)
+        : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
@@ -994,7 +1002,8 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
 
 static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     const char *strategy = json_string(cJSON_GetObjectItemCaseSensitive(payload, "strategy"), "backtracking");
-    if (strcmp(strategy, "backtracking") != 0 && strcmp(strategy, "greedy") != 0 && strcmp(strategy, "genetic") != 0) {
+    const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
+    if (!selected_strategy) {
         send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
         return;
     }
@@ -1034,9 +1043,9 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     }
 
     double started_at = now_seconds();
-    cJSON *json = strcmp(strategy, "backtracking") == 0
-        ? build_backtracking_response_json(&graph, thread_count, job, fd, &stream_lock, started_at)
-        : build_placeholder_response_json(strategy, &graph, thread_count, started_at);
+    cJSON *json = selected_strategy->run
+        ? build_strategy_response_json(selected_strategy, &graph, thread_count, job, fd, &stream_lock, started_at)
+        : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
     if (atomic_load(&job->cancelled)) {
         analysis_log(ANALYSIS_LOG_INFO, job->id, "analise cancelada durante execucao");
         cJSON *cancelled = cJSON_CreateObject();
@@ -1099,17 +1108,23 @@ static void handle_compare_strategies(int fd, cJSON *payload) {
     cJSON *strategies = cJSON_GetObjectItemCaseSensitive(payload, "strategies");
     if (!cJSON_IsArray(strategies) || cJSON_GetArraySize(strategies) == 0) {
         strategies = cJSON_CreateArray();
-        cJSON_AddItemToArray(strategies, cJSON_CreateString("backtracking"));
-        cJSON_AddItemToArray(strategies, cJSON_CreateString("greedy"));
-        cJSON_AddItemToArray(strategies, cJSON_CreateString("genetic"));
+        size_t strategy_count = 0;
+        const AnalysisStrategy *registered_strategies = analysis_strategies(&strategy_count);
+        for (size_t index = 0; index < strategy_count; index++) {
+            cJSON_AddItemToArray(strategies, cJSON_CreateString(registered_strategies[index].name));
+        }
     }
 
     for (int i = 0; i < cJSON_GetArraySize(strategies); i++) {
         const char *strategy = json_string(cJSON_GetArrayItem(strategies, i), "backtracking");
+        const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
+        if (!selected_strategy) {
+            continue;
+        }
         cJSON_AddItemToArray(tested, cJSON_CreateString(strategy));
-        cJSON *result = strcmp(strategy, "backtracking") == 0
-            ? build_backtracking_response_json(&graph, 1, NULL, -1, NULL, now_seconds())
-            : build_placeholder_response_json(strategy, &graph, 1, now_seconds());
+        cJSON *result = selected_strategy->run
+            ? build_strategy_response_json(selected_strategy, &graph, 1, NULL, -1, NULL, now_seconds())
+            : build_placeholder_response_json(selected_strategy->name, &graph, 1, now_seconds());
         if (result) {
             cJSON *analysis = cJSON_DetachItemFromObject(result, "analysis");
             cJSON *execution = cJSON_DetachItemFromObject(result, "execution");

@@ -685,7 +685,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 {
                     selector: 'edge',
                     style: {
-                        'width': function(ele) { return ele.data('peso') * 0.1; },
+                        'width': function(ele) {
+                            const peso = Number(ele.data('peso')) || 0;
+                            return Math.max(1.5, peso * 0.1);
+                        },
                         'line-color': '#000',
                         'label': function(ele) {
                             const peso = ele.data('peso');

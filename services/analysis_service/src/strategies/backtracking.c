@@ -488,6 +488,9 @@ ProposedConfig *build_backtracking_proposals(
         thread_count
     );
     const int profile_count = (int) (sizeof(CONFIG_PROFILES) / sizeof(CONFIG_PROFILES[0]));
+
+    // Prepara os vetores de trabalho: propostas finais, atribuicoes atuais,
+    // melhor solucao encontrada e ordem de visita dos nos.
     ProposedConfig *proposals = calloc((size_t) graph->node_count, sizeof(ProposedConfig));
     int *assigned_profiles = malloc(sizeof(int) * graph->node_count);
     int *best_profiles = malloc(sizeof(int) * graph->node_count);
@@ -502,12 +505,14 @@ ProposedConfig *build_backtracking_proposals(
         best_profiles[i] = -1;
     }
 
+    // Visita primeiro os APs com mais vizinhos; isso reduz cedo o espaco de busca.
     int order_count = 0;
     for (int i = 0; i < graph->node_count; i++) {
         order[order_count++] = i;
     }
     sort_indices_by_degree(graph, order, order_count);
 
+    // APs travados entram no placar inicial e nao podem trocar configuracao.
     double initial_bandwidth_score = 0.0;
     for (int i = 0; i < graph->node_count; i++) {
         const Node *node = &graph->nodes[i];
@@ -517,6 +522,7 @@ ProposedConfig *build_backtracking_proposals(
         initial_bandwidth_score += bandwidth_score(node->bandwidth);
     }
 
+    // Marca, na atribuicao inicial, o perfil correspondente de cada AP travado.
     for (int node_index = 0; node_index < graph->node_count; node_index++) {
         const Node *node = &graph->nodes[node_index];
         if (node->locked) {
@@ -532,6 +538,7 @@ ProposedConfig *build_backtracking_proposals(
         }
     }
 
+    // Pula os primeiros nos que ja estavam travados; o primeiro livre vira ancora.
     int anchor_depth = 0;
     while (anchor_depth < order_count) {
         int node_index = order[anchor_depth];
@@ -542,6 +549,7 @@ ProposedConfig *build_backtracking_proposals(
     }
 
     if (anchor_depth >= order_count) {
+        // Todos os APs estavam travados; a melhor solucao e a configuracao atual.
         memcpy(best_profiles, assigned_profiles, sizeof(int) * graph->node_count);
     } else {
         int anchor_node_index = order[anchor_depth];
@@ -549,6 +557,7 @@ ProposedConfig *build_backtracking_proposals(
         int *branch_profiles = malloc(sizeof(int) * profile_count);
         int branch_count = 0;
         for (int profile_index = 0; profile_index < profile_count; profile_index++) {
+            // Mantem o AP na mesma banda e testa apenas perfis viaveis para a ancora.
             if (strcmp(CONFIG_PROFILES[profile_index].frequency, graph->nodes[anchor_node_index].frequency) != 0) {
                 continue;
             }
@@ -572,12 +581,15 @@ ProposedConfig *build_backtracking_proposals(
                 .delta_interference_score = delta_interference_score,
             };
         }
+
+        // Explora primeiro os ramos mais promissores: menos conflitos e menor interferencia.
         qsort(branch_candidates, (size_t) branch_count, sizeof(ProfileCandidate), compare_profile_candidates);
         for (int index = 0; index < branch_count; index++) {
             branch_profiles[index] = branch_candidates[index].profile_index;
         }
         free(branch_candidates);
 
+        // Contexto compartilhado entre workers: cada thread pega um ramo da ancora.
         AssignmentParallelContext ctx = {
             .graph = graph,
             .order = order,
@@ -602,6 +614,7 @@ ProposedConfig *build_backtracking_proposals(
         pthread_mutex_init(&ctx.best_lock, NULL);
         pthread_mutex_init(&ctx.branch_lock, NULL);
 
+        // Limita o numero de threads aos ramos existentes para evitar workers ociosos.
         int worker_count = thread_count > 0 ? thread_count : 1;
         if (worker_count > branch_count) {
             worker_count = branch_count;
@@ -623,9 +636,13 @@ ProposedConfig *build_backtracking_proposals(
             perror("malloc assignment workers");
             exit(1);
         }
+
+        // Cada worker executa backtracking a partir de um perfil inicial diferente.
         for (int worker_index = 0; worker_index < worker_count; worker_index++) {
             pthread_create(&workers[worker_index], NULL, assignment_worker, &ctx);
         }
+
+        // Aguarda todos terminarem para consolidar a melhor solucao global.
         for (int worker_index = 0; worker_index < worker_count; worker_index++) {
             pthread_join(workers[worker_index], NULL);
         }
@@ -636,6 +653,7 @@ ProposedConfig *build_backtracking_proposals(
         free(branch_profiles);
     }
 
+    // Converte os indices da melhor solucao para o contrato publico ProposedConfig.
     for (int node_index = 0; node_index < graph->node_count; node_index++) {
         int chosen_profile = best_profiles[node_index];
         const Node *node = &graph->nodes[node_index];
