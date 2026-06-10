@@ -1,15 +1,13 @@
 from flask import jsonify, render_template
 from models import db, AccessPoint
 import logging
-import requests
 import re
 from datetime import datetime
 import os
+from zabbix_integration import get_saved_zabbix_client
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
-
-ZABBIX_SERVICE_URL = os.environ["ZABBIX_SERVICE_URL"]
 
 def create_tables():
     db.create_all()
@@ -131,26 +129,35 @@ class AccessPointController:
             return jsonify({"error": f"Erro ao buscar detalhes: {str(e)}"}), 500
 
     def sync_zabbix_data(self):
-        """Sincroniza dados do Zabbix com banco local"""
         try:
-            response = requests.get(
-                f"{ZABBIX_SERVICE_URL}/hosts_with_items",
-                timeout=int(os.environ["ACCESS_POINT_HTTP_TIMEOUT"]),
-            )
-            
-            if response.status_code == 200:
-                processed_aps = process_zabbix_data(response.json())
-                return jsonify({
-                    "message": f"{len(processed_aps)} APs sincronizados",
-                    "access_points": [ap.to_dict() for ap in processed_aps]
-                })
-                
-            logger.error(f"Erro Zabbix status: {response.status_code}")
-            return jsonify({"error": "Erro ao buscar dados do Zabbix"}), response.status_code
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Erro de conexão: {str(e)}")
-            return jsonify({"error": f"Erro de conexão: {str(e)}"}), 500
+            zabbix_hosts = get_saved_zabbix_client().get_hosts()
+            processed_aps = []
+
+            for host in zabbix_hosts:
+                raw_id = str(host.get("index") or host.get("id") or "").strip()
+                if not raw_id:
+                    continue
+
+                suffix = raw_id.split(".")[-1] if "." in raw_id else raw_id
+                raw_name = (host.get("name") or host.get("host") or raw_id).split(" - ")[0]
+
+                ap = AccessPoint.query.get(raw_id)
+                if not ap:
+                    ap = AccessPoint(id=raw_id, name=f"{raw_name}.{suffix}".rstrip("."))
+                    db.session.add(ap)
+
+                ap.frequency = host.get("frequency")
+                ap.bandwidth = host.get("bandwidth")
+                ap.channel = host.get("channel")
+                ap.last_update = datetime.utcnow()
+                processed_aps.append(ap)
+
+            db.session.commit()
+            return jsonify({
+                "message": f"{len(processed_aps)} APs sincronizados",
+                "access_points": [ap.to_dict() for ap in processed_aps]
+            })
         except Exception as e:
-            logger.error(f"Erro na sincronização: {str(e)}")
-            return jsonify({"error": f"Erro na sincronização: {str(e)}"}), 500
+            db.session.rollback()
+            logger.error(f"Erro na sincronizacao: {str(e)}")
+            return jsonify({"error": f"Erro na sincronizacao: {str(e)}"}), 500

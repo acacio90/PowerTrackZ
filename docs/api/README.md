@@ -1,115 +1,70 @@
-# Documentação da API
+﻿# Documentacao da API
 
-## Endpoints
+## Entrada Principal
 
-### Gateway (Porta 80)
+O frontend roda em `http://localhost:3000` e expoe as paginas web e rotas `/api/*` usadas pela interface. Internamente, ele encaminha chamadas para `access_point_service` e `analysis_service`.
 
-#### Autenticação
-```
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/auth/logout
-```
+## Frontend Service (Porta 3000)
 
-#### Pontos de Acesso
-```
-GET /api/access-points
-POST /api/access-points
-GET /api/access-points/{id}
-PUT /api/access-points/{id}
-DELETE /api/access-points/{id}
-```
-
-#### Mapas
-```
-GET /api/maps
-POST /api/maps
-GET /api/maps/{id}
-PUT /api/maps/{id}
-DELETE /api/maps/{id}
-```
-
-#### Análise
-```
-GET /api/analysis/performance
-GET /api/analysis/reports
-POST /api/analysis/generate-report
+```http
+GET /health
+GET /
+GET /hosts
+GET /register
+POST /register
+GET /analysis
+GET /settings
+POST /zabbix/save-config
+POST /zabbix/test-connection
+GET /api/access_points
+POST /api/access_points
+POST /api/access_points/import
+POST /api/access_points/generate
+GET /api/access_points/{id}
+PUT /api/access_points/{id}
+DELETE /api/access_points/{id}
+GET /api/analysis/strategies
+GET /api/analysis/capabilities
+POST /api/analysis/analyze-graph
+POST /api/analysis/backtracking
+POST /api/analysis/analyze-graph-stream
+POST /api/analysis/backtracking-stream
+POST /api/analysis/cancel-analysis
+POST /api/analysis/collision-graph
 ```
 
-### Zabbix Service (Porta 5003)
+## Access Point Service (Porta 5004)
 
-```
-GET /api/zabbix/items
-GET /api/zabbix/triggers
-POST /api/zabbix/events
-```
-
-### Map Service (Porta 5001)
-
-```
-GET /api/map/points
-POST /api/map/points
-GET /api/map/heatmap
-```
-
-### Analysis Service (Porta 5002)
-
-```
-GET /api/analysis/metrics
-POST /api/analysis/calculate
-GET /api/analysis/history
+```http
+GET /health
+GET /hosts
+GET /hosts/{host_id}
+GET /access_points
+POST /access_points
+POST /access_points/import
+POST /access_points/generate
+PUT /access_points/{id}
+DELETE /access_points/{id}
+POST /sync/zabbix
+GET /zabbix/hosts
+GET /zabbix/groups
+GET /zabbix/config
+POST /zabbix/save-config
+POST /zabbix/test-connection
 ```
 
-### Access Point Service (Porta 5004)
+## Analysis Service (Porta 5002)
 
+```http
+GET /health
+GET /analyze
+GET /strategies
+GET /capabilities
+POST /analyze-graph
+POST /backtracking
+POST /analyze-graph-stream
+POST /backtracking-stream
+POST /cancel-analysis
+POST /compare-strategies
+POST /collision-graph
 ```
-GET /api/access-points/status
-POST /api/access-points/configure
-GET /api/access-points/history
-```
-
-## Formatos de Resposta
-
-### Sucesso
-```json
-{
-    "status": "success",
-    "data": {
-        // Dados da resposta
-    }
-}
-```
-
-### Erro
-```json
-{
-    "status": "error",
-    "error": {
-        "code": "ERROR_CODE",
-        "message": "Descrição do erro"
-    }
-}
-```
-
-## Autenticação
-
-Todas as requisições devem incluir um token JWT no header:
-```
-Authorization: Bearer <token>
-```
-
-## Rate Limiting
-
-- 100 requisições por minuto por IP
-- 1000 requisições por hora por usuário
-
-## Códigos de Status
-
-- 200: Sucesso
-- 201: Criado
-- 400: Requisição inválida
-- 401: Não autorizado
-- 403: Proibido
-- 404: Não encontrado
-- 429: Muitas requisições
-- 500: Erro interno do servidor 

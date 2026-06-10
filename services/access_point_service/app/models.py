@@ -28,3 +28,13 @@ class AccessPoint(db.Model):
             'longitude': self.longitude,
             'last_update': self.last_update.isoformat() if self.last_update else None
         }
+
+
+class ZabbixConfig(db.Model):
+    """Configuracao de conexao com o Zabbix externo."""
+    __tablename__ = 'zabbix_config'
+
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(255), nullable=False)
+    user = db.Column(db.String(255), nullable=False)
+    password = db.Column(db.String(255), nullable=False)

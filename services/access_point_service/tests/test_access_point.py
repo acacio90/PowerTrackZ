@@ -8,7 +8,6 @@ APP_DIR = Path(__file__).resolve().parents[1] / "app"
 TEST_DB_PATH = Path(__file__).resolve().with_name("test_access_point.sqlite")
 
 os.environ.setdefault("ACCESS_POINT_DATABASE_URI", f"sqlite:///{TEST_DB_PATH.as_posix()}")
-os.environ.setdefault("ZABBIX_SERVICE_URL", "http://zabbix:5005")
 os.environ.setdefault("ACCESS_POINT_HTTP_TIMEOUT", "30")
 
 if str(APP_DIR) not in sys.path:

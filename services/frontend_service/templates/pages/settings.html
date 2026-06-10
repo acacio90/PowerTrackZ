@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 showAlert("Configuração salva com sucesso!", "success");
                 bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
             } else {
-                showAlert("Erro ao salvar: " + data.message, "danger");
+                showAlert("Erro ao salvar: " + (data.error || data.message || "Erro desconhecido"), "danger");
             }
         })
         .catch(error => showAlert("Erro ao salvar configuração", "danger"));
@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } else {
                 statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Falha na conexão!</span>';
                 statusDiv.className = 'connection-status error';
-                showAlert("Falha: " + data.message, "danger");
+                showAlert("Falha: " + (data.error || data.message || "Erro desconhecido"), "danger");
             }
         })
         .catch(error => {

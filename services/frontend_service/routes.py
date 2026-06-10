@@ -7,21 +7,41 @@ routes = Blueprint('routes', __name__)
 
 logger = logging.getLogger(__name__)
 
-GATEWAY_URL = os.environ["GATEWAY_URL"]
+SERVICE_URLS = {
+    "analysis": os.environ["ANALYSIS_SERVICE_URL"],
+    "access_points": os.environ["ACCESS_POINT_SERVICE_URL"],
+}
+HTTP_TIMEOUT = int(os.environ.get("FRONTEND_HTTP_TIMEOUT", "120"))
+HTTP_VERIFY_SSL = os.environ.get("FRONTEND_HTTP_VERIFY_SSL", "false").lower() == "true"
+
+
+def resolve_service_url(endpoint):
+    routes = {
+        "/zabbix": ("access_points", ""),
+        "/analysis": ("analysis", "/analysis"),
+        "/access_points": ("access_points", ""),
+    }
+
+    for prefix, (service_name, strip_prefix) in routes.items():
+        if endpoint == prefix or endpoint.startswith(f"{prefix}/"):
+            service_path = endpoint[len(strip_prefix):] if strip_prefix else endpoint
+            return f"{SERVICE_URLS[service_name]}{service_path}"
+
+    raise ValueError(f"Endpoint sem servico configurado: {endpoint}")
 
 
 def make_api_request(endpoint, method='GET', data=None):
-    """Faz requisicao para a API via gateway."""
+    """Faz requisicao direta ao microservico responsavel."""
     try:
-        url = f"{GATEWAY_URL}/api{endpoint}"
+        url = resolve_service_url(endpoint)
         if method == 'GET':
-            response = requests.get(url)
+            response = requests.get(url, timeout=HTTP_TIMEOUT, verify=HTTP_VERIFY_SSL)
         elif method == 'POST':
-            response = requests.post(url, json=data)
+            response = requests.post(url, json=data, timeout=HTTP_TIMEOUT, verify=HTTP_VERIFY_SSL)
         elif method == 'PUT':
-            response = requests.put(url, json=data)
+            response = requests.put(url, json=data, timeout=HTTP_TIMEOUT, verify=HTTP_VERIFY_SSL)
         elif method == 'DELETE':
-            response = requests.delete(url)
+            response = requests.delete(url, timeout=HTTP_TIMEOUT, verify=HTTP_VERIFY_SSL)
         else:
             raise ValueError(f"Metodo HTTP nao suportado: {method}")
 
@@ -88,13 +108,7 @@ def register():
     except Exception:
         points = []
 
-    try:
-        map_data, _ = make_api_request('/map')
-        map_html = map_data if isinstance(map_data, str) else "<p>Error loading map</p>"
-    except Exception:
-        map_html = "<p>Error loading map</p>"
-
-    return render_template('pages/register.html', points=points, map_html=map_html)
+    return render_template('pages/register.html', points=points)
 
 
 @routes.route('/analysis')
@@ -185,9 +199,11 @@ def analysis_analyze_graph_stream_api():
     data = request.get_json(silent=True) or {}
     try:
         response = requests.post(
-            f"{GATEWAY_URL}/api/analysis/analyze-graph-stream",
+            resolve_service_url('/analysis/analyze-graph-stream'),
             json=data,
             stream=True,
+            timeout=None,
+            verify=HTTP_VERIFY_SSL,
         )
 
         def generate():
@@ -213,9 +229,11 @@ def analysis_backtracking_stream_api():
     data = request.get_json(silent=True) or {}
     try:
         response = requests.post(
-            f"{GATEWAY_URL}/api/analysis/backtracking-stream",
+            resolve_service_url('/analysis/backtracking-stream'),
             json=data,
             stream=True,
+            timeout=None,
+            verify=HTTP_VERIFY_SSL,
         )
 
         def generate():

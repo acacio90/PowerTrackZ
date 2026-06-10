@@ -1,6 +1,5 @@
 param(
     [switch]$SkipInstall,
-    [switch]$NoZabbix,
     [string]$VenvPath = ".venv-local"
 )
 
@@ -128,25 +127,15 @@ function New-LocalEnvironment {
     $exampleEnvPath = Join-Path $ProjectRoot ".env.example"
     $values = Load-EnvFile -Path $(if (Test-Path $envPath) { $envPath } else { $exampleEnvPath })
 
-    $gatewayPort = if ($values.ContainsKey("GATEWAY_PORT")) { $values["GATEWAY_PORT"] } else { "80" }
     $frontendPort = if ($values.ContainsKey("FRONTEND_PORT")) { $values["FRONTEND_PORT"] } else { "3000" }
-    $mapPort = if ($values.ContainsKey("MAP_SERVICE_PORT")) { $values["MAP_SERVICE_PORT"] } else { "5001" }
     $analysisPort = if ($values.ContainsKey("ANALYSIS_SERVICE_PORT")) { $values["ANALYSIS_SERVICE_PORT"] } else { "5002" }
-    $zabbixPort = if ($values.ContainsKey("ZABBIX_SERVICE_PORT")) { $values["ZABBIX_SERVICE_PORT"] } else { "5003" }
     $accessPointPort = if ($values.ContainsKey("ACCESS_POINT_SERVICE_PORT")) { $values["ACCESS_POINT_SERVICE_PORT"] } else { "5004" }
 
-    $zabbixRoot = Join-Path $ProjectRoot "services/zabbix_service"
     $accessPointRoot = Join-Path $ProjectRoot "services/access_point_service"
-    $sslDir = Join-Path $zabbixRoot "ssl"
-    $sslCertPath = Join-Path $sslDir "cert.pem"
-    $sslKeyPath = Join-Path $sslDir "key.pem"
-    $zabbixDbPath = Join-Path $zabbixRoot "instance/zabbix_config.local.db"
     $accessPointDbPath = Join-Path $accessPointRoot "instance/access_points.local.db"
 
     $instanceDirs = @(
-        (Split-Path $zabbixDbPath -Parent),
-        (Split-Path $accessPointDbPath -Parent),
-        $sslDir
+        (Split-Path $accessPointDbPath -Parent)
     )
 
     foreach ($directory in $instanceDirs) {
@@ -157,16 +146,11 @@ function New-LocalEnvironment {
 
     $values["FLASK_ENV"] = if ($values.ContainsKey("FLASK_ENV")) { $values["FLASK_ENV"] } else { "development" }
     $values["HOST"] = "127.0.0.1"
-    $values["GATEWAY_URL"] = "http://127.0.0.1:$gatewayPort"
     $values["FRONTEND_SERVICE_URL"] = "http://127.0.0.1:$frontendPort"
-    $values["MAP_SERVICE_URL"] = "http://127.0.0.1:$mapPort"
     $values["ANALYSIS_SERVICE_URL"] = "http://127.0.0.1:$analysisPort"
-    $values["ZABBIX_SERVICE_URL"] = "https://127.0.0.1:$zabbixPort"
     $values["ACCESS_POINT_SERVICE_URL"] = "http://127.0.0.1:$accessPointPort"
-    $values["ZABBIX_SSL_DIR"] = $sslDir
-    $values["ZABBIX_SSL_CERT_PATH"] = $sslCertPath
-    $values["ZABBIX_SSL_KEY_PATH"] = $sslKeyPath
-    $values["ZABBIX_DATABASE_URI"] = To-SqliteUri -Path $zabbixDbPath
+    $values["FRONTEND_HTTP_TIMEOUT"] = if ($values.ContainsKey("FRONTEND_HTTP_TIMEOUT")) { $values["FRONTEND_HTTP_TIMEOUT"] } else { "120" }
+    $values["FRONTEND_HTTP_VERIFY_SSL"] = if ($values.ContainsKey("FRONTEND_HTTP_VERIFY_SSL")) { $values["FRONTEND_HTTP_VERIFY_SSL"] } else { "false" }
     $values["ACCESS_POINT_DATABASE_URI"] = To-SqliteUri -Path $accessPointDbPath
 
     return $values
@@ -202,15 +186,9 @@ function Ensure-VenvAndDependencies {
         Invoke-Python -PythonSpec $venvSpec -Arguments @("-m", "pip", "install", "--upgrade", "pip") -WorkingDirectory $ProjectRoot
 
         $requirements = @(
-            "gateway/requirements.txt",
             "services/frontend_service/requirements.txt",
-            "services/map_service/requirements.txt",
             "services/access_point_service/requirements.txt"
         )
-
-        if (-not $NoZabbix) {
-            $requirements += "services/zabbix_service/requirements.txt"
-        }
 
         foreach ($requirement in $requirements) {
             Write-Info "Instalando dependencias de $requirement"
@@ -290,23 +268,13 @@ $services = @(
             PORT = $baseEnvironment["ACCESS_POINT_SERVICE_PORT"]
             ACCESS_POINT_DATABASE_URI = $baseEnvironment["ACCESS_POINT_DATABASE_URI"]
             ACCESS_POINT_HTTP_TIMEOUT = $baseEnvironment["ACCESS_POINT_HTTP_TIMEOUT"]
-            ZABBIX_SERVICE_URL = $baseEnvironment["ZABBIX_SERVICE_URL"]
-        }
-    },
-    @{
-        Title = "PowerTrackZ Map Service"
-        WorkingDirectory = (Join-Path $projectRoot "services/map_service")
-        CommandExe = $venvPython
-        CommandArgs = @("-m", "app.main")
-        Environment = @{
-            PORT = $baseEnvironment["MAP_SERVICE_PORT"]
-            ACCESS_POINT_SERVICE_URL = $baseEnvironment["ACCESS_POINT_SERVICE_URL"]
         }
     }
 )
 
 if ($dockerExe) {
     $analysisPort = $baseEnvironment["ANALYSIS_SERVICE_PORT"]
+    $analysisAccessPointUrl = "http://host.docker.internal:$($baseEnvironment["ACCESS_POINT_SERVICE_PORT"])"
     $analysisImage = "powertrackz-analysis-service-local"
     $analysisContainer = "powertrackz-analysis-service-local"
     $analysisContext = (Join-Path $projectRoot "services/analysis_service")
@@ -322,7 +290,7 @@ if ($dockerExe) {
             "-p", ("127.0.0.1:{0}:{0}" -f $analysisPort),
             "-e", ("PORT={0}" -f $analysisPort),
             "-e", "HOST=0.0.0.0",
-            "-e", ("GATEWAY_URL={0}" -f $baseEnvironment["GATEWAY_URL"]),
+            "-e", ("ACCESS_POINT_SERVICE_URL={0}" -f $analysisAccessPointUrl),
             "-e", ("ANALYSIS_HTTP_TIMEOUT={0}" -f $baseEnvironment["ANALYSIS_HTTP_TIMEOUT"]),
             $analysisImage
         )
@@ -332,7 +300,7 @@ if ($dockerExe) {
         )
         Environment = @{
             PORT = $analysisPort
-            GATEWAY_URL = $baseEnvironment["GATEWAY_URL"]
+            ACCESS_POINT_SERVICE_URL = $analysisAccessPointUrl
             ANALYSIS_HTTP_TIMEOUT = $baseEnvironment["ANALYSIS_HTTP_TIMEOUT"]
         }
     }
@@ -340,45 +308,7 @@ if ($dockerExe) {
     Write-Warn "Docker nao encontrado no PATH. O analysis_service em C nao sera iniciado por este script."
 }
 
-if (-not $NoZabbix) {
-    $services += @{
-        Title = "PowerTrackZ Zabbix Service"
-        WorkingDirectory = (Join-Path $projectRoot "services/zabbix_service")
-        CommandExe = $venvPython
-        CommandArgs = @("run.py")
-        Environment = @{
-            PORT = $baseEnvironment["ZABBIX_SERVICE_PORT"]
-            ZABBIX_DATABASE_URI = $baseEnvironment["ZABBIX_DATABASE_URI"]
-            ZABBIX_CORS_ORIGINS = $baseEnvironment["ZABBIX_CORS_ORIGINS"]
-            ZABBIX_SSL_DIR = $baseEnvironment["ZABBIX_SSL_DIR"]
-            ZABBIX_SSL_CERT_PATH = $baseEnvironment["ZABBIX_SSL_CERT_PATH"]
-            ZABBIX_SSL_KEY_PATH = $baseEnvironment["ZABBIX_SSL_KEY_PATH"]
-        }
-    }
-} else {
-    Write-Warn "Zabbix Service sera ignorado nesta execucao local."
-}
-
 $services += @(
-    @{
-        Title = "PowerTrackZ Gateway"
-        WorkingDirectory = (Join-Path $projectRoot "gateway")
-        CommandExe = $venvPython
-        CommandArgs = @("-m", "app.main")
-        Environment = @{
-            PORT = $baseEnvironment["GATEWAY_PORT"]
-            GATEWAY_SECRET_KEY = $baseEnvironment["GATEWAY_SECRET_KEY"]
-            ZABBIX_SERVICE_URL = $baseEnvironment["ZABBIX_SERVICE_URL"]
-            MAP_SERVICE_URL = $baseEnvironment["MAP_SERVICE_URL"]
-            ANALYSIS_SERVICE_URL = $baseEnvironment["ANALYSIS_SERVICE_URL"]
-            ACCESS_POINT_SERVICE_URL = $baseEnvironment["ACCESS_POINT_SERVICE_URL"]
-            FRONTEND_SERVICE_URL = $baseEnvironment["FRONTEND_SERVICE_URL"]
-            GATEWAY_HTTP_TIMEOUT = $baseEnvironment["GATEWAY_HTTP_TIMEOUT"]
-            GATEWAY_HTTP_RETRIES = $baseEnvironment["GATEWAY_HTTP_RETRIES"]
-            GATEWAY_HTTP_BACKOFF_FACTOR = $baseEnvironment["GATEWAY_HTTP_BACKOFF_FACTOR"]
-            GATEWAY_HTTP_VERIFY_SSL = $baseEnvironment["GATEWAY_HTTP_VERIFY_SSL"]
-        }
-    },
     @{
         Title = "PowerTrackZ Frontend Service"
         WorkingDirectory = (Join-Path $projectRoot "services/frontend_service")
@@ -387,7 +317,10 @@ $services += @(
         Environment = @{
             PORT = $baseEnvironment["FRONTEND_PORT"]
             FRONTEND_SECRET_KEY = $baseEnvironment["FRONTEND_SECRET_KEY"]
-            GATEWAY_URL = $baseEnvironment["GATEWAY_URL"]
+            ANALYSIS_SERVICE_URL = $baseEnvironment["ANALYSIS_SERVICE_URL"]
+            ACCESS_POINT_SERVICE_URL = $baseEnvironment["ACCESS_POINT_SERVICE_URL"]
+            FRONTEND_HTTP_TIMEOUT = $baseEnvironment["FRONTEND_HTTP_TIMEOUT"]
+            FRONTEND_HTTP_VERIFY_SSL = $baseEnvironment["FRONTEND_HTTP_VERIFY_SSL"]
         }
     }
 )
@@ -418,6 +351,5 @@ foreach ($service in $services) {
 
 Write-Host ""
 Write-Info "Servicos iniciados em janelas separadas."
-Write-Info "Frontend via gateway: http://127.0.0.1:$($baseEnvironment["GATEWAY_PORT"])"
-Write-Info "Frontend direto: http://127.0.0.1:$($baseEnvironment["FRONTEND_PORT"])"
+Write-Info "Frontend: http://127.0.0.1:$($baseEnvironment["FRONTEND_PORT"])"
 Write-Info "Use Ctrl+C em cada janela para encerrar os servicos."

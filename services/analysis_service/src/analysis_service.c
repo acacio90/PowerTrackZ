@@ -781,12 +781,12 @@ static size_t curl_callback(void *contents, size_t size, size_t nmemb, void *use
 }
 
 static cJSON *fetch_access_points(void) {
-    const char *gateway_url = getenv("GATEWAY_URL");
-    if (!gateway_url || gateway_url[0] == '\0') {
+    const char *access_point_service_url = getenv("ACCESS_POINT_SERVICE_URL");
+    if (!access_point_service_url || access_point_service_url[0] == '\0') {
         return NULL;
     }
     char url[512];
-    snprintf(url, sizeof(url), "%s/api/access_points", gateway_url);
+    snprintf(url, sizeof(url), "%s/access_points", access_point_service_url);
 
     CURL *curl = curl_easy_init();
     if (!curl) {

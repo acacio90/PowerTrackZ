@@ -524,8 +524,7 @@ main {
     z-index: 1;
 }
 
-.map-content iframe,
-.map-content .folium-map {
+.map-content iframe {
     width: 100% !important;
     height: 100% !important;
     border: none;

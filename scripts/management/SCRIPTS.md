@@ -104,10 +104,7 @@ Após executar `./start.sh`, os seguintes serviços estarão disponíveis:
 
 | Serviço | Porta | Descrição |
 |---------|-------|-----------|
-| Gateway | 80 | API Gateway e proxy reverso |
 | Frontend Service | 3000 | Interface web principal |
-| Zabbix Service | 5003 | Integração com Zabbix |
-| Map Service | 5001 | Visualização de mapas |
 | Analysis Service | 5002 | Análise de dados e algoritmos |
 | Access Point Service | 5004 | Gerenciamento de APs |
 
@@ -118,7 +115,6 @@ Após executar `./start.sh`, os seguintes serviços estarão disponíveis:
 docker compose logs -f
 
 # Ver logs de um serviço específico
-docker compose logs -f gateway
 docker compose logs -f frontend_service
 docker compose logs -f analysis_service
 
@@ -126,7 +122,6 @@ docker compose logs -f analysis_service
 docker compose ps
 
 # Executar comando em um container
-docker compose exec gateway bash
 docker compose exec frontend_service bash
 
 # Ver uso de recursos
@@ -143,8 +138,7 @@ docker stats
 1. **Porta já em uso:**
    ```bash
    # Verificar o que está usando a porta
-   sudo lsof -i :80
-   sudo lsof -i :3000
+      sudo lsof -i :3000
    
    # Parar o processo
    sudo kill -9 <PID>

@@ -1,62 +1,4 @@
-version: '3.8'
-
 services:
-  zabbix_service:
-    build: 
-      context: ./services/zabbix_service
-      dockerfile: Dockerfile
-    ports:
-      - "${ZABBIX_SERVICE_PORT:-5003}:5003"
-    volumes:
-      - ./services/zabbix_service:/app
-    environment:
-      - FLASK_APP=app.main
-      - FLASK_ENV=${FLASK_ENV:-development}
-      - PYTHONPATH=${PYTHONPATH:-/app}
-      - HOST=${HOST:-0.0.0.0}
-      - PORT=5003
-      - ZABBIX_DATABASE_URI=${ZABBIX_DATABASE_URI}
-      - ZABBIX_CORS_ORIGINS=${ZABBIX_CORS_ORIGINS}
-      - ZABBIX_SSL_DIR=${ZABBIX_SSL_DIR}
-      - ZABBIX_SSL_CERT_PATH=${ZABBIX_SSL_CERT_PATH}
-      - ZABBIX_SSL_KEY_PATH=${ZABBIX_SSL_KEY_PATH}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_FORMAT=${LOG_FORMAT:-%(asctime)s - %(name)s - %(levelname)s - %(message)s}
-    healthcheck:
-      test: ["CMD", "curl", "-k", "-f", "https://localhost:5003/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - app-network
-
-  map_service:
-    build: 
-      context: ./services/map_service
-      dockerfile: Dockerfile
-    ports:
-      - "${MAP_SERVICE_PORT:-5001}:5001"
-    volumes:
-      - ./services/map_service:/app
-    environment:
-      - FLASK_APP=app.main
-      - FLASK_ENV=${FLASK_ENV:-development}
-      - PYTHONPATH=${PYTHONPATH:-/app}
-      - HOST=${HOST:-0.0.0.0}
-      - PORT=5001
-      - ACCESS_POINT_SERVICE_URL=${ACCESS_POINT_SERVICE_URL}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_FORMAT=${LOG_FORMAT:-%(asctime)s - %(name)s - %(levelname)s - %(message)s}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - app-network
-
   analysis_service:
     build: 
       context: ./services/analysis_service
@@ -68,7 +10,7 @@ services:
     environment:
       - HOST=${HOST:-0.0.0.0}
       - PORT=5002
-      - GATEWAY_URL=${GATEWAY_URL}
+      - ACCESS_POINT_SERVICE_URL=${ACCESS_POINT_SERVICE_URL}
       - ANALYSIS_HTTP_TIMEOUT=${ANALYSIS_HTTP_TIMEOUT}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
@@ -93,7 +35,6 @@ services:
       - PYTHONPATH=${PYTHONPATH:-/app}
       - HOST=${HOST:-0.0.0.0}
       - PORT=5004
-      - ZABBIX_SERVICE_URL=${ZABBIX_SERVICE_URL}
       - ACCESS_POINT_DATABASE_URI=${ACCESS_POINT_DATABASE_URI}
       - ACCESS_POINT_HTTP_TIMEOUT=${ACCESS_POINT_HTTP_TIMEOUT}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -121,51 +62,12 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - PORT=3000
       - FRONTEND_SECRET_KEY=${FRONTEND_SECRET_KEY}
-      - GATEWAY_URL=${GATEWAY_URL}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    depends_on:
-      gateway:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  gateway:
-    build: 
-      context: ./gateway
-      dockerfile: Dockerfile
-    ports:
-      - "${GATEWAY_PORT:-80}:80"
-    volumes:
-      - ./gateway:/app
-    environment:
-      - FLASK_APP=app.main
-      - FLASK_ENV=${FLASK_ENV:-development}
-      - PYTHONPATH=${PYTHONPATH:-/app}
-      - HOST=${HOST:-0.0.0.0}
-      - PORT=80
-      - GATEWAY_SECRET_KEY=${GATEWAY_SECRET_KEY}
-      - ZABBIX_SERVICE_URL=${ZABBIX_SERVICE_URL}
-      - MAP_SERVICE_URL=${MAP_SERVICE_URL}
       - ANALYSIS_SERVICE_URL=${ANALYSIS_SERVICE_URL}
       - ACCESS_POINT_SERVICE_URL=${ACCESS_POINT_SERVICE_URL}
-      - FRONTEND_SERVICE_URL=${FRONTEND_SERVICE_URL}
+      - FRONTEND_HTTP_TIMEOUT=${FRONTEND_HTTP_TIMEOUT:-120}
+      - FRONTEND_HTTP_VERIFY_SSL=${FRONTEND_HTTP_VERIFY_SSL:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_FORMAT=${LOG_FORMAT:-%(asctime)s - %(name)s - %(levelname)s - %(message)s}
-      - GATEWAY_HTTP_TIMEOUT=${GATEWAY_HTTP_TIMEOUT:-120}
-      - GATEWAY_HTTP_RETRIES=${GATEWAY_HTTP_RETRIES:-10}
-      - GATEWAY_HTTP_BACKOFF_FACTOR=${GATEWAY_HTTP_BACKOFF_FACTOR:-2.0}
-      - GATEWAY_HTTP_VERIFY_SSL=${GATEWAY_HTTP_VERIFY_SSL:-false}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     depends_on:
-      zabbix_service:
-        condition: service_healthy
-      map_service:
-        condition: service_healthy
       analysis_service:
         condition: service_healthy
       access_point_service:

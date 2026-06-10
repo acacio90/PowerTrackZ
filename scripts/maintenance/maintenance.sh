@@ -25,25 +25,6 @@ warn() {
 # Diretório do projeto
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Backup do banco de dados
-backup_database() {
-    log "Iniciando backup do banco de dados..."
-    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    BACKUP_DIR="$PROJECT_DIR/backups"
-    mkdir -p "$BACKUP_DIR"
-    
-    docker-compose exec -T db pg_dump -U postgres powertrackz > "$BACKUP_DIR/backup_$TIMESTAMP.sql"
-    
-    if [ $? -eq 0 ]; then
-        log "Backup concluído: backup_$TIMESTAMP.sql"
-        
-        # Mantém apenas os últimos 7 backups
-        ls -t "$BACKUP_DIR"/backup_*.sql | tail -n +8 | xargs -r rm
-    else
-        error "Falha ao realizar backup do banco de dados"
-    fi
-}
-
 # Limpeza de logs
 cleanup_logs() {
     log "Limpando logs antigos..."
@@ -158,9 +139,7 @@ check_health() {
     log "Verificando saúde dos serviços..."
     
     services=(
-        "gateway:80"
-        "zabbix_service:5003"
-        "map_service:5001"
+        "frontend_service:3000"
         "analysis_service:5002"
         "access_point_service:5004"
     )
@@ -180,10 +159,6 @@ check_health() {
 # Função principal
 main() {
     log "Iniciando tarefas de manutenção..."
-    
-    # Backup
-    backup_database
-    
     # Limpeza
     cleanup_logs
     

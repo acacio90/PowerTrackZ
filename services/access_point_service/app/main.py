@@ -9,6 +9,13 @@ from access_point_generator import generate_access_point_infrastructure
 from access_point_import import import_access_points, upsert_access_point, validate_access_point_payload
 from controllers import AccessPointController, create_tables
 from models import AccessPoint, db
+from zabbix_integration import (
+    get_zabbix_config,
+    get_zabbix_groups,
+    get_zabbix_hosts,
+    save_zabbix_config,
+    test_zabbix_connection,
+)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +68,31 @@ def sync_zabbix():
     except Exception as e:
         logger.error(f"Erro na sincronizacao: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/zabbix/test-connection", methods=["POST"])
+def zabbix_test_connection():
+    return test_zabbix_connection()
+
+
+@app.route("/zabbix/save-config", methods=["POST"])
+def zabbix_save_config():
+    return save_zabbix_config()
+
+
+@app.route("/zabbix/config", methods=["GET"])
+def zabbix_config():
+    return get_zabbix_config()
+
+
+@app.route("/zabbix/groups", methods=["GET"])
+def zabbix_groups():
+    return get_zabbix_groups()
+
+
+@app.route("/zabbix/hosts", methods=["GET"])
+def zabbix_hosts():
+    return get_zabbix_hosts()
 
 
 @app.route("/access_points", methods=["POST"])
