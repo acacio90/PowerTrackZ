@@ -1,74 +1,60 @@
-# Arquitetura do PowerTrackZ
+﻿# Arquitetura do PowerTrackZ
 
-## Visão Geral
+## Visao Geral
 
-O PowerTrackZ é um sistema distribuído que utiliza uma arquitetura de microserviços para monitorar e analisar pontos de acesso de energia. O sistema é composto por vários componentes que trabalham em conjunto para fornecer uma solução completa de monitoramento.
+O PowerTrackZ e um sistema distribuido enxuto para monitorar e analisar pontos de acesso. A interface web e a entrada principal da aplicacao, renderiza o mapa no proprio frontend e conversa diretamente com os servicos internos configurados por variaveis de ambiente.
 
 ## Componentes Principais
 
-### 1. API Gateway
-- Ponto de entrada único para todas as requisições
-- Roteamento de requisições para os microserviços apropriados
-- Autenticação e autorização
-- Rate limiting e caching
+### Frontend Service
+- Interface web principal
+- Renderizacao das paginas
+- Mapa interativo com Leaflet
+- Rotas `/api/*` usadas pelo JavaScript da interface
+- Encaminhamento direto para Analysis e Access Point Service
 
-### 2. Microserviços
+### Access Point Service
+- Gerenciamento dos pontos de acesso
+- Importacao, geracao e sincronizacao de dados
+- Configuracao, teste e consulta do Zabbix externo
+- Persistencia dos APs cadastrados
+- Fonte dos dados exibidos no mapa
 
-#### Zabbix Service
-- Integração com a API do Zabbix
-- Coleta de dados de monitoramento
-- Processamento de eventos
-
-#### Map Service
-- Visualização geográfica dos pontos de acesso
-- Gerenciamento de mapas
-- Geolocalização
-
-#### Analysis Service
-- Análise de dados de desempenho
-- Geração de relatórios
-- Identificação de padrões
-
-#### Access Point Service
-- Gerenciamento de pontos de acesso
-- Configuração e monitoramento
-- Histórico de alterações
+### Analysis Service
+- Analise de colisao e otimizacao
+- Execucao dos algoritmos de analise
+- Streaming de progresso para a interface
+- Consulta ao Access Point Service quando precisa carregar os pontos cadastrados
 
 ## Fluxo de Dados
 
-1. Requisições chegam ao API Gateway
-2. Gateway autentica e roteia para o serviço apropriado
-3. Serviços processam as requisições e interagem entre si quando necessário
-4. Respostas são retornadas ao cliente através do Gateway
-
-## Tecnologias Utilizadas
-
-- Python (FastAPI) para os microserviços
-- Docker para containerização
-- PostgreSQL para armazenamento de dados
-- Redis para cache
-- Zabbix API para monitoramento
+1. O usuario acessa o Frontend Service em `http://localhost:3000`.
+2. O frontend renderiza as paginas, incluindo o mapa interativo.
+3. As rotas internas do frontend chamam diretamente o microservico responsavel.
+4. O Access Point Service concentra CRUD, importacao, geracao e integracao com Zabbix.
+5. O Analysis Service consulta o Access Point Service quando precisa carregar os pontos cadastrados.
 
 ## Diagrama de Arquitetura
 
+```text
+[Cliente]
+   |
+   v
+[Frontend Service]
+   |                 |
+   v                 v
+[Access Point]  [Analysis]
+      |
+      v
+[Banco de Dados]
+      |
+      v
+[Zabbix externo]
 ```
-[Cliente] <-> [API Gateway] <-> [Microserviços]
-                                    |
-                                    v
-                            [Banco de Dados]
-```
 
-## Considerações de Segurança
+## Consideracoes
 
-- Autenticação via JWT
-- HTTPS para todas as comunicações
-- Rate limiting para prevenir abusos
-- Validação de entrada em todas as APIs
-- Logging de segurança
-
-## Escalabilidade
-
-- Arquitetura stateless
-- Containerização para fácil escalamento
-- Cache distribuído
-- Balanceamento de carga 
+- Os servicos continuam isolados em containers.
+- O frontend concentra as responsabilidades de interface, incluindo o mapa.
+- O Access Point Service e o dono de tudo que cria, importa ou sincroniza APs.
+- As URLs internas sao configuradas por `.env` e `docker-compose.yml`.

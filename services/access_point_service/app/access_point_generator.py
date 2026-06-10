@@ -3,12 +3,18 @@ import random
 from datetime import datetime
 
 
-CHANNELS_24 = ["1", "6", "11"]
-CHANNELS_5 = ["36", "40", "44", "48", "149", "153", "157"]
-
-
-def _sample(values):
-    return random.choice(values)
+FREQUENCY_PROFILES = [
+    {
+        "frequency": "2.4 GHz",
+        "channel": "1",
+        "bandwidth": "20 MHz",
+    },
+    {
+        "frequency": "5 GHz",
+        "channel": "36",
+        "bandwidth": "80 MHz",
+    },
+]
 
 
 def get_signal_radius(frequency):
@@ -39,10 +45,10 @@ def build_generated_access_points(node_count):
     aps = []
 
     for index in range(node_count):
-        use_five_ghz = random.random() > 0.45
-        frequency = "5 GHz" if use_five_ghz else "2.4 GHz"
-        bandwidth = _sample(["40 MHz", "80 MHz"]) if use_five_ghz else _sample(["20 MHz", "40 MHz"])
-        channel = _sample(CHANNELS_5) if use_five_ghz else _sample(CHANNELS_24)
+        profile = random.choice(FREQUENCY_PROFILES)
+        frequency = profile["frequency"]
+        bandwidth = profile["bandwidth"]
+        channel = profile["channel"]
 
         aps.append({
             "id": f"generated-ap-{index + 1:03d}",
@@ -113,34 +119,43 @@ def assign_coordinates_for_topology(aps, links):
         current_id = queue.pop(0)
         current = by_id[current_id]
         neighbors = list(adjacency[current_id])
+        random.shuffle(neighbors)
 
-        for index, neighbor_id in enumerate(neighbors):
+        for neighbor_id in neighbors:
             if neighbor_id in visited:
                 continue
 
             neighbor = by_id[neighbor_id]
             desired_distance = max(
-                8,
+                6,
                 min(
-                    32,
-                    (current["radius"] + neighbor["radius"]) * random.uniform(0.58, 0.82),
+                    34,
+                    (current["radius"] + neighbor["radius"]) * random.uniform(0.42, 0.95),
                 ),
             )
-            angle = ((index + 1) / (len(neighbors) + 1)) * math.pi * 2 + random.uniform(-0.25, 0.25)
-            lat_offset = meters_to_latitude_degrees(desired_distance * math.cos(angle))
-            lng_offset = meters_to_longitude_degrees(desired_distance * math.sin(angle), current["latitude"])
+            angle = random.uniform(0, math.pi * 2)
+            local_jitter = random.uniform(-5.5, 5.5)
+            lat_offset = meters_to_latitude_degrees((desired_distance + local_jitter) * math.cos(angle))
+            lng_offset = meters_to_longitude_degrees((desired_distance - local_jitter) * math.sin(angle), current["latitude"])
 
-            neighbor["latitude"] = round(current["latitude"] + lat_offset, 6)
-            neighbor["longitude"] = round(current["longitude"] + lng_offset, 6)
+            neighbor_lat = current["latitude"] + lat_offset
+            neighbor_lng = current["longitude"] + lng_offset
+
+            # Introduz deslocamentos irregulares para evitar topologia "arrumada".
+            neighbor_lat += meters_to_latitude_degrees(random.uniform(-3.5, 3.5))
+            neighbor_lng += meters_to_longitude_degrees(random.uniform(-3.5, 3.5), current["latitude"])
+
+            neighbor["latitude"] = round(neighbor_lat, 6)
+            neighbor["longitude"] = round(neighbor_lng, 6)
             visited.add(neighbor_id)
             queue.append(neighbor_id)
 
-    for index, ap in enumerate(aps):
+    for ap in aps:
         if ap["latitude"] is not None and ap["longitude"] is not None:
             continue
 
-        fallback_angle = (index / max(len(aps), 1)) * math.pi * 2
-        fallback_distance = 18 + (index * 2.4)
+        fallback_distance = random.uniform(8, 42)
+        fallback_angle = random.uniform(0, math.pi * 2)
         ap["latitude"] = round(origin_lat + meters_to_latitude_degrees(fallback_distance * math.cos(fallback_angle)), 6)
         ap["longitude"] = round(origin_lng + meters_to_longitude_degrees(fallback_distance * math.sin(fallback_angle), origin_lat), 6)
 

@@ -159,8 +159,7 @@ Os scripts geram logs e arquivos em:
 
 3. **Porta já em uso:**
    ```bash
-   sudo lsof -i :80
-   sudo kill -9 <PID>
+      sudo kill -9 <PID>
    ```
 
 4. **Erro de build das imagens:**
@@ -175,7 +174,6 @@ Os scripts geram logs e arquivos em:
 docker compose logs -f
 
 # Ver logs de um serviço específico
-docker compose logs -f gateway
 docker compose logs -f frontend_service
 docker compose logs -f analysis_service
 

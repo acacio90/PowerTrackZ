@@ -100,9 +100,7 @@ check_health() {
     
     # Verifica cada serviço
     services=(
-        "gateway:80"
-        "zabbix_service:5003"
-        "map_service:5001"
+        "frontend_service:3000"
         "analysis_service:5002"
         "access_point_service:5004"
     )
@@ -125,9 +123,7 @@ show_services_info() {
     echo -e "${GREEN}🎉 PowerTrackZ está rodando!${NC}"
     echo -e "${BLUE}══════════════════════════════════════════════════════════════${NC}"
     echo -e "${YELLOW}Serviços disponíveis:${NC}"
-    echo -e "  🌐 Gateway (Interface Web): ${GREEN}http://localhost:80${NC}"
-    echo -e "  📊 Zabbix Service: ${GREEN}http://localhost:5003${NC}"
-    echo -e "  🗺️  Map Service: ${GREEN}http://localhost:5001${NC}"
+    echo -e "  🌐 Frontend: ${GREEN}http://localhost:3000${NC}"
     echo -e "  📈 Analysis Service: ${GREEN}http://localhost:5002${NC}"
     echo -e "  📡 Access Point Service: ${GREEN}http://localhost:5004${NC}"
     echo -e "\n${YELLOW}Comandos úteis:${NC}"

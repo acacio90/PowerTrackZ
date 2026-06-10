@@ -63,6 +63,44 @@
         color: #5d6c79;
     }
 
+    .analysis-parameters {
+        display: grid;
+        grid-template-columns: minmax(0, 220px);
+        gap: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .analysis-parameter {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .analysis-parameter label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #5d6c79;
+    }
+
+    .analysis-parameter input {
+        width: 100%;
+        min-height: 46px;
+        padding: 0.7rem 0.85rem;
+        border: 1px solid #cbd5df;
+        border-radius: 12px;
+        background: #fff;
+        color: #22313f;
+        font-size: 0.95rem;
+    }
+
+    .analysis-parameter-meta {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #607080;
+    }
+
     .page-analysis .strategy-buttons-container {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -249,6 +287,13 @@
 
                 <div class="analysis-toolbar">
                     <span class="analysis-toolbar-label">Estratégia ativa</span>
+                    <div class="analysis-parameters">
+                        <div class="analysis-parameter">
+                            <label for="analysis-thread-count">Threads</label>
+                            <input id="analysis-thread-count" type="number" min="1" max="32" step="1" value="1">
+                            <p id="analysis-thread-availability" class="analysis-parameter-meta">Threads disponiveis: --</p>
+                        </div>
+                    </div>
                     <div class="strategy-buttons-container">
                         <div class="strategy-button-wrapper">
                             <button class="btn btn-outline-primary btn-server-analysis" data-strategy="backtracking">
@@ -277,7 +322,10 @@
     window.ANALYSIS_API = {
         analyzeGraph: '/api/analysis/analyze-graph',
         analyzeGraphStream: '/api/analysis/analyze-graph-stream',
+        backtracking: '/api/analysis/backtracking',
+        backtrackingStream: '/api/analysis/backtracking-stream',
         cancelAnalysis: '/api/analysis/cancel-analysis',
+        capabilities: '/api/analysis/capabilities',
         strategies: '/api/analysis/strategies'
     };
     window.ACCESS_POINT_URL = '/api/access_points';
