@@ -43,6 +43,7 @@ GET /access_points
 POST /access_points
 POST /access_points/import
 POST /access_points/generate
+GET /access_points/{id}
 PUT /access_points/{id}
 DELETE /access_points/{id}
 POST /sync/zabbix
@@ -52,6 +53,8 @@ GET /zabbix/config
 POST /zabbix/save-config
 POST /zabbix/test-connection
 ```
+
+`GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador nao existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
 ## Analysis Service (Porta 5002)
 

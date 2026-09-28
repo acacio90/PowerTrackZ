@@ -30,6 +30,8 @@ class AccessPointRoutesTests(unittest.TestCase):
         with app.app_context():
             db.session.remove()
             db.drop_all()
+            # Fecha as conexoes do pool; no Windows o arquivo aberto nao pode ser removido.
+            db.engine.dispose()
 
         if TEST_DB_PATH.exists():
             TEST_DB_PATH.unlink()
@@ -152,6 +154,36 @@ class AccessPointRoutesTests(unittest.TestCase):
 
         with app.app_context():
             self.assertIsNone(AccessPoint.query.get("ap-1"))
+
+    def test_get_access_point_returns_existing_record(self):
+        with app.app_context():
+            db.session.add(AccessPoint(
+                id="ap-1",
+                name="AP 1",
+                channel="6",
+                frequency="2.4 GHz",
+                bandwidth="20 MHz",
+                latitude=-23.5,
+                longitude=-46.6,
+            ))
+            db.session.commit()
+
+        response = self.client.get("/access_points/ap-1")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["id"], "ap-1")
+        self.assertEqual(payload["name"], "AP 1")
+        self.assertEqual(payload["channel"], "6")
+        self.assertEqual(payload["latitude"], -23.5)
+        self.assertIn("last_update", payload)
+
+    def test_get_access_point_returns_404_when_missing(self):
+        response = self.client.get("/access_points/ap-inexistente")
+
+        self.assertEqual(response.status_code, 404)
+        payload = response.get_json()
+        self.assertIn("nao encontrado", payload["error"])
 
     def test_delete_access_point_returns_404_when_missing(self):
         response = self.client.delete("/access_points/ap-inexistente")
