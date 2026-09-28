@@ -103,6 +103,13 @@
         flex-wrap: wrap;
     }
 
+    .analysis-display-options {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem 1.25rem;
+        flex-wrap: wrap;
+    }
+
     .analysis-display-option {
         display: flex;
         align-items: center;
@@ -135,6 +142,16 @@
     .linha-sobreposicao {
         height: 2px;
         background: #c3cad2;
+    }
+
+    .linha-resolvida {
+        height: 2px;
+        background: repeating-linear-gradient(90deg, rgba(214, 40, 40, 0.45) 0 5px, transparent 5px 8px);
+    }
+
+    .cor-amostra.no-alterado {
+        background: #fff;
+        border: 3px solid #1f2933;
     }
 
     .analysis-run-button {
@@ -383,10 +400,16 @@
                     </div>
                     <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
                     <div class="analysis-run-row">
-                        <label class="analysis-display-option" for="toggle-overlap-labels">
-                            <input type="checkbox" id="toggle-overlap-labels" checked>
-                            Mostrar pesos das arestas sem conflito
-                        </label>
+                        <div class="analysis-display-options">
+                            <label class="analysis-display-option" for="toggle-overlap-labels">
+                                <input type="checkbox" id="toggle-overlap-labels" checked>
+                                Mostrar pesos das arestas sem conflito
+                            </label>
+                            <label class="analysis-display-option" for="toggle-change-highlights">
+                                <input type="checkbox" id="toggle-change-highlights" checked>
+                                Destacar mudanças no grafo otimizado
+                            </label>
+                        </div>
                         <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
                             <i class="fa-solid fa-play"></i> Executar analise
                         </button>

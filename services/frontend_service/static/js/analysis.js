@@ -277,6 +277,9 @@ window.addEventListener('DOMContentLoaded', function() {
     let currentAnalysisAbortController = null;
     let availableAnalysisThreads = null;
     const graphInstances = {};
+    let originalGraphData = null;
+    let optimizedGraphData = null;
+    let showChangeHighlights = true;
     let existingGraphContainer = document.querySelector('.content-container');
     let pageContainer = document.querySelector('.page-container');
 
@@ -547,6 +550,7 @@ window.addEventListener('DOMContentLoaded', function() {
             legenda.innerHTML = '';
         }
         clearInfoConsumo('cy2');
+        optimizedGraphData = null;
 
         renderExecutionMetadata(null);
 
@@ -872,6 +876,14 @@ window.addEventListener('DOMContentLoaded', function() {
             <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferencia %)</div></div>
             <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposicao sem conflito (%)</div></div>
         `;
+        if (usarConfiguracaoProposta && showChangeHighlights) {
+            const changedCount = nodes.filter(nodeConfigChanged).length;
+            const resolvedCount = graphInstances.cy2 ? graphInstances.cy2.edges('[?resolved]').length : 0;
+            edgeLegend.innerHTML += `
+                <div class="legenda-item"><span class="linha-amostra linha-resolvida"></span><div class="nome-ap">Conflito resolvido (${resolvedCount})</div></div>
+                <div class="legenda-item"><span class="cor-amostra no-alterado"></span><div class="nome-ap">AP com configuracao alterada (${changedCount})</div></div>
+            `;
+        }
         legendaDiv.appendChild(edgeLegend);
 
         Array.from(legendGroups.values()).forEach(item => {
@@ -902,6 +914,28 @@ window.addEventListener('DOMContentLoaded', function() {
         if (toggle) {
             toggle.checked = showOverlapLabels;
         }
+    }
+
+    const CHANGED_NODE_BORDER_COLOR = '#1f2933';
+
+    function edgeKey(source, target) {
+        return [String(source), String(target)].sort().join('\u0000');
+    }
+
+    function originalConflictKeys() {
+        const keys = new Set();
+        (originalGraphData?.links || []).forEach(link => {
+            if ((Number(link.interference_peso ?? link.peso) || 0) > 0) {
+                keys.add(edgeKey(link.source, link.target));
+            }
+        });
+        return keys;
+    }
+
+    function nodeConfigChanged(node) {
+        return (node.channel || 'N/A') !== (node.proposed_channel || 'N/A')
+            || (node.bandwidth || 'N/A') !== (node.proposed_bandwidth || 'N/A')
+            || (node.frequency || 'N/A') !== (node.proposed_frequency || 'N/A');
     }
 
     const GRAPH_LAYOUT_SPAN = 900;
@@ -1009,6 +1043,9 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const elements = [];
+        // No grafo otimizado, os conflitos do grafo original que deixaram de existir sao marcados como resolvidos.
+        const originalConflicts = usarConfiguracaoProposta ? originalConflictKeys() : new Set();
+        const optimizedEdgeKeys = new Set();
 
         graphData.nodes.forEach(node => {
             elements.push({
@@ -1017,7 +1054,8 @@ window.addEventListener('DOMContentLoaded', function() {
                     label: node.label || node.id,
                     cor: usarConfiguracaoProposta
                         ? (node.proposed_cor || node.cor || '#cccccc')
-                        : (node.cor || '#cccccc')
+                        : (node.cor || '#cccccc'),
+                    changed: usarConfiguracaoProposta && nodeConfigChanged(node)
                 }
             });
         });
@@ -1025,6 +1063,8 @@ window.addEventListener('DOMContentLoaded', function() {
         graphData.links.forEach(link => {
             const collision = Number(link.collision_peso ?? link.peso) || 0;
             const interference = Number(link.interference_peso ?? link.peso) || 0;
+            const key = edgeKey(link.source, link.target);
+            optimizedEdgeKeys.add(key);
             elements.push({
                 data: {
                     source: link.source,
@@ -1032,8 +1072,20 @@ window.addEventListener('DOMContentLoaded', function() {
                     peso: link.peso,
                     collision,
                     interference,
-                    conflict: interference > 0
+                    conflict: interference > 0,
+                    resolved: interference <= 0 && originalConflicts.has(key)
                 }
+            });
+        });
+
+        // A nova frequencia pode desfazer a sobreposicao; a aresta resolvida e exibida mesmo assim.
+        originalConflicts.forEach(key => {
+            if (optimizedEdgeKeys.has(key)) {
+                return;
+            }
+            const [source, target] = key.split('\u0000');
+            elements.push({
+                data: { source, target, peso: 0, collision: 0, interference: 0, conflict: false, resolved: true, synthetic: true }
             });
         });
 
@@ -1051,6 +1103,18 @@ window.addEventListener('DOMContentLoaded', function() {
                     }
                 },
                 {
+                    selector: 'node[?changed]',
+                    style: {
+                        'border-width': function() {
+                            return showChangeHighlights ? 4 : 0;
+                        },
+                        'border-color': CHANGED_NODE_BORDER_COLOR,
+                        'font-weight': function() {
+                            return showChangeHighlights ? 'bold' : 'normal';
+                        }
+                    }
+                },
+                {
                     selector: 'edge',
                     style: {
                         'width': 1,
@@ -1064,6 +1128,35 @@ window.addEventListener('DOMContentLoaded', function() {
                         'text-background-opacity': 0.8,
                         'text-background-padding': 2,
                         'z-index': 1
+                    }
+                },
+                {
+                    // Com os destaques desativados, a aresta resolvida volta a ser uma sobreposicao comum
+                    // e a que nao tem mais sobreposicao some.
+                    selector: 'edge[?resolved]',
+                    style: {
+                        'display': function(ele) {
+                            return showChangeHighlights || !ele.data('synthetic') ? 'element' : 'none';
+                        },
+                        'width': function() {
+                            return showChangeHighlights ? 2 : 1;
+                        },
+                        'line-color': function() {
+                            return showChangeHighlights ? EDGE_CONFLICT_COLOR : EDGE_OVERLAP_COLOR;
+                        },
+                        'line-style': function() {
+                            return showChangeHighlights ? 'dashed' : 'solid';
+                        },
+                        'opacity': function() {
+                            return showChangeHighlights ? 0.35 : 1;
+                        },
+                        'label': function(ele) {
+                            if (showChangeHighlights || ele.data('synthetic') || !showOverlapLabels) {
+                                return '';
+                            }
+                            return `${ele.data('collision').toFixed(1)}%`;
+                        },
+                        'z-index': 5
                     }
                 },
                 {
@@ -1238,11 +1331,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 bandwidth: node.proposed_bandwidth || 'N/A',
                 frequency: node.proposed_frequency || 'N/A'
             };
-            const mudou = (
-                original.channel !== proposta.channel ||
-                original.bandwidth !== proposta.bandwidth ||
-                original.frequency !== proposta.frequency
-            );
+            const mudou = nodeConfigChanged(node);
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -1322,6 +1411,7 @@ window.addEventListener('DOMContentLoaded', function() {
         })
             .then(response => response.json())
             .then(graphData => {
+                originalGraphData = graphData;
                 renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
                 atualizarInfoConsumo('cy1', graphData.nodes, false);
@@ -1404,6 +1494,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const graphData = data.graph_data || { nodes: [], links: [] };
+        optimizedGraphData = graphData;
         renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData.nodes, true);
@@ -1653,6 +1744,19 @@ window.addEventListener('DOMContentLoaded', function() {
             overlapLabelsChosenByUser = true;
             showOverlapLabels = overlapLabelsToggle.checked;
             Object.values(graphInstances).forEach(cy => cy.style().update());
+        });
+    }
+
+    const changeHighlightsToggle = document.getElementById('toggle-change-highlights');
+    if (changeHighlightsToggle) {
+        changeHighlightsToggle.addEventListener('change', () => {
+            showChangeHighlights = changeHighlightsToggle.checked;
+            if (graphInstances.cy2) {
+                graphInstances.cy2.style().update();
+            }
+            if (optimizedGraphData) {
+                renderizarLegenda(getLegendaDiv('cy2'), optimizedGraphData.nodes, true);
+            }
         });
     }
 
