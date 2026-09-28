@@ -56,6 +56,21 @@ Script para parar todos os serviços do PowerTrackZ.
 ./stop.sh --clean-all  # Para e remove tudo (containers, volumes, imagens)
 ```
 
+### 3. `start-local.ps1` - Executar sem Docker Compose (Windows)
+
+Inicia os serviços Python em um ambiente virtual local e o `analysis_service` em um contêiner Docker avulso, cada um em sua própria janela do PowerShell.
+
+**Uso:**
+```powershell
+.\scripts\management\start-local.ps1 [-SkipInstall] [-VenvPath <caminho>]
+```
+
+**Opções:**
+- `-SkipInstall`: não reinstala as dependências do ambiente virtual
+- `-VenvPath`: caminho do ambiente virtual (padrão: `.venv-local`)
+
+Sem o Docker no `PATH`, o `analysis_service` não é iniciado. Para encerrar, use `Ctrl+C` em cada janela.
+
 ## Fluxo de Trabalho Típico
 
 ### Primeira Execução
@@ -246,7 +261,9 @@ Os scripts de gerenciamento trabalham em conjunto com:
 docker compose logs -f --tail=100
 
 # Verificar conectividade
-curl -f http://localhost/api/health
+curl -f http://localhost:3000/health
+curl -f http://localhost:5002/health
+curl -f http://localhost:5004/health
 
 # Verificar recursos
 docker stats --no-stream
