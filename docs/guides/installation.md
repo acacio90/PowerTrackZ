@@ -43,3 +43,7 @@ docker compose down
 git pull
 docker compose up -d --build --remove-orphans
 ```
+
+## Proximo Passo
+
+O uso da interface, do carregamento dos APs a leitura dos resultados da analise, esta descrito em `usage.md`.
