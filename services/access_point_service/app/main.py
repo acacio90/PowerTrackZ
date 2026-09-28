@@ -167,6 +167,17 @@ def get_access_points():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/access_points/<id>", methods=["GET"])
+def get_access_point(id):
+    try:
+        ap = db.session.get(AccessPoint, id)
+        if not ap:
+            return jsonify({"error": "Ponto de acesso nao encontrado"}), 404
+        return jsonify(ap.to_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/access_points/<id>", methods=["PUT"])
 def update_access_point(id):
     try:
