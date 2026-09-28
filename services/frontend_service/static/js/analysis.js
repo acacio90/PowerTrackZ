@@ -373,7 +373,59 @@ window.addEventListener('DOMContentLoaded', function() {
             return 'Padrao';
         }
 
-        return items.map(([key, value]) => `${key}: ${value}`).join(' | ');
+        return items.map(([key, value]) => {
+            if (key === 'thread_count') {
+                return `threads: ${value}`;
+            }
+            if (key === 'time_limit_seconds') {
+                return value > 0 ? `limite de tempo: ${value} s` : 'limite de tempo: nenhum';
+            }
+            return `${key}: ${value}`;
+        }).join(' | ');
+    }
+
+    // Traduz o resultado da busca: otima, interrompida pelo limite ou cancelada; o guloso nao garante otimo.
+    function describeSearchOutcome(strategy, search) {
+        if (strategy !== 'backtracking') {
+            return 'Heuristica (sem garantia de otimo)';
+        }
+        if (search.optimal) {
+            return 'Otima';
+        }
+        if (search.stop_reason === 'time_limit') {
+            return 'Melhor encontrada ate o limite de tempo';
+        }
+        if (search.stop_reason === 'cancelled') {
+            return 'Melhor encontrada ate o cancelamento';
+        }
+        return 'Nao otima';
+    }
+
+    function renderSearchMetadata(strategy, search) {
+        if (!search) {
+            return '';
+        }
+
+        const items = [`
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Solucao</span>
+                    <span class="analysis-execution-value">${describeSearchOutcome(strategy, search)}</span>
+                </div>`];
+
+        if (strategy === 'backtracking') {
+            items.push(`
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Conflitos Guloso / Final</span>
+                    <span class="analysis-execution-value">${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}</span>
+                </div>`);
+            items.push(`
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Nos Explorados</span>
+                    <span class="analysis-execution-value">${search.nodes_explored != null ? Number(search.nodes_explored).toLocaleString('pt-BR') : '-'}</span>
+                </div>`);
+        }
+
+        return items.join('');
     }
 
     function renderExecutionMetadata(execution) {
@@ -425,7 +477,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters)}</span>
-                </div>
+                </div>${renderSearchMetadata(execution.strategy, execution.search)}
             </div>
         `;
     }

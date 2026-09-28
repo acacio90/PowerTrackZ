@@ -57,5 +57,15 @@ int run_analysis_service(void);
 bool is_cancelled(const Job *job);
 AnalysisLogLevel analysis_log_level(void);
 void analysis_log(AnalysisLogLevel level, const char *job_id, const char *fmt, ...);
+double interference_percentage_for_config(
+    const Node *left,
+    const char *left_channel,
+    const char *left_bandwidth,
+    const char *left_frequency,
+    const Node *right,
+    const char *right_channel,
+    const char *right_bandwidth,
+    const char *right_frequency
+);
 
 #endif
