@@ -19,7 +19,6 @@
 #include <unistd.h>
 
 #define READ_CHUNK 8192
-#define DEFAULT_TIME_LIMIT_SECONDS 60.0
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -372,18 +371,12 @@ static int parse_thread_count(cJSON *payload) {
     return 1;
 }
 
-// Limite de tempo da busca exata em segundos; zero ou negativo desativa o limite.
-static double parse_time_limit_seconds(cJSON *payload) {
-    cJSON *parameters = cJSON_GetObjectItemCaseSensitive(payload, "parameters");
-    if (!cJSON_IsObject(parameters)) {
-        return DEFAULT_TIME_LIMIT_SECONDS;
-    }
-    cJSON *item = cJSON_GetObjectItemCaseSensitive(parameters, "time_limit_seconds");
-    if (cJSON_IsNumber(item)) {
-        return item->valuedouble > 0 ? item->valuedouble : 0.0;
-    }
-    return DEFAULT_TIME_LIMIT_SECONDS;
+static cJSON *payload_parameters(cJSON *payload) {
+    return cJSON_GetObjectItemCaseSensitive(payload, "parameters");
 }
+
+// Recusa a requisicao com 400 quando algum parametro declarado pela estrategia esta fora do contrato.
+static bool reject_invalid_parameters(int fd, const AnalysisStrategy *strategy, cJSON *payload);
 
 static int effective_thread_count(const Graph *graph, int requested_thread_count) {
     int max_useful = graph && graph->node_count > 0 ? graph->node_count : 1;
@@ -572,19 +565,27 @@ static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposa
     return json;
 }
 
-// time_limit_seconds negativo indica estrategia sem limite de tempo, e o parametro e omitido.
-static cJSON *build_execution_json(const char *strategy, const Graph *graph, int thread_count, double time_limit_seconds, double started_at, double completed_at) {
+// Registra os parametros declarados pela estrategia com os valores efetivamente usados na execucao.
+static cJSON *build_resolved_parameters_json(const AnalysisStrategy *strategy, cJSON *parameters, int effective_threads) {
+    cJSON *json = cJSON_CreateObject();
+    for (size_t index = 0; strategy && index < strategy->parameter_count; index++) {
+        const char *name = strategy->parameters[index].name;
+        double value = strcmp(name, "thread_count") == 0
+            ? effective_threads
+            : strategy_parameter_value(strategy, parameters, name, strategy->parameters[index].default_value);
+        cJSON_AddNumberToObject(json, name, value);
+    }
+    return json;
+}
+
+static cJSON *build_execution_json(const char *strategy, const Graph *graph, cJSON *resolved_parameters, double started_at, double completed_at) {
     cJSON *json = cJSON_CreateObject();
     cJSON_AddStringToObject(json, "strategy", strategy);
     cJSON_AddNumberToObject(json, "started_at", started_at);
     cJSON_AddNumberToObject(json, "completed_at", completed_at);
     cJSON_AddNumberToObject(json, "duration_seconds", completed_at - started_at);
     cJSON_AddNumberToObject(json, "duration_ms", (completed_at - started_at) * 1000.0);
-    cJSON *parameters = cJSON_AddObjectToObject(json, "parameters");
-    cJSON_AddNumberToObject(parameters, "thread_count", thread_count);
-    if (time_limit_seconds >= 0.0) {
-        cJSON_AddNumberToObject(parameters, "time_limit_seconds", time_limit_seconds);
-    }
+    cJSON_AddItemToObject(json, "parameters", resolved_parameters ? resolved_parameters : cJSON_CreateObject());
     cJSON *snapshot = cJSON_AddObjectToObject(json, "graph_snapshot");
     cJSON_AddNumberToObject(snapshot, "nodes", graph->node_count);
     cJSON_AddNumberToObject(snapshot, "edges", graph->edge_count);
@@ -667,14 +668,17 @@ static cJSON *build_placeholder_analysis_json(const char *strategy, const Graph 
 static cJSON *build_strategy_response_json(
     const AnalysisStrategy *strategy,
     Graph *graph,
-    int thread_count,
-    double time_limit_seconds,
+    cJSON *parameters,
     Job *job,
     int stream_fd,
     pthread_mutex_t *stream_lock,
     double started_at
 ) {
-    int effective_threads = strategy->uses_threads ? effective_thread_count(graph, thread_count) : 1;
+    int requested_threads = (int) strategy_parameter_value(strategy, parameters, "thread_count", 1);
+    int effective_threads = find_strategy_parameter(strategy, "thread_count")
+        ? effective_thread_count(graph, requested_threads)
+        : 1;
+    double time_limit_seconds = strategy_parameter_value(strategy, parameters, "time_limit_seconds", 0.0);
 
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
@@ -693,8 +697,7 @@ static cJSON *build_strategy_response_json(
     cJSON *execution = build_execution_json(
         strategy->name,
         graph,
-        effective_threads,
-        strategy->uses_time_limit ? time_limit_seconds : -1.0,
+        build_resolved_parameters_json(strategy, parameters, effective_threads),
         started_at,
         completed_at
     );
@@ -713,7 +716,7 @@ static cJSON *build_placeholder_response_json(const char *strategy, Graph *graph
     cJSON_AddBoolToObject(json, "success", true);
     cJSON_AddStringToObject(json, "strategy_used", strategy);
     cJSON_AddItemToObject(json, "analysis", build_placeholder_analysis_json(strategy, graph, thread_count));
-    cJSON_AddItemToObject(json, "execution", build_execution_json(strategy, graph, thread_count, -1.0, started_at, completed_at));
+    cJSON_AddItemToObject(json, "execution", build_execution_json(strategy, graph, NULL, started_at, completed_at));
     cJSON_AddItemToObject(json, "graph_data", build_graph_json(graph, NULL));
     cJSON_AddItemToObject(json, "summary", build_summary_json(graph));
     return json;
@@ -746,6 +749,39 @@ static void send_json_error(int fd, int status, const char *message) {
     cJSON_Delete(json);
     send_http(fd, status, status == 404 ? "Not Found" : status == 400 ? "Bad Request" : "Internal Server Error", "application/json", text);
     free(text);
+}
+
+static bool reject_invalid_parameters(int fd, const AnalysisStrategy *strategy, cJSON *payload) {
+    char error[256];
+    if (validate_strategy_parameters(strategy, payload_parameters(payload), error, sizeof(error))) {
+        return false;
+    }
+    analysis_log(ANALYSIS_LOG_INFO, NULL, "parametros invalidos strategy=%s: %s", strategy->name, error);
+    send_json_error(fd, 400, error);
+    return true;
+}
+
+static cJSON *build_strategy_parameters_json(const AnalysisStrategy *strategy) {
+    cJSON *json = cJSON_CreateArray();
+    for (size_t index = 0; index < strategy->parameter_count; index++) {
+        const StrategyParameter *parameter = &strategy->parameters[index];
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", parameter->name);
+        cJSON_AddStringToObject(item, "label", parameter->label);
+        cJSON_AddStringToObject(item, "description", parameter->description);
+        cJSON_AddStringToObject(item, "type", strategy_parameter_type_name(parameter->type));
+        cJSON_AddNumberToObject(item, "default", parameter->default_value);
+        cJSON_AddNumberToObject(item, "min", parameter->min_value);
+        cJSON_AddNumberToObject(item, "max", parameter->max_value);
+        if (parameter->unit) {
+            cJSON_AddStringToObject(item, "unit", parameter->unit);
+        } else {
+            cJSON_AddNullToObject(item, "unit");
+        }
+        cJSON_AddBoolToObject(item, "zero_disables", parameter->zero_disables);
+        cJSON_AddItemToArray(json, item);
+    }
+    return json;
 }
 
 static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
@@ -921,8 +957,17 @@ static void handle_strategies(int fd) {
     cJSON *strategies = cJSON_AddObjectToObject(json, "strategies");
     size_t strategy_count = 0;
     const AnalysisStrategy *registered_strategies = analysis_strategies(&strategy_count);
+    cJSON *details = cJSON_AddArrayToObject(json, "strategy_details");
     for (size_t index = 0; index < strategy_count; index++) {
-        cJSON_AddStringToObject(strategies, registered_strategies[index].name, registered_strategies[index].description);
+        const AnalysisStrategy *strategy = &registered_strategies[index];
+        cJSON_AddStringToObject(strategies, strategy->name, strategy->description);
+        cJSON *detail = cJSON_CreateObject();
+        cJSON_AddStringToObject(detail, "name", strategy->name);
+        cJSON_AddStringToObject(detail, "description", strategy->description);
+        cJSON_AddStringToObject(detail, "mode", strategy->mode);
+        cJSON_AddBoolToObject(detail, "implemented", strategy->run != NULL);
+        cJSON_AddItemToObject(detail, "parameters", build_strategy_parameters_json(strategy));
+        cJSON_AddItemToArray(details, detail);
     }
     cJSON_AddStringToObject(json, "message", "Estrategias disponiveis para analise de grafos");
     char *text = cJSON_PrintUnformatted(json);
@@ -1022,6 +1067,9 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
         send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
         return;
     }
+    if (reject_invalid_parameters(fd, selected_strategy, payload)) {
+        return;
+    }
     if (!build_graph(payload, &graph, &error_message)) {
         send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
         free(error_message);
@@ -1029,7 +1077,7 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
     }
     double started_at = now_seconds();
     cJSON *json = selected_strategy->run
-        ? build_strategy_response_json(selected_strategy, &graph, thread_count, parse_time_limit_seconds(payload), NULL, -1, NULL, started_at)
+        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), NULL, -1, NULL, started_at)
         : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
@@ -1044,6 +1092,9 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
     if (!selected_strategy) {
         send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
+        return;
+    }
+    if (reject_invalid_parameters(fd, selected_strategy, payload)) {
         return;
     }
 
@@ -1083,7 +1134,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
 
     double started_at = now_seconds();
     cJSON *json = selected_strategy->run
-        ? build_strategy_response_json(selected_strategy, &graph, thread_count, parse_time_limit_seconds(payload), job, fd, &stream_lock, started_at)
+        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), job, fd, &stream_lock, started_at)
         : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
     if (atomic_load(&job->cancelled)) {
         analysis_log(ANALYSIS_LOG_INFO, job->id, "analise cancelada durante execucao");
@@ -1161,8 +1212,15 @@ static void handle_compare_strategies(int fd, cJSON *payload) {
             continue;
         }
         cJSON_AddItemToArray(tested, cJSON_CreateString(strategy));
+        char parameter_error[256];
+        if (!validate_strategy_parameters(selected_strategy, payload_parameters(payload), parameter_error, sizeof(parameter_error))) {
+            cJSON *failure = cJSON_CreateObject();
+            cJSON_AddStringToObject(failure, "error", parameter_error);
+            cJSON_AddItemToObject(results, strategy, failure);
+            continue;
+        }
         cJSON *result = selected_strategy->run
-            ? build_strategy_response_json(selected_strategy, &graph, 1, parse_time_limit_seconds(payload), NULL, -1, NULL, now_seconds())
+            ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), NULL, -1, NULL, now_seconds())
             : build_placeholder_response_json(selected_strategy->name, &graph, 1, now_seconds());
         if (result) {
             cJSON *analysis = cJSON_DetachItemFromObject(result, "analysis");

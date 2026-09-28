@@ -42,17 +42,39 @@ typedef ProposedConfig *(*AnalysisStrategyRun)(
     AssignmentStats *stats
 );
 
+typedef enum {
+    STRATEGY_PARAMETER_INTEGER = 0,
+    STRATEGY_PARAMETER_NUMBER
+} StrategyParameterType;
+
+// Parametro configuravel de uma estrategia, descrito para que a interface monte o formulario.
+typedef struct {
+    const char *name;
+    const char *label;
+    const char *description;
+    StrategyParameterType type;
+    double default_value;
+    double min_value;
+    double max_value;
+    const char *unit;
+    bool zero_disables;
+} StrategyParameter;
+
 typedef struct {
     const char *name;
     const char *description;
     const char *mode;
-    bool uses_threads;
-    bool uses_time_limit;
+    const StrategyParameter *parameters;
+    size_t parameter_count;
     AnalysisStrategyRun run;
 } AnalysisStrategy;
 
 const AnalysisStrategy *analysis_strategies(size_t *count);
 const AnalysisStrategy *find_analysis_strategy(const char *name);
+const StrategyParameter *find_strategy_parameter(const AnalysisStrategy *strategy, const char *name);
+bool validate_strategy_parameters(const AnalysisStrategy *strategy, cJSON *parameters, char *error, size_t error_size);
+double strategy_parameter_value(const AnalysisStrategy *strategy, cJSON *parameters, const char *name, double fallback);
+const char *strategy_parameter_type_name(StrategyParameterType type);
 const char *assignment_stop_reason_name(AssignmentStopReason reason);
 
 #endif

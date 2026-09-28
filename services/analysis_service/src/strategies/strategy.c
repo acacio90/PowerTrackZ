@@ -3,6 +3,8 @@
 #include "strategy.h"
 #include "backtracking.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 static ProposedConfig *run_backtracking(
@@ -27,29 +29,56 @@ static ProposedConfig *run_greedy(
     return build_greedy_proposals(graph, context ? context->job : NULL, stats);
 }
 
+static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
+    {
+        .name = "thread_count",
+        .label = "Threads",
+        .description = "Numero de threads que dividem a busca",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 1,
+        .min_value = 1,
+        .max_value = 256,
+        .unit = NULL,
+        .zero_disables = false,
+    },
+    {
+        .name = "time_limit_seconds",
+        .label = "Limite de tempo",
+        .description = "Tempo maximo da busca; ao atingi-lo, devolve a melhor configuracao encontrada",
+        .type = STRATEGY_PARAMETER_NUMBER,
+        .default_value = 60,
+        .min_value = 0,
+        .max_value = 3600,
+        .unit = "s",
+        .zero_disables = true,
+    },
+};
+
+#define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
+
 static const AnalysisStrategy STRATEGIES[] = {
     {
         .name = "backtracking",
         .description = "Busca exata por branch-and-bound que minimiza conflitos e interferencia real, com limite de tempo",
         .mode = "pthread-task-queue",
-        .uses_threads = true,
-        .uses_time_limit = true,
+        .parameters = BACKTRACKING_PARAMETERS,
+        .parameter_count = PARAMETER_COUNT(BACKTRACKING_PARAMETERS),
         .run = run_backtracking,
     },
     {
         .name = "greedy",
         .description = "Heuristica gulosa que atribui a cada AP, em ordem de grau, o perfil de menor interferencia local",
         .mode = "sequential",
-        .uses_threads = false,
-        .uses_time_limit = false,
+        .parameters = NULL,
+        .parameter_count = 0,
         .run = run_greedy,
     },
     {
         .name = "genetic",
         .description = "Estrategia genetica ainda nao portada para C",
         .mode = "placeholder",
-        .uses_threads = false,
-        .uses_time_limit = false,
+        .parameters = NULL,
+        .parameter_count = 0,
         .run = NULL,
     },
 };
@@ -74,6 +103,67 @@ const AnalysisStrategy *find_analysis_strategy(const char *name) {
         }
     }
     return NULL;
+}
+
+const StrategyParameter *find_strategy_parameter(const AnalysisStrategy *strategy, const char *name) {
+    if (!strategy || !name) {
+        return NULL;
+    }
+    for (size_t index = 0; index < strategy->parameter_count; index++) {
+        if (strcmp(strategy->parameters[index].name, name) == 0) {
+            return &strategy->parameters[index];
+        }
+    }
+    return NULL;
+}
+
+// Valida apenas os parametros declarados pela estrategia; os demais sao ignorados.
+bool validate_strategy_parameters(const AnalysisStrategy *strategy, cJSON *parameters, char *error, size_t error_size) {
+    if (!cJSON_IsObject(parameters)) {
+        return true;
+    }
+    for (size_t index = 0; index < strategy->parameter_count; index++) {
+        const StrategyParameter *parameter = &strategy->parameters[index];
+        cJSON *item = cJSON_GetObjectItemCaseSensitive(parameters, parameter->name);
+        if (!item || cJSON_IsNull(item)) {
+            continue;
+        }
+        if (!cJSON_IsNumber(item)) {
+            snprintf(error, error_size, "Parametro %s deve ser numerico", parameter->name);
+            return false;
+        }
+        double value = item->valuedouble;
+        if (parameter->type == STRATEGY_PARAMETER_INTEGER && floor(value) != value) {
+            snprintf(error, error_size, "Parametro %s deve ser inteiro", parameter->name);
+            return false;
+        }
+        if (value < parameter->min_value || value > parameter->max_value) {
+            snprintf(
+                error,
+                error_size,
+                "Parametro %s deve estar entre %g e %g",
+                parameter->name,
+                parameter->min_value,
+                parameter->max_value
+            );
+            return false;
+        }
+    }
+    return true;
+}
+
+// Valor informado para o parametro, o padrao da estrategia ou, se ela nao o declara, o valor de reserva.
+double strategy_parameter_value(const AnalysisStrategy *strategy, cJSON *parameters, const char *name, double fallback) {
+    const StrategyParameter *parameter = find_strategy_parameter(strategy, name);
+    if (!parameter) {
+        return fallback;
+    }
+    cJSON *item = cJSON_IsObject(parameters) ? cJSON_GetObjectItemCaseSensitive(parameters, name) : NULL;
+    return cJSON_IsNumber(item) ? item->valuedouble : parameter->default_value;
+}
+
+const char *strategy_parameter_type_name(StrategyParameterType type) {
+    return type == STRATEGY_PARAMETER_INTEGER ? "integer" : "number";
 }
 
 const char *assignment_stop_reason_name(AssignmentStopReason reason) {
