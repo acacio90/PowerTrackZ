@@ -1,65 +1,40 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Ponto de Acesso - PowerTrackZ</title>
+{% extends "base.html" %}
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet-overrides.css') }}">
-    <style>
-        .row-missing-coords {
-            background-color: #ffeaea !important;
-        }
+{% block title %}Sua infraestrutura - PowerTrackZ{% endblock %}
 
-        .row-has-coords {
-            background-color: #eaffea !important;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container">
-            <a href="/" class="navbar-brand"><i class="fa-solid fa-chart-line"></i> <span>PowerTrackZ</span></a>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet-overrides.css') }}">
+<style>
+    .row-missing-coords {
+        background-color: #ffeaea !important;
+    }
 
-            <ul class="navbar-nav">
-                <li class="nav-item"><a href="/" class="nav-link"><i class="fa-solid fa-home"></i> Início</a></li>
-                <li class="nav-item"><a href="/hosts" class="nav-link"><i class="fa-solid fa-server"></i> Pontos</a></li>
-                <li class="nav-item"><a href="/register" class="nav-link active"><i class="fa-solid fa-plus-circle"></i> Registrar</a></li>
-                <li class="nav-item"><a href="/?open_config=1" class="nav-link" title="Configuracoes" aria-label="Configuracoes"><i class="fa-solid fa-gear"></i></a></li>
-            </ul>
-        </div>
-    </nav>
+    .row-has-coords {
+        background-color: #eaffea !important;
+    }
+</style>
+{% endblock %}
 
-    <main class="page-register">
+{% block content %}
+    <section class="page-register">
         <div class="container">
             <div class="register-grid">
                 <section class="table-section">
                     <div class="card app-table-card">
                         <div class="table-section-header">
                             <h2 class="card-title">
-                                <i class="fas fa-list"></i>
-                                Pontos de Acesso Registrados
+                                <i class="fas fa-network-wired"></i>
+                                Sua infraestrutura
                             </h2>
                             <div class="table-section-actions">
-                                <input
-                                    type="file"
-                                    id="input-import-json"
-                                    accept=".json,application/json"
-                                    hidden
-                                >
-                                <button class="btn btn-primary" id="btn-import-json" type="button">
-                                    <i class="fas fa-file-import"></i> Importar JSON
+                                <button class="btn btn-primary" id="btn-load-points" type="button">
+                                    <i class="fas fa-cloud-arrow-down"></i> Carregar APs
                                 </button>
                                 <button class="btn btn-secondary" id="btn-delete-selected" type="button">
                                     <i class="fas fa-trash"></i> Excluir Selecionados
                                 </button>
                             </div>
                         </div>
-                        <div id="import-feedback" class="import-feedback" hidden></div>
                         <div class="app-table-shell">
                             <div class="table-wrapper app-table-wrap">
                             <table class="data-table app-table">
@@ -103,6 +78,10 @@
                                             </button>
                                         </td>
                                     </tr>
+                                    {% else %}
+                                    <tr class="empty-inventory-row">
+                                        <td colspan="7">Nenhum AP salvo. Use <strong>Carregar APs</strong> ou clique no mapa e no botão <strong>+</strong> para adicionar um ponto.</td>
+                                    </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -132,6 +111,7 @@
                 </section>
             </div>
         </div>
+    </section>
 
         <div id="modal-add-point" class="modal" style="display:none;">
             <div class="modal-content">
@@ -140,7 +120,7 @@
                     <span class="close" id="close-modal">&times;</span>
                 </div>
 
-                <form id="form-add-point" action="{{ url_for('routes.register') }}" method="post">
+                <form id="form-add-point">
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="modal-latitude"><i class="fas fa-map-marker-alt"></i> Latitude</label>
@@ -230,37 +210,107 @@
                 </form>
             </div>
         </div>
-    </main>
+        <div id="modal-load-points" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2><i class="fas fa-cloud-arrow-down"></i> Carregar APs</h2>
+                    <span class="close" id="close-load-modal">&times;</span>
+                </div>
+                <div class="load-body">
+                    <div class="load-sources">
+                        <input type="file" id="input-load-json" accept=".json,application/json" hidden>
+                        <button class="load-source" id="btn-load-zabbix" type="button">
+                            <i class="fas fa-server"></i>
+                            <span class="load-source-title">Zabbix</span>
+                            <span class="load-source-text">APs monitorados pelo Zabbix configurado</span>
+                        </button>
+                        <button class="load-source" id="btn-load-json" type="button">
+                            <i class="fas fa-file-import"></i>
+                            <span class="load-source-title">Importar JSON</span>
+                            <span class="load-source-text">lista de APs ou objeto com a chave "aps"</span>
+                        </button>
+                        <button class="load-source" id="btn-load-generate" type="button">
+                            <i class="fas fa-diagram-project"></i>
+                            <span class="load-source-title">Gerar topologia</span>
+                            <span class="load-source-text">APs aleatórios posicionados em uma topologia</span>
+                        </button>
+                    </div>
 
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2024 PowerTrackZ - Sistema de Monitoramento de Pontos de Acesso</p>
+                    <form id="form-load-generate" class="load-generate" hidden>
+                        <div class="form-group">
+                            <label for="generate-node-count"><i class="fas fa-circle-nodes"></i> Quantidade de nós</label>
+                            <input type="number" id="generate-node-count" min="2" max="500" value="12" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="generate-clique-factor"><i class="fas fa-share-nodes"></i> Fator de clique</label>
+                            <input type="number" id="generate-clique-factor" min="1" max="20" value="2" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="submit-load-generate">
+                            <i class="fas fa-wand-magic-sparkles"></i> Gerar
+                        </button>
+                        <p class="load-note">O fator de clique define o mínimo de conexões que cada AP tentará manter.</p>
+                    </form>
+
+                    <div id="load-feedback" class="import-feedback" hidden></div>
+
+                    <div class="load-review" id="load-review" hidden>
+                        <div class="load-review-meta">
+                            <span id="load-review-summary"></span>
+                            <span class="load-source-badge" id="load-review-source"></span>
+                        </div>
+                        <div class="table-wrapper load-review-table">
+                            <table class="data-table app-table">
+                                <thead>
+                                    <tr>
+                                        <th>AP</th>
+                                        <th>ID</th>
+                                        <th>Frq.</th>
+                                        <th>Banda</th>
+                                        <th>Cn</th>
+                                        <th>Coord.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="load-review-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-load-download" hidden>
+                        <i class="fas fa-download"></i> Baixar JSON
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="cancel-load-modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-load-save" disabled>
+                        <i class="fas fa-floppy-disk"></i> Salvar
+                    </button>
+                </div>
+            </div>
         </div>
-    </footer>
+{% endblock %}
 
+{% block scripts %}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="{{ url_for('static', filename='js/register.js') }}"></script>
+    <script>
+    window.savedAccessPoints = {{ (points or [])|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/infrastructure.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/infrastructure-load.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
     <script>
     function openEditModal(pointId) {
-        const row = Array.from(document.querySelectorAll('table tbody tr')).find(tr => {
-            const btn = tr.querySelector('.action-button');
-            return btn && btn.getAttribute('onclick').includes(pointId);
-        });
-        if (!row) return;
-        const cells = row.querySelectorAll('td');
-        document.getElementById('edit-id').value = pointId;
-        document.getElementById('edit-description').value = cells[0].innerText.replace(/^[^\w]+/, '').trim();
-        const coords = cells[1].innerText.split(',');
-        let lat = coords[0]?.trim();
-        let lng = coords[1]?.trim();
-        if ((lat === '-' || !lat) && window.lastSelectedCoordinates) lat = window.lastSelectedCoordinates.lat;
-        if ((lng === '-' || !lng) && window.lastSelectedCoordinates) lng = window.lastSelectedCoordinates.lng;
-        document.getElementById('edit-latitude').value = lat || '';
-        document.getElementById('edit-longitude').value = lng || '';
-        document.getElementById('edit-frequency').value = cells[2].innerText.trim();
-        document.getElementById('edit-bandwidth').value = cells[3].innerText.trim();
-        document.getElementById('edit-channel').value = cells[4].innerText.trim();
+        const point = (window.savedAccessPoints || []).find(item => String(item.id) === String(pointId));
+        if (!point) return;
+        let lat = point.latitude;
+        let lng = point.longitude;
+        if ((lat === null || lat === undefined) && window.lastSelectedCoordinates) lat = window.lastSelectedCoordinates.lat;
+        if ((lng === null || lng === undefined) && window.lastSelectedCoordinates) lng = window.lastSelectedCoordinates.lng;
+        document.getElementById('edit-id').value = point.id;
+        document.getElementById('edit-description').value = point.name || '';
+        document.getElementById('edit-latitude').value = lat ?? '';
+        document.getElementById('edit-longitude').value = lng ?? '';
+        document.getElementById('edit-frequency').value = point.frequency || '';
+        document.getElementById('edit-bandwidth').value = point.bandwidth || '';
+        document.getElementById('edit-channel').value = point.channel || '';
         document.getElementById('modal-edit-point').style.display = 'flex';
     }
 
@@ -431,5 +481,4 @@
         syncSelectAllCheckbox();
     });
     </script>
-</body>
-</html>
+{% endblock %}
