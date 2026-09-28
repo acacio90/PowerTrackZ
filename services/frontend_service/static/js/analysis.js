@@ -822,6 +822,100 @@ window.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const GRAPH_LAYOUT_SPAN = 900;
+    const GRAPH_MIN_NODE_DISTANCE = 48;
+
+    // Converte latitude e longitude em coordenadas planas (metros) em torno do centro do conjunto,
+    // com o norte para cima. A funcao e deterministica, entao os grafos original e otimizado recebem
+    // as mesmas posicoes para os mesmos APs.
+    function projectNodeCoordinates(nodes) {
+        const valid = nodes.filter(node => Number.isFinite(Number(node.x)) && Number.isFinite(Number(node.y)));
+        if (valid.length < 2 || valid.length !== nodes.length) {
+            return null;
+        }
+
+        const meanLatitude = valid.reduce((sum, node) => sum + Number(node.x), 0) / valid.length;
+        const meanLongitude = valid.reduce((sum, node) => sum + Number(node.y), 0) / valid.length;
+        const metersPerLongitudeDegree = 111320 * Math.cos(meanLatitude * Math.PI / 180);
+        const metersPerLatitudeDegree = 110540;
+
+        const projected = nodes.map(node => ({
+            id: node.id,
+            x: (Number(node.y) - meanLongitude) * metersPerLongitudeDegree,
+            y: -(Number(node.x) - meanLatitude) * metersPerLatitudeDegree
+        }));
+
+        const xs = projected.map(point => point.x);
+        const ys = projected.map(point => point.y);
+        const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+        if (!(span > 0)) {
+            return null;
+        }
+
+        const scale = GRAPH_LAYOUT_SPAN / span;
+        return projected.map(point => ({ id: point.id, x: point.x * scale, y: point.y * scale }));
+    }
+
+    // Afasta minimamente os nos mais proximos que a distancia minima, sem alterar a disposicao geral.
+    function separateOverlappingNodes(points) {
+        for (let iteration = 0; iteration < 30; iteration++) {
+            let moved = false;
+            for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                    let dx = points[j].x - points[i].x;
+                    let dy = points[j].y - points[i].y;
+                    let distance = Math.hypot(dx, dy);
+                    if (distance >= GRAPH_MIN_NODE_DISTANCE) {
+                        continue;
+                    }
+                    if (distance === 0) {
+                        const angle = ((i * 7 + j * 13) % 360) * Math.PI / 180;
+                        dx = Math.cos(angle);
+                        dy = Math.sin(angle);
+                        distance = 1;
+                    }
+                    const push = (GRAPH_MIN_NODE_DISTANCE - distance) / 2;
+                    const ux = dx / distance;
+                    const uy = dy / distance;
+                    points[i].x -= ux * push;
+                    points[i].y -= uy * push;
+                    points[j].x += ux * push;
+                    points[j].y += uy * push;
+                    moved = true;
+                }
+            }
+            if (!moved) {
+                break;
+            }
+        }
+        return points;
+    }
+
+    // Layout pelas coordenadas dos APs; sem coordenadas validas, usa um layout de forcas que evita sobreposicao.
+    function buildGraphLayout(nodes) {
+        const projected = projectNodeCoordinates(nodes);
+        if (!projected) {
+            return {
+                name: 'cose',
+                animate: false,
+                fit: true,
+                padding: 40,
+                nodeOverlap: 20,
+                randomize: false
+            };
+        }
+
+        const positions = separateOverlappingNodes(projected)
+            .reduce((byId, point) => ({ ...byId, [point.id]: { x: point.x, y: point.y } }), {});
+        return {
+            name: 'preset',
+            positions: node => positions[node.id()],
+            fit: true,
+            padding: 40,
+            animate: false
+        };
+    }
+
     function renderizarCytoscape(containerId, graphData, usarConfiguracaoProposta = false) {
         if (graphInstances[containerId]) {
             graphInstances[containerId].destroy();
@@ -887,24 +981,9 @@ window.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             ],
-            layout: {
-                name: 'concentric',
-                minNodeSpacing: 100,
-                padding: 50,
-                concentric: function(node) {
-                    return node.degree();
-                },
-                levelWidth: function() {
-                    return 1.5;
-                },
-                spacingFactor: 1.5,
-                animate: true,
-                animationDuration: 1000,
-                fit: true
-            },
-            minZoom: 0.1,
-            maxZoom: 2.0,
-            zoom: 0.5
+            layout: buildGraphLayout(graphData.nodes),
+            minZoom: 0.05,
+            maxZoom: 3.0
         });
     }
 
