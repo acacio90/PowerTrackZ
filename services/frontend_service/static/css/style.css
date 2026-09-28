@@ -203,6 +203,17 @@ main {
     font-size: 1rem;
 }
 
+.nav-settings-button {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.nav-settings-button i {
+    font-size: 1.1rem;
+}
+
 /* Responsividade do Navbar */
 @media (max-width: 768px) {
     .navbar {

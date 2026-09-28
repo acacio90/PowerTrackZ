@@ -45,6 +45,11 @@
                         <span>Registrar</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link nav-settings-button" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Configuracoes" aria-label="Configuracoes">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </li>
             </ul>
         </div>
     </nav>
@@ -73,7 +78,16 @@
         document.body.appendChild(alertDiv);
         setTimeout(() => alertDiv.remove(), 5000);
     }
+
+    // O parametro open_config abre as configuracoes em qualquer pagina (usado por /settings e por paginas sem o modal).
+    document.addEventListener('DOMContentLoaded', function() {
+        if (new URLSearchParams(window.location.search).has('open_config')) {
+            new bootstrap.Modal(document.getElementById('settingsModal')).show();
+        }
+    });
     </script>
+
+    {% include 'pages/settings.html' %}
 
     {% block extra_js %}{% endblock %}
     {% block scripts %}{% endblock %}
