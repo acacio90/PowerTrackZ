@@ -43,7 +43,10 @@ PowerTrackZ/
 
 ## Instalar e Rodar
 
+Copie o arquivo de variaveis de ambiente antes da primeira execucao; sem ele, os servicos nao recebem os enderecos uns dos outros.
+
 ```bash
+cp .env.example .env
 docker compose build
 docker compose up -d --remove-orphans
 ```
@@ -67,3 +70,4 @@ http://localhost:3000
 - Arquitetura: `docs/architecture/README.md`
 - API: `docs/api/README.md`
 - Instalacao: `docs/guides/installation.md`
+- Contribuicao: `CONTRIBUTING.md`
