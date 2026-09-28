@@ -15,6 +15,47 @@ window.addEventListener('DOMContentLoaded', function() {
             flex-direction: column;
             border: none;
         }
+        .analysis-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .analysis-summary[hidden] {
+            display: none;
+        }
+        .analysis-summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            padding: 0.85rem 1rem;
+            border: 1px solid #d9e2ec;
+            border-radius: 12px;
+            background: #f8fafc;
+            min-width: 0;
+        }
+        .analysis-summary-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #607080;
+        }
+        .analysis-summary-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #18222d;
+            overflow-wrap: anywhere;
+        }
+        .analysis-summary-detail {
+            font-size: 0.85rem;
+            color: #526272;
+        }
+        @media (max-width: 900px) {
+            .analysis-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
         .grafos-toolbar {
             display: flex;
             align-items: center;
@@ -280,6 +321,7 @@ window.addEventListener('DOMContentLoaded', function() {
     let originalGraphData = null;
     let optimizedGraphData = null;
     let showChangeHighlights = true;
+    let lastSummaryExecution = null;
     let existingGraphContainer = document.querySelector('.content-container');
     let pageContainer = document.querySelector('.page-container');
 
@@ -301,6 +343,10 @@ window.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    const summaryContainer = document.createElement('div');
+    summaryContainer.id = 'analysis-summary';
+    summaryContainer.className = 'analysis-summary';
+    summaryContainer.hidden = true;
     const grafosToolbar = document.createElement('div');
     grafosToolbar.className = 'grafos-toolbar';
     grafosToolbar.innerHTML = `
@@ -324,6 +370,7 @@ window.addEventListener('DOMContentLoaded', function() {
     tabelaContainer.style.margin = '30px 0 0 0';
 
     if (existingGraphContainer) {
+        existingGraphContainer.appendChild(summaryContainer);
         existingGraphContainer.appendChild(grafosToolbar);
         existingGraphContainer.appendChild(grafosComparacao);
         existingGraphContainer.appendChild(executionContainer);
@@ -553,6 +600,7 @@ window.addEventListener('DOMContentLoaded', function() {
         optimizedGraphData = null;
 
         renderExecutionMetadata(null);
+        renderResultSummary(null);
 
         const tableContainer = document.getElementById('tabela-alteracoes-container');
         if (tableContainer) {
@@ -677,6 +725,80 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-label">Parametros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
                 </div>${renderSearchMetadata(execution.strategy, execution.search)}
+            </div>
+        `;
+    }
+
+    function countConflicts(graphData) {
+        return (graphData?.links || [])
+            .filter(link => (Number(link.interference_peso ?? link.peso) || 0) > 0)
+            .length;
+    }
+
+    function formatPercentChange(before, after) {
+        if (!(before > 0)) {
+            return '-';
+        }
+        const change = ((after - before) / before) * 100;
+        return `${change > 0 ? '+' : ''}${change.toFixed(1).replace('.', ',')}%`;
+    }
+
+    function consumptionForDays(containerId) {
+        const painel = getGraphPanel(containerId);
+        if (painel.dataset.consumoTotal === undefined) {
+            return null;
+        }
+        return (Number(painel.dataset.consumoTotal) * 24 * getConsumptionDays()) / 1000;
+    }
+
+    // Resumo do resultado acima dos grafos; os conflitos sao contados nas arestas desenhadas em vermelho.
+
+    function renderResultSummary(execution) {
+        const container = document.getElementById('analysis-summary');
+        if (!container) {
+            return;
+        }
+
+        lastSummaryExecution = execution;
+        if (!execution || !optimizedGraphData) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
+
+        const conflictsBefore = countConflicts(originalGraphData);
+        const conflictsAfter = countConflicts(optimizedGraphData);
+        const nodes = optimizedGraphData.nodes || [];
+        const changedCount = nodes.filter(nodeConfigChanged).length;
+        const energyBefore = consumptionForDays('cy1');
+        const energyAfter = consumptionForDays('cy2');
+        const energyDelta = energyBefore != null && energyAfter != null ? energyAfter - energyBefore : null;
+        const solution = execution.search
+            ? describeSearchOutcome(execution.strategy, execution.search)
+            : (execution.strategy === 'greedy' ? describeSearchOutcome('greedy', {}) : '-');
+        const kwh = value => `${value.toFixed(2).replace('.', ',')} kWh`;
+
+        container.hidden = false;
+        container.innerHTML = `
+            <div class="analysis-summary-item">
+                <span class="analysis-summary-label">Conflitos</span>
+                <span class="analysis-summary-value">${conflictsBefore} &rarr; ${conflictsAfter}</span>
+                <span class="analysis-summary-detail">${formatPercentChange(conflictsBefore, conflictsAfter)}</span>
+            </div>
+            <div class="analysis-summary-item">
+                <span class="analysis-summary-label">APs alterados</span>
+                <span class="analysis-summary-value">${changedCount} de ${nodes.length}</span>
+                <span class="analysis-summary-detail">${nodes.length ? `${Math.round((changedCount / nodes.length) * 100)}% dos APs` : '-'}</span>
+            </div>
+            <div class="analysis-summary-item">
+                <span class="analysis-summary-label">Consumo em ${getConsumptionDays()} dia(s)</span>
+                <span class="analysis-summary-value">${energyBefore != null && energyAfter != null ? `${kwh(energyBefore)} &rarr; ${kwh(energyAfter)}` : '-'}</span>
+                <span class="analysis-summary-detail">${energyDelta != null ? `${energyDelta > 0 ? '+' : ''}${kwh(energyDelta)} (${formatPercentChange(energyBefore, energyAfter)})` : '-'}</span>
+            </div>
+            <div class="analysis-summary-item">
+                <span class="analysis-summary-label">${escapeHtml(getStrategyDisplayName(execution.strategy))}</span>
+                <span class="analysis-summary-value">${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}</span>
+                <span class="analysis-summary-detail">${escapeHtml(solution)}</span>
             </div>
         `;
     }
@@ -1290,6 +1412,9 @@ window.addEventListener('DOMContentLoaded', function() {
     if (inputDias) {
         inputDias.addEventListener('input', () => {
             document.querySelectorAll('.grafo-painel').forEach(renderInfoConsumo);
+            if (lastSummaryExecution) {
+                renderResultSummary(lastSummaryExecution);
+            }
         });
     }
 
@@ -1431,6 +1556,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 currentAnalysisAbortController = null;
             }
             renderExecutionMetadata(null);
+            renderResultSummary(null);
             setGraphLoading('cy2', { visible: false });
             setAnalysisButtonsDisabled(false);
             return;
@@ -1499,6 +1625,7 @@ window.addEventListener('DOMContentLoaded', function() {
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData.nodes, true);
         renderExecutionMetadata(data.execution || null);
+        renderResultSummary(data.execution || { strategy: data.strategy_used });
         exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);
         setGraphLoading('cy2', {
             visible: true,
@@ -1675,6 +1802,7 @@ window.addEventListener('DOMContentLoaded', function() {
             currentAnalysisJobId = null;
             currentAnalysisAbortController = null;
             renderExecutionMetadata(null);
+            renderResultSummary(null);
             setGraphLoading('cy2', { visible: false });
             setAnalysisButtonsDisabled(false);
             if (error && error.name === 'AbortError') {
