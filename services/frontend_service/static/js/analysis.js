@@ -15,59 +15,99 @@ window.addEventListener('DOMContentLoaded', function() {
             flex-direction: column;
             border: none;
         }
+        .grafos-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+            color: #4b5a67;
+        }
+        .grafos-toolbar label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin: 0;
+        }
+        .grafos-toolbar input {
+            width: 64px;
+            padding: 0.2rem 0.4rem;
+            border: 1px solid #c9d3dd;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .grafos-comparacao {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.25rem;
+        }
+        .grafo-painel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            min-width: 0;
+        }
+        .grafo-painel-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .grafo-painel-titulo {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #18222d;
+        }
         .grafo-container {
             width: 100%;
-            height: 45vh;
+            height: clamp(360px, 60vh, 560px);
             position: relative;
             border: 2px solid #ccc;
             border-radius: 8px;
-            padding: 16px 10px 32px;
+            padding: 10px;
             background-color: #fff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .grafo-container + .grafo-container {
-            margin-top: 32px;
-        }
-        .grafo-container.vazio {
-            border: none;
-            background: transparent;
-            box-shadow: none;
         }
         .cy {
             width: 100%;
             height: 100%;
         }
         .legenda {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 220px;
-            padding: 15px;
-            background: rgba(245, 245, 245, 0.95);
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            max-height: calc(100% - 40px);
-            overflow-y: auto;
-            z-index: 10;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 1rem;
             margin: 0;
+        }
+        .legenda:empty {
+            display: none;
         }
         .legenda-item {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+        }
+        .legenda .legenda-arestas {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 1rem;
+            flex-basis: 100%;
+            margin: 0 0 0.15rem;
+            padding: 0 0 0.35rem;
         }
         .cor-amostra {
-            width: 20px;
-            height: 20px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            margin-right: 10px;
+            margin-right: 6px;
             border: 1px solid #ddd;
             flex-shrink: 0;
         }
         .nome-ap {
-            font-size: 14px;
-            color: #666;
+            font-size: 0.8rem;
+            color: #5b6875;
         }
         #tabela-alteracoes-container {
             position: relative;
@@ -75,20 +115,13 @@ window.addEventListener('DOMContentLoaded', function() {
             margin-top: 48px;
         }
         .info-gasto {
-            position: absolute;
-            left: 20px;
-            bottom: 16px;
-            background: none;
             color: #1a237e;
-            font-size: 14px;
-            font-weight: 400;
-            border: none;
-            border-radius: 0;
-            box-shadow: none;
-            text-align: left;
-            z-index: 10;
-            padding: 0;
-            margin: 0;
+            font-size: 0.85rem;
+        }
+        @media (max-width: 1100px) {
+            .grafos-comparacao {
+                grid-template-columns: 1fr;
+            }
         }
         .btn-server-analysis.is-selected {
             color: #fff !important;
@@ -265,8 +298,20 @@ window.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const grafoContainer1 = criarContainerGrafo('cy1');
-    const grafoContainer2 = criarContainerGrafo('cy2');
+    const grafosToolbar = document.createElement('div');
+    grafosToolbar.className = 'grafos-toolbar';
+    grafosToolbar.innerHTML = `
+        <label for="input-dias">Dias da estimativa de consumo
+            <input id="input-dias" type="number" min="1" value="15">
+        </label>
+        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-outline-secondary" title="Reenquadrar os dois grafos">
+            <i class="fa-solid fa-expand"></i> Reenquadrar
+        </button>
+    `;
+    const grafosComparacao = document.createElement('div');
+    grafosComparacao.className = 'grafos-comparacao';
+    grafosComparacao.appendChild(criarContainerGrafo('cy1', 'Configuração original'));
+    grafosComparacao.appendChild(criarContainerGrafo('cy2', 'Configuração proposta'));
     const executionContainer = document.createElement('div');
     executionContainer.id = 'analysis-execution-container';
     executionContainer.className = 'analysis-execution-card';
@@ -276,15 +321,23 @@ window.addEventListener('DOMContentLoaded', function() {
     tabelaContainer.style.margin = '30px 0 0 0';
 
     if (existingGraphContainer) {
-        existingGraphContainer.appendChild(grafoContainer1);
-        existingGraphContainer.appendChild(grafoContainer2);
+        existingGraphContainer.appendChild(grafosToolbar);
+        existingGraphContainer.appendChild(grafosComparacao);
         existingGraphContainer.appendChild(executionContainer);
     }
     if (pageContainer) {
         pageContainer.appendChild(tabelaContainer);
     }
 
-    function criarContainerGrafo(id) {
+    // Cada painel tem titulo e consumo acima do quadro do grafo e a legenda abaixo, sem cobrir o grafo.
+    function criarContainerGrafo(id, titulo) {
+        const painel = document.createElement('section');
+        painel.className = 'grafo-painel';
+
+        const header = document.createElement('div');
+        header.className = 'grafo-painel-header';
+        header.innerHTML = `<h3 class="grafo-painel-titulo">${titulo}</h3><span class="info-gasto"></span>`;
+
         const container = document.createElement('div');
         container.className = 'grafo-container';
 
@@ -316,17 +369,23 @@ window.addEventListener('DOMContentLoaded', function() {
         `;
 
         container.appendChild(cyDiv);
-        container.appendChild(legenda);
         container.appendChild(loadingOverlay);
-        return container;
+        painel.appendChild(header);
+        painel.appendChild(container);
+        painel.appendChild(legenda);
+        return painel;
+    }
+
+    function getGraphPanel(containerId) {
+        return document.getElementById(containerId).closest('.grafo-painel');
     }
 
     function getLegendaDiv(containerId) {
-        return document.getElementById(containerId).parentNode.querySelector('.legenda');
+        return getGraphPanel(containerId).querySelector('.legenda');
     }
 
     function getLoadingOverlay(containerId) {
-        return document.getElementById(containerId).parentNode.querySelector('.analysis-loading-overlay');
+        return getGraphPanel(containerId).querySelector('.analysis-loading-overlay');
     }
 
     function getStrategyDisplayName(strategy) {
@@ -487,6 +546,7 @@ window.addEventListener('DOMContentLoaded', function() {
         if (legenda) {
             legenda.innerHTML = '';
         }
+        clearInfoConsumo('cy2');
 
         renderExecutionMetadata(null);
 
@@ -819,12 +879,7 @@ window.addEventListener('DOMContentLoaded', function() {
             legendaItem.className = 'legenda-item';
             legendaItem.innerHTML = `
                 <div class="cor-amostra" style="background-color: ${item.color}"></div>
-                <div class="nome-ap">
-                    ${item.count} AP(s)<br>
-                    Canal: ${item.channel}<br>
-                    Bandwidth: ${item.bandwidth}<br>
-                    Frequencia: ${item.frequency}
-                </div>
+                <div class="nome-ap">${item.count} AP(s) · canal ${item.channel} · ${item.bandwidth} · ${item.frequency}</div>
             `;
             legendaDiv.appendChild(legendaItem);
         });
@@ -1032,6 +1087,54 @@ window.addEventListener('DOMContentLoaded', function() {
             minZoom: 0.05,
             maxZoom: 3.0
         });
+
+        const cy = graphInstances[containerId];
+        const partner = graphInstances[partnerGraphId(containerId)];
+        if (partner) {
+            // O grafo novo assume o enquadramento atual do outro, para a comparacao continuar alinhada.
+            copyViewport(partner, cy);
+        }
+        cy.on('viewport', () => syncViewport(containerId));
+    }
+
+    // Os dois grafos usam as mesmas posicoes, entao replicar zoom e deslocamento mantem cada AP
+    // no mesmo ponto da tela nos dois quadros.
+    let syncingViewport = false;
+
+    function partnerGraphId(containerId) {
+        return containerId === 'cy1' ? 'cy2' : 'cy1';
+    }
+
+    function copyViewport(source, target) {
+        syncingViewport = true;
+        try {
+            target.viewport({ zoom: source.zoom(), pan: { ...source.pan() } });
+        } finally {
+            syncingViewport = false;
+        }
+    }
+
+    function syncViewport(containerId) {
+        if (syncingViewport) {
+            return;
+        }
+        const source = graphInstances[containerId];
+        const target = graphInstances[partnerGraphId(containerId)];
+        if (source && target) {
+            copyViewport(source, target);
+        }
+    }
+
+    function refitGraphs() {
+        const cy = graphInstances.cy1 || graphInstances.cy2;
+        if (cy) {
+            cy.fit(undefined, 40);
+        }
+    }
+
+    const btnReenquadrar = document.getElementById('btn-reenquadrar');
+    if (btnReenquadrar) {
+        btnReenquadrar.addEventListener('click', refitGraphs);
     }
 
     function consumoEnergia25Mbps(bandwidth, frequency) {
@@ -1049,8 +1152,24 @@ window.addEventListener('DOMContentLoaded', function() {
         return null;
     }
 
+    function getConsumptionDays() {
+        const input = document.getElementById('input-dias');
+        return Math.max(1, parseInt(input && input.value, 10) || 1);
+    }
+
+    // Potencia total (W) guardada no painel; o texto e recalculado quando o numero de dias muda.
+    function renderInfoConsumo(painel) {
+        const infoGasto = painel.querySelector('.info-gasto');
+        if (!infoGasto || painel.dataset.consumoTotal === undefined) {
+            return;
+        }
+        const dias = getConsumptionDays();
+        const consumoDias = (Number(painel.dataset.consumoTotal) * 24 * dias) / 1000;
+        const valorFinal = consumoDias * 0.72;
+        infoGasto.innerHTML = `Consumo em ${dias} dia(s): <b>${consumoDias.toFixed(2)} kWh</b> | Custo: <b>R$ ${valorFinal.toFixed(2)}</b>`;
+    }
+
     function atualizarInfoConsumo(containerId, nodes, usarConfiguracaoProposta) {
-        const container = document.getElementById(containerId).parentNode;
         let consumoTotal = 0;
 
         nodes.forEach(node => {
@@ -1060,32 +1179,25 @@ window.addEventListener('DOMContentLoaded', function() {
             if (consumo) consumoTotal += consumo;
         });
 
-        let infoGasto = container.querySelector('.info-gasto');
-        if (!infoGasto) {
-            infoGasto = document.createElement('div');
-            infoGasto.className = 'info-gasto';
-            container.appendChild(infoGasto);
+        const painel = getGraphPanel(containerId);
+        painel.dataset.consumoTotal = String(consumoTotal);
+        renderInfoConsumo(painel);
+    }
+
+    function clearInfoConsumo(containerId) {
+        const painel = getGraphPanel(containerId);
+        delete painel.dataset.consumoTotal;
+        const infoGasto = painel.querySelector('.info-gasto');
+        if (infoGasto) {
+            infoGasto.innerHTML = '';
         }
+    }
 
-        let dias = 15;
-        const inputExistente = infoGasto.querySelector(`#input-dias-${containerId}`);
-        if (inputExistente) dias = parseInt(inputExistente.value, 10) || 15;
-
-        const consumoDias = (consumoTotal * 24 * dias) / 1000;
-        const valorFinal = consumoDias * 0.72;
-        infoGasto.innerHTML = `Dias: <input id='input-dias-${containerId}' type='number' min='1' value='${dias}' style='width:48px; padding:2px; border-radius:4px; border:1px solid #b3d1ff; text-align:center; margin:0 4px 0 4px; font-size:13px;'> <br>Consumo: <b><span id='consumo-span-${containerId}'>${consumoDias.toFixed(2)}</span> kWh</b> | Custo: <b>R$ <span id='custo-span-${containerId}'>${valorFinal.toFixed(2)}</span></b>`;
-
-        const inputDias = infoGasto.querySelector(`#input-dias-${containerId}`);
-        const consumoSpan = infoGasto.querySelector(`#consumo-span-${containerId}`);
-        const custoSpan = infoGasto.querySelector(`#custo-span-${containerId}`);
-
-        inputDias.oninput = function() {
-            const diasNovo = parseInt(inputDias.value, 10) || 1;
-            const consumoNovo = (consumoTotal * 24 * diasNovo) / 1000;
-            const valorFinalNovo = consumoNovo * 0.72;
-            consumoSpan.textContent = consumoNovo.toFixed(2);
-            custoSpan.textContent = valorFinalNovo.toFixed(2);
-        };
+    const inputDias = document.getElementById('input-dias');
+    if (inputDias) {
+        inputDias.addEventListener('input', () => {
+            document.querySelectorAll('.grafo-painel').forEach(renderInfoConsumo);
+        });
     }
 
     function exibirTabelaAlteracoes(nodes, estrategia = null) {
