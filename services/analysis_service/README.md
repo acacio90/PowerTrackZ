@@ -12,12 +12,18 @@ Serviço em C que monta o grafo de colisões entre pontos de acesso e indica a c
 
 ## Parâmetros
 
-Enviados em `parameters` no corpo da requisição:
+Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles são enviados em `parameters` no corpo da requisição:
 
-| Parâmetro | Padrão | Descrição |
-|---|---|---|
-| `thread_count` | `1` | Número de *threads* da busca exata. |
-| `time_limit_seconds` | `60` | Tempo máximo da busca exata. `0` desativa o limite. |
+| Estratégia | Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+|---|---|---|---|---|---|
+| `backtracking` | `thread_count` | inteiro | `1` | 1 a 256 | Número de *threads* da busca. |
+| `backtracking` | `time_limit_seconds` | número | `60` | 0 a 3600 | Tempo máximo da busca, em segundos. `0` desativa o limite. |
+
+As estratégias `greedy` e `genetic` não têm parâmetros configuráveis.
+
+`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo, padrão, limites, unidade e se o valor `0` desativa o recurso. A interface monta os campos a partir dessa descrição, de modo que um parâmetro novo precisa ser declarado apenas no serviço.
+
+Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma mensagem como `Parametro time_limit_seconds deve estar entre 0 e 3600`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo.
 
 A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados e os conflitos da solução gulosa e da final.
 

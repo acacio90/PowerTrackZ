@@ -68,3 +68,18 @@ POST /cancel-analysis
 POST /compare-strategies
 POST /collision-graph
 ```
+
+`GET /strategies` devolve, alem do mapa `strategies` (nome e descricao), a lista `strategy_details` com os parametros aceitos por cada estrategia:
+
+```json
+{
+  "name": "backtracking",
+  "implemented": true,
+  "parameters": [
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true}
+  ]
+}
+```
+
+As rotas de analise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estao em `services/analysis_service/README.md`.
