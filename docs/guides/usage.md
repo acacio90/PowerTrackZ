@@ -43,6 +43,11 @@ Os detalhes das estrategias e dos parametros aceitos pela API estao em `services
 
 ## 3. Ler o Resultado
 
+- **Resumo:** acima dos grafos, aparece depois de cada analise:
+  - *Conflitos*: arestas em conflito (em vermelho) no grafo original e no otimizado, com a reducao percentual;
+  - *APs alterados*: quantos APs tiveram canal, largura de banda ou frequencia alterados;
+  - *Consumo*: estimativa de energia antes e depois, e a diferenca, no numero de dias informado;
+  - *Estrategia*: tempo de execucao e se a solucao e otima.
 - **Grafos:** *Configuracao original* e *Configuracao proposta* ficam lado a lado em telas largas e empilhados em telas estreitas. Os APs sao posicionados pelas suas coordenadas, na mesma posicao nos dois grafos, e zoom e deslocamento feitos em um grafo sao replicados no outro; **Reenquadrar** volta a exibir os grafos inteiros. A legenda de cores e arestas fica abaixo de cada grafo. Cada aresta liga dois APs cujas areas de cobertura se sobrepoem:
   - em **vermelho**, mais grossa, quando os dois APs estao em conflito na configuracao exibida, com a interferencia em porcentagem;
   - em **cinza claro** quando ha apenas sobreposicao, sem conflito, com a porcentagem de sobreposicao. Em grafos com muitas arestas, esses rotulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
