@@ -11,6 +11,7 @@ scripts/
 ├── management/            # Scripts de gerenciamento básico
 │   ├── start.sh          # Iniciar/reiniciar o projeto
 │   ├── stop.sh           # Parar o projeto
+│   ├── start-local.ps1   # Executar sem Docker Compose (Windows)
 │   └── SCRIPTS.md        # Documentação dos scripts de gerenciamento
 └── maintenance/          # Scripts de manutenção e deploy
     └── maintenance.sh    # Tarefas de manutenção e deploy completo
@@ -26,6 +27,7 @@ Scripts para operações diárias do projeto.
 - **`start.sh`** - Inicia o projeto (build + start)
 - **`start.sh --restart`** - Reinicia os serviços sem rebuild
 - **`stop.sh`** - Para os serviços com opções de limpeza
+- **`start-local.ps1`** - Executa os serviços localmente no Windows, sem Docker Compose
 
 **Uso:**
 ```bash
