@@ -123,7 +123,8 @@ def analysis():
 
 @routes.route('/settings')
 def settings():
-    return render_template('pages/settings.html')
+    # As configuracoes sao um modal do layout base; o endereco antigo abre o modal na tela inicial.
+    return redirect(url_for('routes.index', open_config=1))
 
 
 @routes.route('/zabbix/save-config', methods=['POST'])

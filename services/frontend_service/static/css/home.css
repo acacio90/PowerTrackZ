@@ -26,7 +26,8 @@
 /* Grid de features */
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 420px));
+    justify-content: center;
     gap: 2rem;
     padding: 0 2rem;
     max-width: var(--container-width);
@@ -120,7 +121,7 @@
 /* Responsividade */
 @media (max-width: 1024px) {
     .features-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         padding: 0 1rem;
     }
 }

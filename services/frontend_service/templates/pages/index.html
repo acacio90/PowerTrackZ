@@ -27,19 +27,6 @@
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
-                <i class="fas fa-cog"></i>
-            </div>
-            <h2 class="card-title">Configurações</h2>
-            <p class="card-text">Configure as credenciais e parâmetros do sistema.</p>
-            <button type="button" class="btn btn-config" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                Configurar
-            </button>
-        </div>
-    </div>
-
-    <div class="feature-card">
-        <div class="card-body">
-            <div class="feature-icon">
                 <i class="fas fa-plus-circle"></i>
             </div>
             <h2 class="card-title">Registrar Ponto</h2>
@@ -49,15 +36,4 @@
     </div>
 </div>
 
-{% include 'pages/settings.html' %}
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('open_config')) {
-        const settingsModal = new bootstrap.Modal(document.getElementById('settingsModal'));
-        settingsModal.show();
-    }
-});
-</script>
 {% endblock %}

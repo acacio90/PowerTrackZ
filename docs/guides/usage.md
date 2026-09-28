@@ -49,4 +49,4 @@ Os detalhes das estrategias e dos parametros aceitos pela API estao em `services
 
 ## 4. Configurar o Zabbix
 
-A pagina de configuracoes (`/settings`) recebe a URL da API do Zabbix, o usuario e a senha. Use **Testar Conexao** antes de **Salvar**. As credenciais ficam armazenadas no banco SQLite do `access_point_service`.
+As configuracoes abrem pelo icone de engrenagem na barra de navegacao, em qualquer pagina, e recebem a URL da API do Zabbix, o usuario e a senha. Use **Testar Conexao** antes de **Salvar**. O endereco `/settings` leva a tela inicial com as configuracoes abertas. As credenciais ficam armazenadas no banco SQLite do `access_point_service`.
