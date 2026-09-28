@@ -122,6 +122,50 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
             for node in response_json["graph_data"]["nodes"]
         )
 
+    def get_json(self, path):
+        with urllib.request.urlopen(f"http://127.0.0.1:{self.host_port}{path}", timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def test_strategies_describe_their_parameters(self):
+        details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
+
+        backtracking = {parameter["name"]: parameter for parameter in details["backtracking"]["parameters"]}
+        self.assertEqual(backtracking["thread_count"]["type"], "integer")
+        self.assertEqual(backtracking["thread_count"]["min"], 1)
+        self.assertEqual(backtracking["time_limit_seconds"]["default"], 60)
+        self.assertTrue(backtracking["time_limit_seconds"]["zero_disables"])
+        self.assertEqual(details["greedy"]["parameters"], [])
+        self.assertFalse(details["genetic"]["implemented"])
+
+    def test_rejects_parameters_outside_the_declared_range(self):
+        aps = self.random_aps(4, seed=1)
+        invalid_cases = [
+            {"time_limit_seconds": 5000},
+            {"thread_count": 0},
+            {"thread_count": 1.5},
+            {"time_limit_seconds": "60"},
+        ]
+        for parameters in invalid_cases:
+            with self.subTest(parameters=parameters):
+                with self.assertRaises(urllib.error.HTTPError) as context:
+                    self.post_json("/analyze-graph", {"aps": aps, "strategy": "backtracking", "parameters": parameters})
+                with context.exception as error:
+                    self.assertEqual(error.code, 400)
+                    body = json.loads(error.read().decode("utf-8"))
+                self.assertIn(next(iter(parameters)), body["error"])
+
+    def test_execution_reports_only_the_parameters_of_the_strategy(self):
+        aps = self.random_aps(4, seed=2)
+        greedy = self.post_json("/analyze-graph", {"aps": aps, "strategy": "greedy", "parameters": {"thread_count": 4}})
+        exact = self.post_json(
+            "/analyze-graph",
+            {"aps": aps, "strategy": "backtracking", "parameters": {"thread_count": 2, "time_limit_seconds": 0}},
+        )
+
+        self.assertEqual(greedy["execution"]["parameters"], {})
+        self.assertEqual(exact["execution"]["parameters"], {"thread_count": 2, "time_limit_seconds": 0})
+        self.assertTrue(exact["execution"]["search"]["optimal"])
+
     def test_result_is_the_same_for_any_thread_count(self):
         aps = self.random_aps(9, seed=11)
         results = [

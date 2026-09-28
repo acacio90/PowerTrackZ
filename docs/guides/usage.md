@@ -22,11 +22,13 @@ A pagina **Registrar** (`/register`) permite cadastrar e editar um AP manualment
 
 A pagina **Analise** (`/analysis`) monta o grafo de colisoes entre os APs salvos e indica uma nova configuracao para cada um.
 
-1. Escolha o numero de **threads**.
-2. Clique na estrategia desejada:
-   - **Backtracking:** busca exata. Com poucos APs, devolve a configuracao otima; em redes grandes, para no limite de tempo (60 s por padrao) e devolve a melhor configuracao encontrada ate ali. E a unica estrategia que usa varias threads.
-   - **Greedy:** heuristica rapida, adequada a redes grandes, sem garantia de otimo.
+1. Clique na estrategia desejada. A pagina passa a exibir os parametros dessa estrategia:
+   - **Backtracking:** busca exata. Com poucos APs, devolve a configuracao otima; em redes grandes, para no limite de tempo e devolve a melhor configuracao encontrada ate ali. Parametros:
+     - *Threads*: numero de threads que dividem a busca, limitado ao numero de APs;
+     - *Limite de tempo (s)*: 60 s por padrao, ate 3600 s. Marque *Sem limite* para deixar a busca terminar por completo.
+   - **Greedy:** heuristica rapida, adequada a redes grandes, sem garantia de otimo. Nao possui parametros.
    - **Genetic:** ainda nao implementada; devolve a configuracao atual.
+2. Ajuste os parametros e clique em **Executar analise**. Valores fora do intervalo aceito sao indicados abaixo dos campos, e a analise nao e iniciada.
 3. Acompanhe o progresso no grafo da direita. A execucao pode ser cancelada enquanto estiver em andamento.
 
 Os detalhes das estrategias e dos parametros aceitos pela API estao em `services/analysis_service/README.md`.
