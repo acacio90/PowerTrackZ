@@ -43,11 +43,11 @@ Os detalhes das estrategias e dos parametros aceitos pela API estao em `services
 
 ## 3. Ler o Resultado
 
-- **Grafos:** o primeiro mostra a configuracao atual e o segundo, a proposta. Os APs sao posicionados pelas suas coordenadas, na mesma posicao nos dois grafos. Cada aresta liga dois APs cujas areas de cobertura se sobrepoem:
+- **Grafos:** *Configuracao original* e *Configuracao proposta* ficam lado a lado em telas largas e empilhados em telas estreitas. Os APs sao posicionados pelas suas coordenadas, na mesma posicao nos dois grafos, e zoom e deslocamento feitos em um grafo sao replicados no outro; **Reenquadrar** volta a exibir os grafos inteiros. A legenda de cores e arestas fica abaixo de cada grafo. Cada aresta liga dois APs cujas areas de cobertura se sobrepoem:
   - em **vermelho**, mais grossa, quando os dois APs estao em conflito na configuracao exibida, com a interferencia em porcentagem;
   - em **cinza claro** quando ha apenas sobreposicao, sem conflito, com a porcentagem de sobreposicao. Em grafos com muitas arestas, esses rotulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
 - **Tabela de configuracoes:** canal, largura de banda e frequencia atuais e propostos de cada AP.
-- **Consumo:** estimativa de energia (kWh) e custo (R$) no periodo informado no campo *Dias*.
+- **Consumo:** estimativa de energia (kWh) e custo (R$), acima de cada grafo, no periodo informado no campo *Dias da estimativa de consumo*.
 - **Metadados de Execucao:**
   - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimizacao;
   - *Solucao*: se a configuracao e otima, se a busca parou no limite de tempo ou se foi cancelada;
