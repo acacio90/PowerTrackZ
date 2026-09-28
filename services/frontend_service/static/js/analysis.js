@@ -806,6 +806,14 @@ window.addEventListener('DOMContentLoaded', function() {
             legendGroups.get(legendKey).count += 1;
         });
 
+        const edgeLegend = document.createElement('div');
+        edgeLegend.className = 'legenda-arestas';
+        edgeLegend.innerHTML = `
+            <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferencia %)</div></div>
+            <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposicao sem conflito (%)</div></div>
+        `;
+        legendaDiv.appendChild(edgeLegend);
+
         Array.from(legendGroups.values()).forEach(item => {
             const legendaItem = document.createElement('div');
             legendaItem.className = 'legenda-item';
@@ -820,6 +828,25 @@ window.addEventListener('DOMContentLoaded', function() {
             `;
             legendaDiv.appendChild(legendaItem);
         });
+    }
+
+    const EDGE_CONFLICT_COLOR = '#d62828';
+    const EDGE_OVERLAP_COLOR = '#c3cad2';
+    const OVERLAP_LABEL_EDGE_LIMIT = 40;
+
+    // Rotulos das arestas sem conflito: visiveis por padrao apenas em grafos pequenos,
+    // ate que o usuario escolha explicitamente pelo controle da pagina.
+    let showOverlapLabels = true;
+    let overlapLabelsChosenByUser = false;
+
+    function applyDefaultOverlapLabelVisibility(edgeCount) {
+        if (!overlapLabelsChosenByUser) {
+            showOverlapLabels = edgeCount <= OVERLAP_LABEL_EDGE_LIMIT;
+        }
+        const toggle = document.getElementById('toggle-overlap-labels');
+        if (toggle) {
+            toggle.checked = showOverlapLabels;
+        }
     }
 
     const GRAPH_LAYOUT_SPAN = 900;
@@ -941,14 +968,21 @@ window.addEventListener('DOMContentLoaded', function() {
         });
 
         graphData.links.forEach(link => {
+            const collision = Number(link.collision_peso ?? link.peso) || 0;
+            const interference = Number(link.interference_peso ?? link.peso) || 0;
             elements.push({
                 data: {
                     source: link.source,
                     target: link.target,
-                    peso: link.peso
+                    peso: link.peso,
+                    collision,
+                    interference,
+                    conflict: interference > 0
                 }
             });
         });
+
+        applyDefaultOverlapLabelVisibility(graphData.links.length);
 
         graphInstances[containerId] = cytoscape({
             container,
@@ -964,20 +998,33 @@ window.addEventListener('DOMContentLoaded', function() {
                 {
                     selector: 'edge',
                     style: {
-                        'width': function(ele) {
-                            const peso = Number(ele.data('peso')) || 0;
-                            return Math.max(1.5, peso * 0.1);
-                        },
-                        'line-color': '#000',
+                        'width': 1,
+                        'line-color': EDGE_OVERLAP_COLOR,
                         'label': function(ele) {
-                            const peso = ele.data('peso');
-                            return typeof peso === 'number' ? `${peso.toFixed(2)}%` : '';
+                            return showOverlapLabels ? `${ele.data('collision').toFixed(1)}%` : '';
+                        },
+                        'font-size': 9,
+                        'color': '#7a8591',
+                        'text-background-color': '#fff',
+                        'text-background-opacity': 0.8,
+                        'text-background-padding': 2,
+                        'z-index': 1
+                    }
+                },
+                {
+                    selector: 'edge[?conflict]',
+                    style: {
+                        'width': function(ele) {
+                            return Math.min(8, Math.max(2.5, ele.data('interference') * 0.06));
+                        },
+                        'line-color': EDGE_CONFLICT_COLOR,
+                        'label': function(ele) {
+                            return `${ele.data('interference').toFixed(1)}%`;
                         },
                         'font-size': 10,
-                        'color': '#333',
-                        'text-background-color': '#fff',
-                        'text-background-opacity': 0.7,
-                        'text-background-padding': 2
+                        'font-weight': 'bold',
+                        'color': EDGE_CONFLICT_COLOR,
+                        'z-index': 10
                     }
                 }
             ],
@@ -1487,6 +1534,15 @@ window.addEventListener('DOMContentLoaded', function() {
             setAnalysisButtonsDisabled(false);
         });
     });
+
+    const overlapLabelsToggle = document.getElementById('toggle-overlap-labels');
+    if (overlapLabelsToggle) {
+        overlapLabelsToggle.addEventListener('change', () => {
+            overlapLabelsChosenByUser = true;
+            showOverlapLabels = overlapLabelsToggle.checked;
+            Object.values(graphInstances).forEach(cy => cy.style().update());
+        });
+    }
 
     const runAnalysisButton = document.getElementById('analysis-run-button');
     if (runAnalysisButton) {

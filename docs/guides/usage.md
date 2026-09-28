@@ -35,7 +35,9 @@ Os detalhes das estrategias e dos parametros aceitos pela API estao em `services
 
 ## 3. Ler o Resultado
 
-- **Grafos:** o da esquerda mostra a configuracao atual e o da direita, a proposta. Cada aresta liga dois APs cujas areas de cobertura se sobrepoem.
+- **Grafos:** o primeiro mostra a configuracao atual e o segundo, a proposta. Os APs sao posicionados pelas suas coordenadas, na mesma posicao nos dois grafos. Cada aresta liga dois APs cujas areas de cobertura se sobrepoem:
+  - em **vermelho**, mais grossa, quando os dois APs estao em conflito na configuracao exibida, com a interferencia em porcentagem;
+  - em **cinza claro** quando ha apenas sobreposicao, sem conflito, com a porcentagem de sobreposicao. Em grafos com muitas arestas, esses rotulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
 - **Tabela de configuracoes:** canal, largura de banda e frequencia atuais e propostos de cada AP.
 - **Consumo:** estimativa de energia (kWh) e custo (R$) no periodo informado no campo *Dias*.
 - **Metadados de Execucao:**

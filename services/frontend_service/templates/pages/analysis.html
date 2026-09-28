@@ -97,7 +97,44 @@
 
     .analysis-run-row {
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .analysis-display-option {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.85rem;
+        color: #4b5a67;
+        cursor: pointer;
+    }
+
+    .legenda-arestas {
+        border-bottom: 1px solid #e2e7ec;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .linha-amostra {
+        display: inline-block;
+        flex: 0 0 22px;
+        width: 22px;
+        margin-right: 8px;
+        border-radius: 2px;
+        align-self: center;
+    }
+
+    .linha-conflito {
+        height: 4px;
+        background: #d62828;
+    }
+
+    .linha-sobreposicao {
+        height: 2px;
+        background: #c3cad2;
     }
 
     .analysis-run-button {
@@ -346,6 +383,10 @@
                     </div>
                     <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
                     <div class="analysis-run-row">
+                        <label class="analysis-display-option" for="toggle-overlap-labels">
+                            <input type="checkbox" id="toggle-overlap-labels" checked>
+                            Mostrar pesos das arestas sem conflito
+                        </label>
                         <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
                             <i class="fa-solid fa-play"></i> Executar analise
                         </button>
