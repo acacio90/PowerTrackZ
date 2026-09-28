@@ -65,9 +65,46 @@
 
     .analysis-parameters {
         display: grid;
-        grid-template-columns: minmax(0, 220px);
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         gap: 0.9rem;
-        margin-bottom: 1rem;
+        margin: 1rem 0;
+    }
+
+    .analysis-parameter .analysis-parameter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.82rem;
+        font-weight: 400;
+        letter-spacing: normal;
+        text-transform: none;
+        color: #607080;
+        cursor: pointer;
+    }
+
+    .analysis-parameter .analysis-parameter-toggle input {
+        width: auto;
+        min-height: 0;
+        padding: 0;
+        margin: 0;
+    }
+
+    .analysis-parameter-error {
+        margin: 0 0 1rem;
+        font-size: 0.85rem;
+        color: #b42318;
+    }
+
+    .analysis-run-row {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .analysis-run-button {
+        min-height: 46px;
+        padding: 0 1.4rem;
+        border-radius: 12px;
+        font-weight: 600;
     }
 
     .analysis-parameter {
@@ -287,13 +324,6 @@
 
                 <div class="analysis-toolbar">
                     <span class="analysis-toolbar-label">Estratégia ativa</span>
-                    <div class="analysis-parameters">
-                        <div class="analysis-parameter">
-                            <label for="analysis-thread-count">Threads</label>
-                            <input id="analysis-thread-count" type="number" min="1" max="32" step="1" value="1">
-                            <p id="analysis-thread-availability" class="analysis-parameter-meta">Threads disponiveis: --</p>
-                        </div>
-                    </div>
                     <div class="strategy-buttons-container">
                         <div class="strategy-button-wrapper">
                             <button class="btn btn-outline-primary btn-server-analysis" data-strategy="backtracking">
@@ -310,6 +340,15 @@
                                 <i class="fa-solid fa-dna"></i> Genetic
                             </button>
                         </div>
+                    </div>
+                    <div id="analysis-parameters" class="analysis-parameters">
+                        <p class="analysis-parameter-meta">Selecione uma estrategia para ver os parametros.</p>
+                    </div>
+                    <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
+                    <div class="analysis-run-row">
+                        <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
+                            <i class="fa-solid fa-play"></i> Executar analise
+                        </button>
                     </div>
                 </div>
             </div>

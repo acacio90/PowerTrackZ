@@ -254,8 +254,9 @@ window.addEventListener('DOMContentLoaded', function() {
         const contentContainer = document.createElement('div');
         contentContainer.className = 'content-container';
         const strategyButtons = document.querySelector('.strategy-buttons-container');
+        const runRow = document.querySelector('.analysis-run-row');
         const hrElement = document.querySelector('hr');
-        const insertAfter = hrElement || strategyButtons || document.querySelector('h1');
+        const insertAfter = hrElement || runRow || strategyButtons || document.querySelector('h1');
 
         if (insertAfter && insertAfter.parentNode) {
             insertAfter.parentNode.insertBefore(pageContainer, insertAfter.nextSibling);
@@ -340,6 +341,135 @@ window.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.btn-server-analysis').forEach(button => {
             button.disabled = disabled;
         });
+        const runButton = document.getElementById('analysis-run-button');
+        if (runButton) {
+            runButton.disabled = disabled || !window.selectedStrategy;
+        }
+    }
+
+    // Parametros declarados por cada estrategia no servico de analise, indexados pelo nome da estrategia.
+    let strategyDetails = {};
+
+    function escapeHtml(text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function parameterInputId(name) {
+        return name === 'thread_count' ? 'analysis-thread-count' : `analysis-parameter-${name}`;
+    }
+
+    function renderParameterField(parameter) {
+        const inputId = parameterInputId(parameter.name);
+        const unit = parameter.unit ? ` (${escapeHtml(parameter.unit)})` : '';
+        const startsDisabled = parameter.zero_disables && parameter.default === 0;
+        const value = startsDisabled ? '' : parameter.default;
+        const meta = parameter.name === 'thread_count'
+            ? `<p id="analysis-thread-availability" class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`
+            : `<p class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`;
+        const toggle = parameter.zero_disables
+            ? `<label class="analysis-parameter-toggle">
+                    <input type="checkbox" data-parameter-toggle="${inputId}" ${startsDisabled ? 'checked' : ''}> Sem limite
+               </label>`
+            : '';
+
+        return `
+            <div class="analysis-parameter">
+                <label for="${inputId}">${escapeHtml(parameter.label)}${unit}</label>
+                <input id="${inputId}" type="number" min="${parameter.min}" max="${parameter.max}"
+                       step="${parameter.type === 'integer' ? '1' : 'any'}" value="${value}">
+                ${toggle}
+                ${meta}
+            </div>`;
+    }
+
+    function hideParameterError() {
+        const errorElement = document.getElementById('analysis-parameter-error');
+        if (errorElement) {
+            errorElement.hidden = true;
+            errorElement.textContent = '';
+        }
+    }
+
+    function showParameterError(message) {
+        const errorElement = document.getElementById('analysis-parameter-error');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.hidden = false;
+        }
+    }
+
+    // Monta apenas os campos da estrategia selecionada, a partir da descricao enviada pelo servico.
+    function renderStrategyParameters(strategyName) {
+        const container = document.getElementById('analysis-parameters');
+        if (!container) {
+            return;
+        }
+        hideParameterError();
+
+        const detail = strategyDetails[strategyName];
+        if (!detail) {
+            container.innerHTML = '<p class="analysis-parameter-meta">Parametros indisponiveis para esta estrategia.</p>';
+            return;
+        }
+        if (!detail.parameters || detail.parameters.length === 0) {
+            container.innerHTML = '<p class="analysis-parameter-meta">Esta estrategia nao possui parametros configuraveis.</p>';
+            return;
+        }
+
+        container.innerHTML = detail.parameters.map(renderParameterField).join('');
+        container.querySelectorAll('[data-parameter-toggle]').forEach(toggle => {
+            const input = document.getElementById(toggle.getAttribute('data-parameter-toggle'));
+            const sync = () => {
+                if (input) {
+                    input.disabled = toggle.checked;
+                }
+            };
+            toggle.addEventListener('change', sync);
+            sync();
+        });
+        updateThreadAvailabilityInfo();
+    }
+
+    // Le e valida os campos da estrategia; devolve os valores ou a primeira mensagem de erro encontrada.
+    function collectStrategyParameters() {
+        const detail = strategyDetails[window.selectedStrategy];
+        const values = {};
+        if (!detail || !detail.parameters) {
+            return { values };
+        }
+
+        for (const parameter of detail.parameters) {
+            const inputId = parameterInputId(parameter.name);
+            const toggle = document.querySelector(`[data-parameter-toggle="${inputId}"]`);
+            if (toggle && toggle.checked) {
+                values[parameter.name] = 0;
+                continue;
+            }
+
+            const input = document.getElementById(inputId);
+            const raw = input ? String(input.value).trim().replace(',', '.') : '';
+            if (raw === '') {
+                values[parameter.name] = parameter.default;
+                continue;
+            }
+
+            const value = Number(raw);
+            if (!Number.isFinite(value)) {
+                return { error: `${parameter.label}: informe um numero.` };
+            }
+            if (parameter.type === 'integer' && !Number.isInteger(value)) {
+                return { error: `${parameter.label}: informe um numero inteiro.` };
+            }
+            if (value < parameter.min || value > parameter.max) {
+                return { error: `${parameter.label}: informe um valor entre ${parameter.min} e ${parameter.max}.` };
+            }
+            values[parameter.name] = value;
+        }
+        return { values };
     }
 
     function setEmptyOptimizedState(message) {
@@ -367,20 +497,25 @@ window.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function formatExecutionParameters(parameters) {
+    function formatExecutionParameters(parameters, strategyName) {
         const items = Object.entries(parameters || {});
         if (!items.length) {
-            return 'Padrao';
+            return 'Nenhum';
         }
 
+        const declared = ((strategyDetails[strategyName] || {}).parameters || [])
+            .reduce((byName, parameter) => ({ ...byName, [parameter.name]: parameter }), {});
+
         return items.map(([key, value]) => {
-            if (key === 'thread_count') {
-                return `threads: ${value}`;
+            const parameter = declared[key];
+            if (!parameter) {
+                return `${key}: ${value}`;
             }
-            if (key === 'time_limit_seconds') {
-                return value > 0 ? `limite de tempo: ${value} s` : 'limite de tempo: nenhum';
+            const label = parameter.label.toLowerCase();
+            if (parameter.zero_disables && Number(value) === 0) {
+                return `${label}: nenhum`;
             }
-            return `${key}: ${value}`;
+            return `${label}: ${value}${parameter.unit ? ` ${parameter.unit}` : ''}`;
         }).join(' | ');
     }
 
@@ -476,7 +611,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
-                    <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters)}</span>
+                    <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
                 </div>${renderSearchMetadata(execution.strategy, execution.search)}
             </div>
         `;
@@ -567,12 +702,11 @@ window.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    function montarPayloadAnalise(aps) {
-        const threadCountInput = document.getElementById('analysis-thread-count');
-        const parsedThreadCount = parseInt(threadCountInput?.value || '1', 10);
-        const threadCount = Number.isFinite(parsedThreadCount) && parsedThreadCount > 0
-            ? Math.min(parsedThreadCount, getUsefulThreadLimit())
-            : 1;
+    function montarPayloadAnalise(aps, parameters) {
+        const resolvedParameters = { ...(parameters || {}) };
+        if (resolvedParameters.thread_count != null) {
+            resolvedParameters.thread_count = Math.min(resolvedParameters.thread_count, getUsefulThreadLimit());
+        }
 
         return {
             aps: aps.map(ap => ({
@@ -587,9 +721,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 locked: Boolean(ap.locked)
             })),
             strategy: window.selectedStrategy,
-            parameters: {
-                thread_count: threadCount
-            }
+            parameters: resolvedParameters
         };
     }
 
@@ -610,6 +742,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
     function updateThreadAvailabilityInfo() {
         const threadInput = document.getElementById('analysis-thread-count');
+        const threadAvailabilityInfo = document.getElementById('analysis-thread-availability');
         const usefulThreadLimit = getUsefulThreadLimit();
 
         if (threadInput) {
@@ -1183,7 +1316,14 @@ window.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const payload = montarPayloadAnalise(apsOtimizado);
+        const { values, error: parameterError } = collectStrategyParameters();
+        if (parameterError) {
+            showParameterError(parameterError);
+            return;
+        }
+        hideParameterError();
+
+        const payload = montarPayloadAnalise(apsOtimizado, values);
         const requestToken = ++analysisRequestToken;
 
         setAnalysisButtonsDisabled(true);
@@ -1211,13 +1351,13 @@ window.addEventListener('DOMContentLoaded', function() {
             if (error && error.name === 'AbortError') {
                 return;
             }
-            document.getElementById('cy2').innerHTML = '<p style="color:red">Erro ao carregar a analise.</p>';
+            const message = error && error.message ? error.message : 'Erro ao carregar a analise.';
+            document.getElementById('cy2').innerHTML = `<p style="color:red">${escapeHtml(message)}</p>`;
             console.error('Erro ao carregar analise otimizada:', error);
         }
     }
 
     const strategyInfo = document.getElementById('strategyInfo');
-    const threadAvailabilityInfo = document.getElementById('analysis-thread-availability');
     async function fetchStrategiesFromServer() {
         try {
             const res = await fetch((window.ANALYSIS_API && window.ANALYSIS_API.strategies) || '/api/analysis/strategies');
@@ -1226,6 +1366,15 @@ window.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (data && data.success && data.strategies && strategyInfo) {
                 strategyInfo.textContent = 'Estrategias: ' + Object.keys(data.strategies).join(', ');
+            }
+            if (data && Array.isArray(data.strategy_details)) {
+                strategyDetails = data.strategy_details.reduce(
+                    (byName, detail) => ({ ...byName, [detail.name]: detail }),
+                    {}
+                );
+                if (window.selectedStrategy) {
+                    renderStrategyParameters(window.selectedStrategy);
+                }
             }
         } catch (error) {
             console.warn('Nao foi possivel obter estrategias do servidor:', error);
@@ -1250,13 +1399,22 @@ window.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Escolher a estrategia apenas exibe seus parametros; a execucao parte do botao Executar analise.
     document.querySelectorAll('.btn-server-analysis').forEach(btn => {
         btn.addEventListener('click', () => {
             window.selectedStrategy = btn.getAttribute('data-strategy');
             atualizarBotoesEstrategia();
-            criarAnaliseOtimizada();
+            renderStrategyParameters(window.selectedStrategy);
+            setAnalysisButtonsDisabled(false);
         });
     });
+
+    const runAnalysisButton = document.getElementById('analysis-run-button');
+    if (runAnalysisButton) {
+        runAnalysisButton.addEventListener('click', () => {
+            criarAnaliseOtimizada();
+        });
+    }
 
     document.querySelectorAll('.analysis-loading-cancel').forEach(button => {
         button.addEventListener('click', () => {
@@ -1273,6 +1431,6 @@ window.addEventListener('DOMContentLoaded', function() {
 
     carregarAPs(() => {
         criarGrafoOriginal();
-        setEmptyOptimizedState('Selecione uma estrategia para executar a analise otimizada.');
+        setEmptyOptimizedState('Selecione uma estrategia, ajuste os parametros e clique em Executar analise.');
     });
 });
