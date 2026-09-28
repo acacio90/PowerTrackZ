@@ -16,22 +16,22 @@
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
-                <i class="fas fa-server"></i>
+                <i class="fas fa-network-wired"></i>
             </div>
-            <h2 class="card-title">Pontos do Zabbix</h2>
-            <p class="card-text">Visualize e gerencie os pontos monitorados pelo Zabbix.</p>
-                            <a href="{{ url_for('routes.hosts') }}" class="btn btn-hosts">Ver Pontos</a>
+            <h2 class="card-title">Sua infraestrutura</h2>
+            <p class="card-text">Carregue os pontos de acesso do Zabbix, de um JSON ou de uma topologia gerada, confira-os no mapa e edite-os.</p>
+            <a href="{{ url_for('routes.infrastructure') }}" class="btn btn-infrastructure">Abrir infraestrutura</a>
         </div>
     </div>
 
     <div class="feature-card">
         <div class="card-body">
             <div class="feature-icon">
-                <i class="fas fa-plus-circle"></i>
+                <i class="fas fa-chart-line"></i>
             </div>
-            <h2 class="card-title">Registrar Ponto</h2>
-            <p class="card-text">Adicione novos pontos de acesso ao monitoramento.</p>
-                            <a href="{{ url_for('routes.register') }}" class="btn btn-register">Registrar Novo</a>
+            <h2 class="card-title">Análise</h2>
+            <p class="card-text">Monte o grafo de conflitos entre os pontos de acesso e compare as estratégias de alocação de canais.</p>
+            <a href="{{ url_for('routes.analysis') }}" class="btn btn-analysis">Abrir análise</a>
         </div>
     </div>
 </div>

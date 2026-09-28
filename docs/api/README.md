@@ -9,11 +9,12 @@ O frontend roda em `http://localhost:3000` e expoe as paginas web e rotas `/api/
 ```http
 GET /health
 GET /
-GET /hosts
-GET /register
-POST /register
+GET /infrastructure
+GET /hosts (redireciona para /infrastructure)
+GET /register (redireciona para /infrastructure)
 GET /analysis
 GET /settings
+GET /zabbix/hosts
 POST /zabbix/save-config
 POST /zabbix/test-connection
 GET /api/access_points

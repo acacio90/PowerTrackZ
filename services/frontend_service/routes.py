@@ -68,47 +68,22 @@ def index():
     return render_template('pages/index.html')
 
 
-@routes.route('/hosts')
-def hosts():
-    try:
-        hosts_data, status_code = make_api_request('/zabbix/hosts')
-        if status_code == 200:
-            hosts = hosts_data.get("data", []) if hosts_data.get("success") else []
-            return render_template('pages/hosts.html', hosts=hosts)
-        return render_template('pages/hosts.html', hosts=[], error=hosts_data)
-    except Exception as e:
-        return render_template('pages/hosts.html', hosts=[], error={"error": str(e)})
-
-
-@routes.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        try:
-            data = {
-                "id": request.form.get('id', request.form['description']),
-                "name": request.form['description'],
-                "channel": request.form['channel'],
-                "frequency": request.form['frequency'],
-                "bandwidth": request.form['bandwidth'],
-                "latitude": request.form['latitude'],
-                "longitude": request.form['longitude']
-            }
-
-            result, status_code = make_api_request('/access_points', 'POST', data)
-
-            if status_code == 201:
-                return redirect(url_for('routes.register'))
-            return render_template('pages/register.html', error=result)
-        except Exception as e:
-            return render_template('pages/register.html', error={"error": str(e)})
-
+@routes.route('/infrastructure')
+def infrastructure():
     try:
         points_data, _ = make_api_request('/access_points')
         points = points_data if isinstance(points_data, list) else []
     except Exception:
         points = []
 
-    return render_template('pages/register.html', points=points)
+    return render_template('pages/infrastructure.html', points=points)
+
+
+@routes.route('/hosts')
+@routes.route('/register')
+def legacy_infrastructure():
+    # Pontos e Registrar foram unificadas em Sua infraestrutura; os enderecos antigos continuam validos.
+    return redirect(url_for('routes.infrastructure'))
 
 
 @routes.route('/analysis')
@@ -125,6 +100,12 @@ def analysis():
 def settings():
     # As configuracoes sao um modal do layout base; o endereco antigo abre o modal na tela inicial.
     return redirect(url_for('routes.index', open_config=1))
+
+
+@routes.route('/zabbix/hosts', methods=['GET'])
+def zabbix_hosts():
+    response_data, status_code = make_api_request('/zabbix/hosts')
+    return jsonify(response_data), status_code
 
 
 @routes.route('/zabbix/save-config', methods=['POST'])

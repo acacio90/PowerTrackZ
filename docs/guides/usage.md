@@ -2,25 +2,33 @@
 
 Este guia descreve o fluxo principal da interface: carregar pontos de acesso, salva-los no banco e analisar as configuracoes de canal. A instalacao esta descrita em `installation.md`.
 
-## 1. Carregar Pontos de Acesso
+## 1. Sua Infraestrutura
 
-A pagina **Pontos de Acesso** (menu **Pontos**, `/hosts`) mostra os APs carregados, ainda sem salvar no banco. Ha tres formas de carrega-los:
+A pagina **Sua infraestrutura** (menu **Infraestrutura**, `/infrastructure`) reune a lista e o mapa dos APs salvos no banco. Os enderecos antigos `/hosts` e `/register` redirecionam para ela.
 
-- **Zabbix:** quando a conexao esta configurada (ver secao 4), a pagina lista os APs monitorados pelo Zabbix externo.
-- **Importar JSON:** carrega um arquivo com APs e ligacoes, como o produzido pela opcao abaixo. A importacao substitui a lista carregada.
-- **Gerar JSON:** cria uma topologia aleatoria e baixa o arquivo correspondente. Os parametros sao:
+### Carregar APs
+
+O botao **Carregar APs** abre uma janela com tres origens:
+
+- **Zabbix:** lista os APs monitorados pelo Zabbix configurado (ver secao 4). O Zabbix nao informa coordenadas; APs ja salvos mantem as coordenadas do inventario.
+- **Importar JSON:** le um arquivo com uma lista de APs ou um objeto com a chave `aps`, como o produzido pela opcao abaixo.
+- **Gerar topologia:** cria APs aleatorios ja posicionados. Os parametros sao:
   - *Quantidade de nos*: numero de APs, entre 2 e 500;
   - *Fator de clique*: numero minimo de vizinhos que cada AP tenta manter, menor que a quantidade de nos.
 
-  O arquivo gerado nao e carregado automaticamente: use **Importar JSON** em seguida.
+Os APs carregados aparecem para revisao, ainda sem salvar; os que nao tem coordenadas ficam destacados em vermelho. **Baixar JSON** grava a lista em um arquivo, util para repetir um experimento com a mesma topologia. **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo sao atualizados, e os demais sao criados.
 
-Depois de conferir a lista, clique em **Salvar** para gravar os APs no banco. Somente APs com coordenadas participam da analise.
+### Editar o inventario
 
-A pagina **Registrar** (`/register`) permite cadastrar e editar um AP manualmente, informando latitude, longitude, frequencia, largura de banda e canal.
+- **Adicionar:** clique no mapa para marcar a posicao e use o botao **+** para informar descricao, frequencia, largura de banda e canal.
+- **Editar:** o icone ao lado de cada AP abre seus dados; as coordenadas tambem podem ser ajustadas clicando no mapa com a janela aberta.
+- **Excluir:** marque os APs e clique em **Excluir Selecionados**.
+
+Na lista, APs sem coordenadas aparecem em vermelho. Somente APs com coordenadas participam da analise.
 
 ## 2. Analisar
 
-A pagina **Analise** (`/analysis`) monta o grafo de colisoes entre os APs salvos e indica uma nova configuracao para cada um.
+A pagina **Analise** (menu **Analise**, `/analysis`) monta o grafo de colisoes entre os APs salvos e indica uma nova configuracao para cada um.
 
 1. Clique na estrategia desejada. A pagina passa a exibir os parametros dessa estrategia:
    - **Backtracking:** busca exata. Com poucos APs, devolve a configuracao otima; em redes grandes, para no limite de tempo e devolve a melhor configuracao encontrada ate ali. Parametros:
