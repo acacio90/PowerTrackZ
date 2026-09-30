@@ -1,59 +1,62 @@
-# Guia de Contribuição
+# Contributing Guide
 
-## Fluxo de Trabalho
+**English** | [Português](CONTRIBUTING.pt-BR.md)
 
-Toda alteração parte de uma *issue* e chega ao `main` por um *pull request*.
+## Workflow
 
-1. **Issue.** Descreva a tarefa com título no infinitivo (por exemplo, "Implementar ...", "Corrigir ...") e corpo nas seções `## Contexto`, `## Objetivo` e `## Critérios de aceite`, estes em forma de lista de tarefas. Associe a *issue* a um *milestone* de versão e aplique as *labels*:
-   - tipo: `feature`, `bug`, `refactor`, `documentation`, `test`, `chore`, `security`, `dependencies` ou `technical-debt`;
-   - área: `frontend` ou `backend`;
-   - prioridade: `priority:high`, `priority:medium` ou `priority:low`.
-2. **Branch.** Crie o *branch* a partir da própria *issue*, pelo botão *Create a branch* do GitHub ou com `gh issue develop <número> --base main --checkout`. O nome fica no formato `<número>-<título-da-issue>`, e a *issue* é fechada automaticamente quando o *pull request* for mesclado.
-3. **Commits.** Siga o [Conventional Commits](https://www.conventionalcommits.org/pt-br/) em português, com uma linha curta e sem corpo:
+Every change starts from an *issue* and reaches `main` through a *pull request*. Issues, commits and pull requests are written in Portuguese.
+
+1. **Issue.** Describe the task with a title in the infinitive (for example, "Implementar ...", "Corrigir ...") and a body with the sections `## Contexto`, `## Objetivo` and `## Critérios de aceite`, the latter as a task list. Assign the *issue* to a version *milestone* and apply the *labels*:
+   - type: `feature`, `bug`, `refactor`, `documentation`, `test`, `chore`, `security`, `dependencies` or `technical-debt`;
+   - area: `frontend` or `backend`;
+   - priority: `priority:high`, `priority:medium` or `priority:low`.
+2. **Branch.** Create the *branch* from the *issue* itself, with GitHub's *Create a branch* button or with `gh issue develop <number> --base main --checkout`. The name follows the format `<number>-<issue-title>`, and the *issue* is closed automatically when the *pull request* is merged.
+3. **Commits.** Follow [Conventional Commits](https://www.conventionalcommits.org/) in Portuguese, with a short single line and no body:
    ```text
    feat: adiciona estratégia gulosa de atribuição
    fix: corrige consulta de ponto de acesso por identificador
    docs: atualiza guia de instalação
    ```
-   Tipos usados: `feat`, `fix`, `refactor`, `docs`, `test` e `chore`.
-4. **Pull request.** Abra para o `main`, com título no presente descrevendo o resultado (por exemplo, "Adiciona estratégia gulosa de atribuição"). A mesclagem é feita por *squash*, o que gera um único commit no `main` com o número do *pull request*.
+   Types used: `feat`, `fix`, `refactor`, `docs`, `test` and `chore`.
+4. **Pull request.** Open it against `main`, with a title in the present tense describing the result (for example, "Adiciona estratégia gulosa de atribuição"). Merging is done by *squash*, which produces a single commit on `main` with the *pull request* number.
 
-## Versionamento
+## Versioning
 
-O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`MAJOR.MINOR.PATCH`), aplicado à interface pública: rotas HTTP, formato das respostas JSON e forma de executar o sistema (`docker-compose.yml`, portas e variáveis do `.env`).
+The project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`), applied to the public interface: HTTP routes, the format of JSON responses and the way the system is run (`docker-compose.yml`, ports and `.env` variables).
 
-- `PATCH` para correções que não alteram o comportamento esperado;
-- `MINOR` para funcionalidades novas compatíveis com as anteriores;
-- `MAJOR` para mudanças que quebram a compatibilidade.
+- `PATCH` for fixes that do not change the expected behavior;
+- `MINOR` for new backward-compatible features;
+- `MAJOR` for changes that break compatibility.
 
-Cada versão tem um *milestone* com as *issues* que a compõem. Ao concluí-lo, a versão é marcada com uma *tag* (`vX.Y.Z`) e um *release* no GitHub.
+Each version has a *milestone* with the *issues* that make it up. When it is completed, the version is marked with a *tag* (`vX.Y.Z`) and a GitHub *release*.
 
-## Ambiente de Desenvolvimento
+## Development Environment
 
 ```bash
 cp .env.example .env
 docker compose up -d --build --remove-orphans
 ```
 
-A interface fica em `http://localhost:3000`. No Windows, também é possível executar os serviços sem Docker Compose com `scripts/management/start-local.ps1` (ver `scripts/management/SCRIPTS.md`).
+The interface runs at `http://localhost:3000`. On Windows, the services can also be run without Docker Compose with `scripts/management/start-local.ps1` (see [scripts/management/SCRIPTS.md](scripts/management/SCRIPTS.md)).
 
-## Testes
+## Tests
 
-Os testes usam `unittest` e ficam em `services/<serviço>/tests/`.
+Tests use `unittest` and live in `services/<service>/tests/`.
 
 ```bash
-# access_point_service (requer as dependências do serviço instaladas)
+# access_point_service (requires the service dependencies installed)
 python -m unittest services/access_point_service/tests/test_access_point.py
 
-# analysis_service (constrói e sobe um contêiner, requer Docker)
+# analysis_service (builds and starts a container, requires Docker)
 python -m unittest services/analysis_service/tests/test_backtracking.py
 ```
 
-Antes de abrir um *pull request*, rode os testes dos serviços alterados e inclua testes para o comportamento novo.
+Before opening a *pull request*, run the tests of the changed services and add tests for the new behavior.
 
-## Padrões de Código
+## Code Standards
 
-- **Python:** siga a PEP 8.
-- **C (`analysis_service`):** C11, compilando sem avisos com `-Wall -Wextra`, como no `Dockerfile` do serviço.
-- **Comentários e mensagens:** em português.
-- **Documentação:** atualize o `README.md`, os arquivos de `docs/` e o README do serviço quando a mudança alterar rotas, parâmetros ou a forma de executar o sistema.
+- **Python:** follow PEP 8.
+- **C (`analysis_service`):** C11, compiling without warnings with `-Wall -Wextra`, as in the service `Dockerfile`.
+- **Comments and messages:** in Portuguese.
+- **Documentation:** update `README.md`, the files in `docs/` and the service README when the change affects routes, parameters or the way the system is run.
+- **Documentation languages:** each document exists in English, in the original file (e.g. `README.md`), and in Portuguese, in the file with the `.pt-BR.md` suffix (e.g. `README.pt-BR.md`). Every documentation change must be made in both versions, and links between documents must point to files in the same language.

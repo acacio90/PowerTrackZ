@@ -1,19 +1,19 @@
-# API Documentation
+# Documentação da API
 
-**English** | [Português](README.pt-BR.md)
+[English](README.md) | **Português**
 
-## Main Entry Point
+## Entrada Principal
 
-The frontend runs at `http://localhost:3000` and exposes the web pages and the `/api/*` routes used by the interface. Internally, it forwards the calls to `access_point_service` and `analysis_service`.
+O frontend roda em `http://localhost:3000` e expõe as páginas web e as rotas `/api/*` usadas pela interface. Internamente, ele encaminha as chamadas para o `access_point_service` e o `analysis_service`.
 
-## Frontend Service (Port 3000)
+## Frontend Service (Porta 3000)
 
 ```http
 GET /health
 GET /
 GET /infrastructure
-GET /hosts (redirects to /infrastructure)
-GET /register (redirects to /infrastructure)
+GET /hosts (redireciona para /infrastructure)
+GET /register (redireciona para /infrastructure)
 GET /analysis
 GET /settings
 GET /zabbix/hosts
@@ -36,7 +36,7 @@ POST /api/analysis/cancel-analysis
 POST /api/analysis/collision-graph
 ```
 
-## Access Point Service (Port 5004)
+## Access Point Service (Porta 5004)
 
 ```http
 GET /health
@@ -57,9 +57,9 @@ POST /zabbix/save-config
 POST /zabbix/test-connection
 ```
 
-`GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
+`GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador não existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
-## Analysis Service (Port 5002)
+## Analysis Service (Porta 5002)
 
 ```http
 GET /health
@@ -75,7 +75,7 @@ POST /compare-strategies
 POST /collision-graph
 ```
 
-Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy:
+`GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia:
 
 ```json
 {
@@ -88,4 +88,4 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
 }
 ```
 
-The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).

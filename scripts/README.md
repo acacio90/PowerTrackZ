@@ -1,260 +1,262 @@
 # Scripts - PowerTrackZ
 
-Esta pasta contém todos os scripts de automação e gerenciamento do projeto PowerTrackZ, organizados por categoria para facilitar o uso e manutenção.
+**English** | [Português](README.pt-BR.md)
 
-## 📁 Estrutura
+This folder contains all the automation and management scripts of the PowerTrackZ project, organized by category to make them easier to use and maintain.
+
+## 📁 Structure
 
 ```
 scripts/
-├── README.md              # Este arquivo
-├── monitor.sh             # Monitoramento em tempo real
-├── management/            # Scripts de gerenciamento básico
-│   ├── start.sh          # Iniciar/reiniciar o projeto
-│   ├── stop.sh           # Parar o projeto
-│   ├── start-local.ps1   # Executar sem Docker Compose (Windows)
-│   └── SCRIPTS.md        # Documentação dos scripts de gerenciamento
-└── maintenance/          # Scripts de manutenção e deploy
-    └── maintenance.sh    # Tarefas de manutenção e deploy completo
+├── README.md              # This file
+├── monitor.sh             # Real-time monitoring
+├── management/            # Basic management scripts
+│   ├── start.sh          # Start/restart the project
+│   ├── stop.sh           # Stop the project
+│   ├── start-local.ps1   # Run without Docker Compose (Windows)
+│   └── SCRIPTS.md        # Documentation of the management scripts
+└── maintenance/          # Maintenance and deploy scripts
+    └── maintenance.sh    # Maintenance tasks and full deploy
 ```
 
-## 🎯 Categorias de Scripts
+## 🎯 Script Categories
 
-### 🚀 **Management** - Gerenciamento Básico
-Scripts para operações diárias do projeto.
+### 🚀 **Management** - Basic Management
+Scripts for the project's day-to-day operations.
 
-**Localização:** `scripts/management/`
+**Location:** `scripts/management/`
 
-- **`start.sh`** - Inicia o projeto (build + start)
-- **`start.sh --restart`** - Reinicia os serviços sem rebuild
-- **`stop.sh`** - Para os serviços com opções de limpeza
-- **`start-local.ps1`** - Executa os serviços localmente no Windows, sem Docker Compose
+- **`start.sh`** - Starts the project (build + start)
+- **`start.sh --restart`** - Restarts the services without rebuilding
+- **`stop.sh`** - Stops the services, with cleanup options
+- **`start-local.ps1`** - Runs the services locally on Windows, without Docker Compose
 
-**Uso:**
+**Usage:**
 ```bash
-# Da raiz do projeto
+# From the project root
 ./scripts/management/start.sh
 ./scripts/management/start.sh --restart
 ./scripts/management/stop.sh
 
-# Ou navegando para a pasta
+# Or from inside the folder
 cd scripts/management
 ./start.sh
 ./start.sh --restart
 ./stop.sh
 ```
 
-### 🔧 **Maintenance** - Manutenção e Deploy
-Scripts para tarefas de manutenção, limpeza e deploy completo.
+### 🔧 **Maintenance** - Maintenance and Deploy
+Scripts for maintenance, cleanup and full deploy tasks.
 
-**Localização:** `scripts/maintenance/`
+**Location:** `scripts/maintenance/`
 
-- **`maintenance.sh`** - Backup, limpeza de logs, verificação de recursos
-- **`maintenance.sh --update`** - Deploy completo com atualização de código
+- **`maintenance.sh`** - Backup, log cleanup, resource check
+- **`maintenance.sh --update`** - Full deploy with code update
 
-**Funcionalidades integradas:**
-- Backup automático do banco de dados
-- Limpeza de logs e cache
-- Verificação de recursos do sistema
-- Atualização de código via Git
-- Rebuild de imagens Docker
-- Verificação de saúde dos serviços
+**Built-in features:**
+- Automatic database backup
+- Log and cache cleanup
+- System resource check
+- Code update via Git
+- Docker image rebuild
+- Service health check
 
-### 📊 **Monitor** - Monitoramento
-Scripts para monitoramento em tempo real.
+### 📊 **Monitor** - Monitoring
+Scripts for real-time monitoring.
 
-**Localização:** `scripts/` (raiz)
+**Location:** `scripts/` (root)
 
-- **`monitor.sh`** - Monitoramento de serviços, recursos e logs
+- **`monitor.sh`** - Monitoring of services, resources and logs
 
-**Funcionalidades:**
-- Status dos containers Docker
-- Conectividade dos microserviços
-- Logs de erro em tempo real
-- Uso de recursos do sistema
-- Verificação de portas
+**Features:**
+- Docker container status
+- Microservice connectivity
+- Real-time error logs
+- System resource usage
+- Port check
 
-## 🚀 Uso Rápido
+## 🚀 Quick Start
 
-### Primeira Execução
+### First Run
 ```bash
-# Clone o repositório
+# Clone the repository
 git clone https://github.com/acacio90/PowerTrackZ.git
 cd PowerTrackZ
 
-# Torne os scripts executáveis
+# Make the scripts executable
 chmod +x scripts/management/*.sh
 chmod +x scripts/maintenance/*.sh
 chmod +x scripts/monitor.sh
 
-# Inicie o projeto
+# Start the project
 ./scripts/management/start.sh
 ```
 
-### Operações Diárias
+### Daily Operations
 ```bash
-# Iniciar o projeto
+# Start the project
 ./scripts/management/start.sh
 
-# Parar o projeto
+# Stop the project
 ./scripts/management/stop.sh
 
-# Reiniciar serviços
+# Restart services
 ./scripts/management/start.sh --restart
 
-# Monitorar em tempo real
+# Monitor in real time
 ./scripts/monitor.sh
 
-# Manutenção básica
+# Basic maintenance
 ./scripts/maintenance/maintenance.sh
 
-# Deploy completo
+# Full deploy
 ./scripts/maintenance/maintenance.sh --update
 ```
 
-### Deploy em Produção
+### Production Deploy
 ```bash
-# Deploy completo com backup e verificação
+# Full deploy with backup and checks
 ./scripts/maintenance/maintenance.sh --update
 ```
 
-## 🎨 Convenções
+## 🎨 Conventions
 
-### Cores dos Scripts
-Todos os scripts seguem o mesmo padrão de cores:
-- 🟢 **Verde** - Logs de sucesso
-- 🔴 **Vermelho** - Erros críticos
-- 🟡 **Amarelo** - Avisos e informações importantes
-- 🔵 **Azul** - Informações gerais
-- ⚪ **Branco** - Logs padrão
+### Script Colors
+All scripts follow the same color pattern:
+- 🟢 **Green** - Success logs
+- 🔴 **Red** - Critical errors
+- 🟡 **Yellow** - Warnings and important information
+- 🔵 **Blue** - General information
+- ⚪ **White** - Default logs
 
-### Estrutura dos Scripts
-Todos os scripts seguem o mesmo padrão:
-- **Verificação de dependências** (Docker, Docker Compose)
-- **Funções de log** (success, error, warn, info)
-- **Tratamento de argumentos** (--help, --restart, --update)
-- **Banner do projeto** com informações
-- **Verificação de saúde** dos serviços
-- **Tratamento de erros** robusto
+### Script Structure
+All scripts follow the same pattern:
+- **Dependency check** (Docker, Docker Compose)
+- **Log functions** (success, error, warn, info)
+- **Argument handling** (--help, --restart, --update)
+- **Project banner** with information
+- **Service health check**
+- **Robust error handling**
 
-### Logs e Arquivos
-Os scripts geram logs e arquivos em:
-- `logs/monitor.log` - Logs de monitoramento
-- `logs/maintenance.log` - Logs de manutenção
-- `backups/` - Backups automáticos do banco de dados
-- `logs/` - Logs de erro e debug
+### Logs and Files
+The scripts write logs and files to:
+- `logs/monitor.log` - Monitoring logs
+- `logs/maintenance.log` - Maintenance logs
+- `backups/` - Automatic database backups
+- `logs/` - Error and debug logs
 
 ## 🔧 Troubleshooting
 
-### Problemas Comuns
+### Common Problems
 
-1. **Permissão negada:**
+1. **Permission denied:**
    ```bash
    chmod +x scripts/*/*.sh scripts/*.sh
    ```
 
-2. **Docker não encontrado:**
+2. **Docker not found:**
    ```bash
    sudo apt-get install docker.io docker-compose
    sudo systemctl start docker
    sudo usermod -aG docker $USER
    ```
 
-3. **Porta já em uso:**
+3. **Port already in use:**
    ```bash
-      sudo kill -9 <PID>
+   sudo kill -9 <PID>
    ```
 
-4. **Erro de build das imagens:**
+4. **Image build error:**
    ```bash
    docker builder prune -f
    ./scripts/management/start.sh
    ```
 
-### Logs e Debug
+### Logs and Debug
 ```bash
-# Ver logs do Docker Compose
+# Show Docker Compose logs
 docker compose logs -f
 
-# Ver logs de um serviço específico
+# Show logs of a specific service
 docker compose logs -f frontend_service
 docker compose logs -f analysis_service
 
-# Ver status dos containers
+# Show container status
 docker compose ps
 
-# Ver uso de recursos
+# Show resource usage
 docker stats
 
-# Verificar conectividade dos serviços
+# Check service connectivity
 ./scripts/monitor.sh
 ```
 
-### Verificação de Saúde
+### Health Check
 ```bash
-# Verificar se todos os serviços estão rodando
+# Check that all services are running
 docker compose ps
 
-# Verificar logs de erro
+# Check error logs
 docker compose logs --tail=50 | grep ERROR
 
-# Verificar uso de recursos
+# Check resource usage
 docker stats --no-stream
 ```
 
-## 📋 Requisitos
+## 📋 Requirements
 
 - **Docker** 20.10+
 - **Docker Compose** 2.0+
-- **bash** (shell padrão)
-- **curl** (para verificações de conectividade)
-- **bc** (para cálculos matemáticos)
-- **openssl** (para verificação SSL)
-- **git** (para atualizações de código)
+- **bash** (default shell)
+- **curl** (for connectivity checks)
+- **bc** (for arithmetic)
+- **openssl** (for SSL checks)
+- **git** (for code updates)
 
-## 🔄 Fluxo de Trabalho
+## 🔄 Workflow
 
-### Desenvolvimento
-1. **Iniciar ambiente**: `./scripts/management/start.sh`
-2. **Monitorar**: `./scripts/monitor.sh`
-3. **Reiniciar quando necessário**: `./scripts/management/start.sh --restart`
+### Development
+1. **Start the environment**: `./scripts/management/start.sh`
+2. **Monitor**: `./scripts/monitor.sh`
+3. **Restart when needed**: `./scripts/management/start.sh --restart`
 
-### Produção
+### Production
 1. **Deploy**: `./scripts/maintenance/maintenance.sh --update`
-2. **Monitoramento contínuo**: `./scripts/monitor.sh`
-3. **Manutenção periódica**: `./scripts/maintenance/maintenance.sh`
+2. **Continuous monitoring**: `./scripts/monitor.sh`
+3. **Periodic maintenance**: `./scripts/maintenance/maintenance.sh`
 
-### Manutenção
-1. **Backup**: Automático no deploy
-2. **Limpeza**: Logs e cache
-3. **Verificação**: Saúde dos serviços
-4. **Atualização**: Código e dependências
+### Maintenance
+1. **Backup**: automatic on deploy
+2. **Cleanup**: logs and cache
+3. **Check**: service health
+4. **Update**: code and dependencies
 
-## 🤝 Contribuição
+## 🤝 Contributing
 
-Ao adicionar novos scripts:
+When adding new scripts:
 
-1. **Use o padrão estabelecido**:
-   - Cores consistentes
-   - Tratamento de erros
-   - Funções de log padronizadas
+1. **Follow the established pattern**:
+   - Consistent colors
+   - Error handling
+   - Standard log functions
 
-2. **Documente adequadamente**:
-   - Adicione ao README apropriado
-   - Inclua exemplos de uso
-   - Documente parâmetros
+2. **Document them properly**:
+   - Add them to the appropriate README, in both languages
+   - Include usage examples
+   - Document the parameters
 
-3. **Teste em diferentes ambientes**:
-   - Desenvolvimento
-   - Produção
-   - Diferentes sistemas operacionais
+3. **Test in different environments**:
+   - Development
+   - Production
+   - Different operating systems
 
-4. **Mantenha a organização**:
-   - Coloque na categoria correta
-   - Use nomes descritivos
-   - Siga as convenções
+4. **Keep things organized**:
+   - Put them in the right category
+   - Use descriptive names
+   - Follow the conventions
 
-## 📚 Documentação Adicional
+## 📚 Additional Documentation
 
-- [SCRIPTS.md](management/SCRIPTS.md) - Documentação detalhada dos scripts de gerenciamento
-- [README.md](../README.md) - Documentação principal do projeto
-- [docs/](../docs/) - Documentação técnica detalhada 
+- [SCRIPTS.md](management/SCRIPTS.md) - Detailed documentation of the management scripts
+- [README.md](../README.md) - Main project documentation
+- [docs/](../docs/) - Detailed technical documentation

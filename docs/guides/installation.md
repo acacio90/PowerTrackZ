@@ -1,12 +1,14 @@
-﻿# Guia de Instalacao
+# Installation Guide
 
-## Pre-requisitos
+**English** | [Português](installation.pt-BR.md)
+
+## Prerequisites
 
 - Docker
 - Docker Compose
 - Git
 
-## Instalar
+## Install
 
 ```bash
 git clone https://github.com/acacio90/PowerTrackZ.git
@@ -16,11 +18,11 @@ docker compose build
 docker compose up -d --remove-orphans
 ```
 
-Acesse `http://localhost:3000`.
+Open `http://localhost:3000`.
 
 ## Zabbix
 
-A conexao com o Zabbix externo e configurada pela interface web, na tela de configuracoes. As credenciais ficam armazenadas no banco SQLite do `access_point_service`.
+The connection to the external Zabbix is configured through the web interface, on the settings screen. The credentials are stored in the SQLite database of `access_point_service`.
 
 ## Logs
 
@@ -28,7 +30,7 @@ A conexao com o Zabbix externo e configurada pela interface web, na tela de conf
 docker compose logs -f
 ```
 
-Logs de um servico especifico:
+Logs of a specific service:
 
 ```bash
 docker compose logs -f frontend_service
@@ -36,7 +38,7 @@ docker compose logs -f access_point_service
 docker compose logs -f analysis_service
 ```
 
-## Atualizar
+## Update
 
 ```bash
 docker compose down
@@ -44,6 +46,6 @@ git pull
 docker compose up -d --build --remove-orphans
 ```
 
-## Proximo Passo
+## Next Step
 
-O uso da interface, do carregamento dos APs a leitura dos resultados da analise, esta descrito em `usage.md`.
+Using the interface, from loading the APs to reading the analysis results, is described in [usage.md](usage.md).

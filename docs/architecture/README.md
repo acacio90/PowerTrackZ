@@ -1,43 +1,45 @@
-﻿# Arquitetura do PowerTrackZ
+# PowerTrackZ Architecture
 
-## Visao Geral
+**English** | [Português](README.pt-BR.md)
 
-O PowerTrackZ e um sistema distribuido enxuto para monitorar e analisar pontos de acesso. A interface web e a entrada principal da aplicacao, renderiza o mapa no proprio frontend e conversa diretamente com os servicos internos configurados por variaveis de ambiente.
+## Overview
 
-## Componentes Principais
+PowerTrackZ is a lean distributed system for monitoring and analyzing access points. The web interface is the main entry point of the application; it renders the map in the frontend itself and talks directly to the internal services, which are configured through environment variables.
+
+## Main Components
 
 ### Frontend Service
-- Interface web principal
-- Renderizacao das paginas
-- Mapa interativo com Leaflet
-- Rotas `/api/*` usadas pelo JavaScript da interface
-- Encaminhamento direto para Analysis e Access Point Service
+- Main web interface
+- Page rendering
+- Interactive map with Leaflet
+- `/api/*` routes used by the interface JavaScript
+- Direct forwarding to the Analysis and Access Point services
 
 ### Access Point Service
-- Gerenciamento dos pontos de acesso
-- Importacao, geracao e sincronizacao de dados
-- Configuracao, teste e consulta do Zabbix externo
-- Persistencia dos APs cadastrados
-- Fonte dos dados exibidos no mapa
+- Access point management
+- Data import, generation and synchronization
+- Configuration, testing and querying of the external Zabbix
+- Persistence of registered APs
+- Source of the data shown on the map
 
 ### Analysis Service
-- Analise de colisao e otimizacao
-- Execucao dos algoritmos de analise
-- Streaming de progresso para a interface
-- Consulta ao Access Point Service quando precisa carregar os pontos cadastrados
+- Collision analysis and optimization
+- Execution of the analysis algorithms
+- Progress streaming to the interface
+- Queries the Access Point Service when it needs to load the registered access points
 
-## Fluxo de Dados
+## Data Flow
 
-1. O usuario acessa o Frontend Service em `http://localhost:3000`.
-2. O frontend renderiza as paginas, incluindo o mapa interativo.
-3. As rotas internas do frontend chamam diretamente o microservico responsavel.
-4. O Access Point Service concentra CRUD, importacao, geracao e integracao com Zabbix.
-5. O Analysis Service consulta o Access Point Service quando precisa carregar os pontos cadastrados.
+1. The user opens the Frontend Service at `http://localhost:3000`.
+2. The frontend renders the pages, including the interactive map.
+3. The frontend's internal routes call the responsible microservice directly.
+4. The Access Point Service handles CRUD, import, generation and the Zabbix integration.
+5. The Analysis Service queries the Access Point Service when it needs to load the registered access points.
 
-## Diagrama de Arquitetura
+## Architecture Diagram
 
 ```text
-[Cliente]
+[Client]
    |
    v
 [Frontend Service]
@@ -46,15 +48,15 @@ O PowerTrackZ e um sistema distribuido enxuto para monitorar e analisar pontos d
 [Access Point]  [Analysis]
       |
       v
-[Banco de Dados]
+[Database]
       |
       v
-[Zabbix externo]
+[External Zabbix]
 ```
 
-## Consideracoes
+## Notes
 
-- Os servicos continuam isolados em containers.
-- O frontend concentra as responsabilidades de interface, incluindo o mapa.
-- O Access Point Service e o dono de tudo que cria, importa ou sincroniza APs.
-- As URLs internas sao configuradas por `.env` e `docker-compose.yml`.
+- The services remain isolated in containers.
+- The frontend holds the interface responsibilities, including the map.
+- The Access Point Service owns everything that creates, imports or synchronizes APs.
+- The internal URLs are configured through `.env` and `docker-compose.yml`.
