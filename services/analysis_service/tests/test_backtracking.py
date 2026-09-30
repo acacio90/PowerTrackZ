@@ -471,6 +471,29 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
                     with self.subTest(frequency=frequency, bandwidth=bandwidth, channel=option["channel"]):
                         self.assertAlmostEqual(option["upper_mhz"] - option["lower_mhz"], width)
 
+    def test_default_40_mhz_profiles_in_24_ghz_overlap_by_design(self):
+        # Decisao da #78: os perfis padrao de 40 MHz em 2,4 GHz continuam 1+5 e 7+11, que se sobrepoem em 10 MHz
+        # (s = 0,25). A sobreposicao conta como interferencia na busca, e 1+5 com 9+13 segue como alternativa.
+        plan = self.get_json("/channel-plan")
+        self.assertEqual(plan["profiles"]["2.4 GHz"]["40 MHz"], ["1", "11"])
+        by_channel = {option["channel"]: option for option in plan["options"]["2.4 GHz"]["40 MHz"]}
+        overlap = min(by_channel["1"]["upper_mhz"], by_channel["11"]["upper_mhz"]) - max(by_channel["1"]["lower_mhz"], by_channel["11"]["lower_mhz"])
+        self.assertEqual(overlap, 10)
+        self.assertAlmostEqual(self.spectral_factor(("1", "40 MHz", "2.4 GHz"), ("11", "40 MHz", "2.4 GHz")), 0.25)
+
+        aps = [self.ap_at("a", "2.4 GHz", "1"), self.ap_at("b", "2.4 GHz", "1", offset=0.00001)]
+        cases = [
+            ({"2.4 GHz": {"40 MHz": ["1", "11"]}}, 1),
+            ({"2.4 GHz": {"40 MHz": ["1", "9"]}}, 0),
+        ]
+        for channels, conflicts in cases:
+            with self.subTest(channels=channels):
+                result = self.post_json(
+                    "/analyze-graph",
+                    {"aps": aps, "strategy": "backtracking", "channels": channels, "parameters": {"time_limit_seconds": 0}},
+                )
+                self.assertEqual(result["execution"]["comparison"]["conflicts_after"], conflicts)
+
     def test_channel_plan_profiles_are_valid_combinations(self):
         plan = self.get_json("/channel-plan")
         profiles = plan["profiles"]

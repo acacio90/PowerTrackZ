@@ -82,6 +82,26 @@ The response has one entry per band in `execution.bands`, with `frequency`, `nod
 - `profiles`: the default profiles of the strategies, used for the bands the request does not give in `channels`, read from `CONFIG_PROFILES`, in `src/strategies/backtracking.c`.
 - `options`: the options for choosing the search profiles, one per distinct position in the spectrum, with the channels it occupies (`channels`), the primary sent in the request's `channels` (`channel`) and the range it occupies in the spectrum (`lower_mhz` and `upper_mhz`), used by the interface's spectrum map. In 5 and 6 GHz, each bonded block is one option (at 80 MHz in 5 GHz, 36–48, 52–64, 100–112, 116–128, 132–144 and 149–161); in 2.4 GHz, each 20 MHz channel and each 40 MHz pair, from 1+5 to 9+13. The primary is the default profile's when it falls in the block (the 7+11 pair sends 11) and otherwise the block's first channel.
 
+## Default Profiles
+
+The default profiles (`CONFIG_PROFILES`, in `src/strategies/backtracking.c`) are used in the bands the request does not give in `channels`:
+
+| Band | 20 MHz | 40 MHz | 80 MHz | k |
+|---|---|---|---|---|
+| 2.4 GHz | 1, 6, 11 | 1 (1+5), 11 (7+11) | — | 5 |
+| 5 GHz | 36, 44, 149, 157 | 36, 44, 149, 157 | 36, 149 | 10 |
+
+The order of the list breaks ties between profiles of the same cost and is fixed, so the result is deterministic.
+
+**The 40 MHz profiles in 2.4 GHz overlap.** 1+5 occupies 2402–2442 MHz and 7+11 occupies 2432–2472 MHz: they share 10 MHz (s = 0.25), and two neighboring APs with these profiles conflict, with interference equal to 25% of the spatial overlap. The decision (#78) was to keep them and document the overlap, instead of replacing them with 1+5 and 9+13 (the only non-overlapping pair) or removing 40 MHz from the defaults:
+
+- default results and the scalability test history remain comparable with previous versions;
+- channels 12 and 13, needed for 9+13, are allowed in Brazil, but not every client supports them;
+- 40 MHz stays in the search space, which matters for the optimization criterion: in the consumption model, 40 MHz uses less power than 20 MHz, and removing it would take that trade-off out of the energy analysis;
+- the overlap is not ignored: it counts as interference, and the search only uses both pairs on neighboring APs when that pays off in the chosen criterion.
+
+For an experiment without this overlap, choose the channels in `channels` (for example, `{"2.4 GHz": {"40 MHz": ["1", "9"]}}`, the 1+5 and 9+13 pairs) or, in the interface, use the 40 MHz **Sem sobreposição** shortcut on the spectrum map, which already marks overlapping bars in orange.
+
 ## Parallelism
 
 The search starts from the greedy solution, which serves as the bound for pruning. The first two free levels of the tree are expanded into tasks, consumed by *pthreads* from a shared queue. The best solution is shared between the *threads* under a *mutex*, and each *thread* keeps a local copy updated through a version counter, which avoids locking the *mutex* at every node.

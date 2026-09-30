@@ -82,6 +82,26 @@ A resposta traz em `execution.bands` uma entrada por faixa, com `frequency`, `no
 - `profiles`: os perfis padrão das estratégias, usados nas faixas que a requisição não informa em `channels`, lidos de `CONFIG_PROFILES`, em `src/strategies/backtracking.c`.
 - `options`: as opções para escolher os perfis de busca, uma por posição distinta no espectro, com os canais que ela ocupa (`channels`), o primário enviado em `channels` da requisição (`channel`) e o intervalo que ocupa no espectro (`lower_mhz` e `upper_mhz`), usado no mapa do espectro da interface. Em 5 e 6 GHz, cada bloco agregado é uma opção (a 80 MHz em 5 GHz, 36–48, 52–64, 100–112, 116–128, 132–144 e 149–161); em 2,4 GHz, cada canal de 20 MHz e cada par de 40 MHz, de 1+5 a 9+13. O primário é o do perfil padrão quando ele cai no bloco (o par 7+11 envia o 11) e, nos demais, o primeiro canal do bloco.
 
+## Perfis Padrão
+
+Os perfis padrão (`CONFIG_PROFILES`, em `src/strategies/backtracking.c`) são usados nas faixas que a requisição não informa em `channels`:
+
+| Faixa | 20 MHz | 40 MHz | 80 MHz | k |
+|---|---|---|---|---|
+| 2,4 GHz | 1, 6, 11 | 1 (1+5), 11 (7+11) | — | 5 |
+| 5 GHz | 36, 44, 149, 157 | 36, 44, 149, 157 | 36, 149 | 10 |
+
+A ordem da lista desempata perfis de mesmo custo e é fixa, então o resultado é determinístico.
+
+**Os perfis de 40 MHz em 2,4 GHz se sobrepõem.** 1+5 ocupa 2402–2442 MHz e 7+11 ocupa 2432–2472 MHz: os dois compartilham 10 MHz (s = 0,25), e dois APs vizinhos com esses perfis entram em conflito, com interferência de 25% da sobreposição espacial. A decisão (#78) foi mantê-los e documentar a sobreposição, em vez de trocá-los por 1+5 e 9+13 (o único par sem sobreposição) ou de retirar os 40 MHz do padrão:
+
+- os resultados padrão e o histórico do teste de escalabilidade continuam comparáveis com os das versões anteriores;
+- os canais 12 e 13, necessários para 9+13, são permitidos no Brasil, mas nem todos os clientes os aceitam;
+- os 40 MHz continuam no espaço de busca, o que importa para o critério de otimização: no modelo de consumo, 40 MHz gasta menos que 20 MHz, e retirá-los tiraria essa troca da análise de energia;
+- a sobreposição não é ignorada: ela entra como interferência, e a busca só usa os dois pares em APs vizinhos quando isso compensa no critério escolhido.
+
+Para um experimento sem essa sobreposição, escolha os canais em `channels` (por exemplo, `{"2.4 GHz": {"40 MHz": ["1", "9"]}}`, os pares 1+5 e 9+13) ou, na interface, use o atalho **Sem sobreposição** de 40 MHz no mapa do espectro, que já marca em laranja as barras sobrepostas.
+
 ## Paralelismo
 
 A busca começa pela solução gulosa, que serve de limite para a poda. Os dois primeiros níveis livres da árvore são expandidos em tarefas, consumidas por *pthreads* a partir de uma fila compartilhada. A melhor solução é compartilhada entre as *threads* sob *mutex*, e cada *thread* mantém uma cópia local atualizada por um contador de versão, o que evita travar o *mutex* a cada nó.
