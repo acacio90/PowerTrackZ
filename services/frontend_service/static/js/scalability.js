@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const form = document.getElementById('scal-form');
     const strategiesBox = document.getElementById('scal-strategies');
+    const objectiveSelect = document.getElementById('scal-objective');
     const errorBox = document.getElementById('scal-error');
     const startButton = document.getElementById('scal-start');
     const progressCard = document.getElementById('scal-progress');
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let strategyOrder = [];
     let displayNames = {};
+    let objectiveLabels = {};
     let pollTimer = null;
     let selectedRunId = null;
     const charts = {};
@@ -76,9 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return value < 1 ? `${formatNumber(value * 1000, value < 0.001 ? 2 : 0)} ms` : `${formatNumber(value)} s`;
     }
 
+    // Execucoes anteriores ao criterio configuravel usaram o objetivo padrao.
+    function objectiveLabel(name) {
+        return objectiveLabels[name || 'default'] || name || 'Padrão';
+    }
+
     function describeParameters(parameters) {
         return `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `
-            + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s)`;
+            + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s), `
+            + `critério ${objectiveLabel(parameters.objective)}`;
     }
 
     function describeBreak(run, strategy) {
@@ -114,6 +122,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
             displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', genetic: 'Algoritmo genético' };
+            const objectives = Array.isArray(data.objectives) ? data.objectives : [];
+            if (objectives.length) {
+                objectiveLabels = objectives.reduce((byName, objective) => ({ ...byName, [objective.name]: objective.label }), {});
+                objectiveSelect.innerHTML = objectives.map(objective => `
+                    <option value="${escapeHtml(objective.name)}" title="${escapeHtml(objective.description)}">${escapeHtml(objective.label)}</option>`).join('');
+                objectiveSelect.value = data.default_objective || objectives[0].name;
+            }
             const implemented = details.filter(detail => detail.implemented);
             strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
                 <label>
@@ -136,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             seed: seedText === '' ? null : Number(seedText),
             time_limit_seconds: Number(document.getElementById('scal-time-limit').value),
             thread_count: integer('scal-threads'),
+            objective: objectiveSelect.value,
             strategies: [...strategiesBox.querySelectorAll('input[name="strategy"]:checked')].map(input => input.value),
         };
     }

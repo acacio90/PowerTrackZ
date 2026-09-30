@@ -2,14 +2,14 @@
 
 [English](README.md) | **Português**
 
-Serviço em C que monta o grafo de colisões entre pontos de acesso e indica a configuração de canal e largura de banda de cada um.
+Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a configuração de canal e largura de banda de cada um.
 
 ## Estratégias
 
 | Estratégia | Descrição |
 |---|---|
-| `backtracking` | Busca exata por *branch-and-bound*. Minimiza, nesta ordem, o número de conflitos, a interferência total e o inverso da largura de banda somada. |
-| `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor interferência local. É também a solução inicial da busca exata. |
+| `backtracking` | Busca exata por *branch-and-bound*. Minimiza o custo do critério de otimização (seção abaixo); no padrão, nesta ordem, o número de conflitos, a interferência total e o inverso da largura de banda somada. |
+| `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor custo incremental no critério de otimização (no padrão, o de menor interferência local). É também a solução inicial da busca exata. |
 | `genetic` | Ainda não implementada (retorna um *placeholder*). |
 
 ## Parâmetros
@@ -25,9 +25,27 @@ As estratégias `greedy` e `genetic` não têm parâmetros configuráveis.
 
 `GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo, padrão, limites, unidade e se o valor `0` desativa o recurso. A interface monta os campos a partir dessa descrição, de modo que um parâmetro novo precisa ser declarado apenas no serviço.
 
-Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma mensagem como `Parametro time_limit_seconds deve estar entre 0 e 3600`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo.
+Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma mensagem como `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo.
 
-A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados e os conflitos da solução gulosa e da final.
+A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados, os conflitos da solução gulosa e da final e os componentes do custo da solução (`interference_score`, `bandwidth_score` e `power_score_w`).
+
+## Critério de Otimização
+
+As estratégias comparam as soluções por uma ordem lexicográfica, escolhida no campo `objective` da requisição:
+
+| `objective` | Ordem |
+|---|---|
+| `default` | menos conflitos → menor interferência → maior largura de banda somada |
+| `energy_tiebreak` | menos conflitos → menor interferência → menor potência |
+| `energy_first` | menor potência → menos conflitos → menor interferência |
+
+Sem o campo, vale `default`, que reproduz os resultados das versões anteriores; um nome desconhecido é recusado com HTTP 400. `GET /strategies` lista os objetivos em `objectives` (nome, rótulo, descrição e ordem) e o padrão em `default_objective`, e a resposta da análise informa o objetivo usado em `execution.objective`.
+
+A avaliação de custo fica em um ponto único, `src/strategies/objective.c`: o custo de uma atribuição (`AssignmentCost`), a comparação em cada ordem (`compare_assignment_costs`) e a potência usada no critério. O guloso escolhe, AP a AP, o perfil de menor custo incremental no objetivo, e o backtracking visita os perfis nessa mesma ordem. A poda do backtracking usa um limite otimista do ramo: conflitos e interferência só crescem, a largura soma no máximo a maior largura possível dos APs restantes e a potência soma no mínimo a menor potência possível deles. Como toda solução do ramo é, em cada componente, igual ou pior que esse limite, a poda é correta em qualquer ordem. A potência entra no custo em miliwatts inteiros, para que somas feitas por *threads* diferentes deem o mesmo valor e o resultado não dependa do número de *threads*.
+
+No modelo de consumo, larguras maiores gastam menos potência. Por isso, `energy_tiebreak` costuma coincidir com `default` num AP isolado, mas diverge nas somas: dois APs sem conflito a 40 + 40 MHz somam 80 MHz e 20,6 W; a 80 + 20 MHz, 100 MHz e 21,0 W. `default` fica com a segunda solução, e `energy_tiebreak`, com a primeira. `energy_first` aceita conflitos para reduzir a potência.
+
+**Configurações fora do modelo de consumo.** No critério de otimização, uma configuração sem valor no modelo (160 MHz) vale a maior potência modelada da sua faixa (11,1 W em 5 GHz), para que uma configuração sem estimativa nunca seja favorecida pela energia. Numa faixa sem nenhum valor no modelo (6 GHz), todos os perfis valem zero, e a energia deixa de diferenciá-los. A regra vale só para a otimização: os totais de potência da resposta continuam deixando essas configurações de fora.
 
 ## Interferência
 
@@ -37,7 +55,7 @@ Em canais agregados, a frequência central é a do bloco inteiro, e não a do ca
 
 ## Consumo de Energia
 
-A potência de cada AP segue o modelo de Dembélé et al. (2023): a potência média de um AP transmitindo a 25 Mbps, pela faixa e pela largura de banda. Os valores ficam em `POWER_MODEL`, em `src/analysis_service.c`:
+A potência de cada AP segue o modelo de Dembélé et al. (2023): a potência média de um AP transmitindo a 25 Mbps, pela faixa e pela largura de banda. Os valores ficam em `POWER_MODEL`, em `src/strategies/objective.c`, e são usados tanto nos totais da resposta quanto no critério de otimização:
 
 | Faixa | 20 MHz | 40 MHz | 80 MHz |
 |---|---|---|---|

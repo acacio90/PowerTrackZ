@@ -123,6 +123,19 @@
     margin: 0 0 1rem;
 }
 
+/* Critério de otimização: vale para qualquer estratégia */
+.analysis-objective {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-width: 30rem;
+    margin: 0 0 1rem;
+}
+
+.analysis-objective .analysis-toolbar-label {
+    margin-bottom: 0;
+}
+
 .spectrum-legend {
     margin: 0.25rem 0 0;
     font-size: var(--font-size-sm);

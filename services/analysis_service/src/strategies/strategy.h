@@ -2,6 +2,7 @@
 #define ANALYSIS_SERVICE_STRATEGIES_STRATEGY_H
 
 #include "../analysis_service.h"
+#include "objective.h"
 
 #include <stddef.h>
 
@@ -29,6 +30,7 @@ typedef struct {
     const char *band_label;
     double progress_offset;
     double progress_scale;
+    OptimizationObjective objective;
 } AnalysisExecutionContext;
 
 typedef enum {
@@ -46,6 +48,7 @@ typedef struct {
     int conflicts;
     double interference_score;
     double bandwidth_score;
+    double power_score_w;
 } AssignmentStats;
 
 typedef ProposedConfig *(*AnalysisStrategyRun)(

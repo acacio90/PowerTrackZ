@@ -15,8 +15,10 @@ COPY src/strategies/strategy.c ./src/strategies/strategy.c
 COPY src/strategies/strategy.h ./src/strategies/strategy.h
 COPY src/strategies/backtracking.c ./src/strategies/backtracking.c
 COPY src/strategies/backtracking.h ./src/strategies/backtracking.h
+COPY src/strategies/objective.c ./src/strategies/objective.c
+COPY src/strategies/objective.h ./src/strategies/objective.h
 
-RUN gcc -O2 -pthread -Wall -Wextra -std=c11 app/main.c src/analysis_service.c src/strategies/strategy.c src/strategies/backtracking.c -o analysis_service \
+RUN gcc -O2 -pthread -Wall -Wextra -std=c11 app/main.c src/analysis_service.c src/strategies/strategy.c src/strategies/backtracking.c src/strategies/objective.c -o analysis_service \
     -lcjson -lcurl -lm
 
 FROM debian:bookworm-slim

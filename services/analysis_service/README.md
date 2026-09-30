@@ -2,14 +2,14 @@
 
 **English** | [Português](README.pt-BR.md)
 
-C service that builds the collision graph between access points and suggests the channel and bandwidth configuration of each one.
+C service that builds the conflict graph between access points and suggests the channel and bandwidth configuration of each one.
 
 ## Strategies
 
 | Strategy | Description |
 |---|---|
-| `backtracking` | Exact *branch-and-bound* search. Minimizes, in this order, the number of conflicts, the total interference and the inverse of the summed bandwidth. |
-| `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest local interference. It is also the initial solution of the exact search. |
+| `backtracking` | Exact *branch-and-bound* search. Minimizes the cost of the optimization criterion (section below); by default, in this order, the number of conflicts, the total interference and the inverse of the summed bandwidth. |
+| `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest incremental cost in the optimization criterion (by default, the lowest local interference). It is also the initial solution of the exact search. |
 | `genetic` | Not implemented yet (returns a *placeholder*). |
 
 ## Parameters
@@ -25,9 +25,27 @@ The `greedy` and `genetic` strategies have no configurable parameters.
 
 `GET /strategies` describes these parameters in `strategy_details`, with name, label, type, default, limits, unit and whether the value `0` disables the feature. The interface builds its fields from this description, so a new parameter only needs to be declared in the service.
 
-Values outside the declared type or range are rejected with HTTP 400 and a message such as `Parametro time_limit_seconds deve estar entre 0 e 3600`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph.
+Values outside the declared type or range are rejected with HTTP 400 and a message such as `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph.
 
-The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes and the conflicts of the greedy and final solutions.
+The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes, the conflicts of the greedy and final solutions and the components of the solution cost (`interference_score`, `bandwidth_score` and `power_score_w`).
+
+## Optimization Criterion
+
+The strategies compare solutions by a lexicographic order, chosen in the request's `objective` field:
+
+| `objective` | Order |
+|---|---|
+| `default` | fewer conflicts → lower interference → larger summed bandwidth |
+| `energy_tiebreak` | fewer conflicts → lower interference → lower power |
+| `energy_first` | lower power → fewer conflicts → lower interference |
+
+Without the field, `default` applies, which reproduces the results of previous versions; an unknown name is rejected with HTTP 400. `GET /strategies` lists the objectives in `objectives` (name, label, description and order) and the default in `default_objective`, and the analysis response reports the objective used in `execution.objective`.
+
+The cost evaluation lives in a single place, `src/strategies/objective.c`: the cost of an assignment (`AssignmentCost`), the comparison in each order (`compare_assignment_costs`) and the power used by the criterion. Greedy picks, AP by AP, the profile with the lowest incremental cost in the objective, and backtracking visits the profiles in that same order. Backtracking pruning uses an optimistic bound of the branch: conflicts and interference only grow, the bandwidth adds at most the largest possible bandwidth of the remaining APs and the power adds at least their lowest possible power. Since every solution in the branch is, in each component, equal to or worse than this bound, pruning is correct in any order. Power enters the cost as integer milliwatts, so sums made by different *threads* give the same value and the result does not depend on the number of *threads*.
+
+In the consumption model, wider bandwidths use less power. That is why `energy_tiebreak` usually matches `default` for an isolated AP, but differs on sums: two conflict-free APs at 40 + 40 MHz add up to 80 MHz and 20.6 W; at 80 + 20 MHz, 100 MHz and 21.0 W. `default` keeps the second solution and `energy_tiebreak` the first. `energy_first` accepts conflicts to reduce power.
+
+**Configurations outside the consumption model.** In the optimization criterion, a configuration with no value in the model (160 MHz) counts as the highest modeled power of its band (11.1 W in 5 GHz), so a configuration without an estimate is never favored by energy. In a band with no value in the model (6 GHz), every profile counts as zero, and energy no longer tells them apart. The rule applies only to the optimization: the power totals in the response still leave these configurations out.
 
 ## Interference
 
@@ -37,7 +55,7 @@ For bonded channels, the center frequency is that of the whole block, not that o
 
 ## Energy Consumption
 
-The power of each AP follows the Dembélé et al. (2023) model: the average power of an AP transmitting at 25 Mbps, by band and bandwidth. The values are in `POWER_MODEL`, in `src/analysis_service.c`:
+The power of each AP follows the Dembélé et al. (2023) model: the average power of an AP transmitting at 25 Mbps, by band and bandwidth. The values are in `POWER_MODEL`, in `src/strategies/objective.c`, and are used both in the response totals and in the optimization criterion:
 
 | Band | 20 MHz | 40 MHz | 80 MHz |
 |---|---|---|---|

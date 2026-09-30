@@ -26,6 +26,8 @@ from scalability import (  # noqa: E402
 )
 from version import read_version  # noqa: E402
 
+OBJECTIVES = ["default", "energy_tiebreak", "energy_first"]
+
 STRATEGIES = [
     {"name": "backtracking", "implemented": True, "exact": True},
     {"name": "greedy", "implemented": True, "exact": False},
@@ -38,17 +40,22 @@ class FakeAnalysisClient:
 
     def __init__(self, cancel_at=None):
         self.calls = []
+        self.objectives_used = set()
         self.cancel_at = cancel_at
         self.runner = None
 
     def strategies(self):
         return STRATEGIES
 
+    def objectives(self):
+        return OBJECTIVES
+
     def graph_metrics(self, aps):
         return {"edges": len(aps) - 1, "density": 0.1, "average_degree": 2.0}
 
-    def analyze(self, aps, strategy, parameters, time_limit_seconds):
+    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default"):
         self.calls.append((strategy, [ap["id"] for ap in aps]))
+        self.objectives_used.add(objective)
         size = len(aps)
         if self.cancel_at == size and self.runner:
             self.runner.cancel(self.runner._active_run)
@@ -134,6 +141,7 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(set(run["version"]), {"commit", "branch", "tag"})
         self.assertEqual(run["parameters"]["seed"], 7)
         self.assertEqual(run["parameters"]["strategies"], ["backtracking", "greedy"])
+        self.assertEqual(run["parameters"]["objective"], "default")
         self.assertEqual([strategy["exact"] for strategy in run["strategies"]], [True, False])
         self.assertEqual(len(run["points"]), 10)
         self.assertEqual(run["progress"], 1.0)
@@ -149,9 +157,19 @@ class ScalabilityTests(unittest.TestCase):
         lines = csv_response.get_data(as_text=True).strip().splitlines()
         self.assertEqual(csv_response.mimetype, "text/csv")
         self.assertIn("attachment", csv_response.headers["Content-Disposition"])
-        self.assertTrue(lines[0].startswith("run_id,commit,tag,seed"))
+        self.assertTrue(lines[0].startswith("run_id,commit,tag,seed,min_degree,time_limit_seconds,thread_count,nodes,"))
+        self.assertTrue(lines[0].endswith(",objective"))
+        self.assertTrue(lines[1].endswith(",default"))
         self.assertEqual(len(lines), 1 + len(run["points"]))
         self.assertEqual(json.loads(json_response.get_data())["id"], run["id"])
+
+    def test_uses_and_records_the_chosen_objective(self):
+        run = self.start(objective="energy_first")
+
+        self.assertEqual(run["parameters"]["objective"], "energy_first")
+        self.assertEqual(self.fake.objectives_used, {"energy_first"})
+        csv_text = self.client.get(f"/experiments/scalability/{run['id']}/export?format=csv").get_data(as_text=True)
+        self.assertTrue(csv_text.splitlines()[1].endswith(",energy_first"))
 
     def test_cancelling_stops_before_the_next_size(self):
         self.fake.cancel_at = 20
@@ -161,7 +179,11 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(max(point["nodes"] for point in run["points"]), 20)
 
     def test_rejects_invalid_parameters_and_concurrent_runs(self):
-        for body in ({"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"seed": -1}):
+        invalid = (
+            {"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"seed": -1},
+            {"objective": "energia"},
+        )
+        for body in invalid:
             with self.subTest(body=body):
                 response = self.client.post("/experiments/scalability", json=body)
                 self.assertEqual(response.status_code, 400)

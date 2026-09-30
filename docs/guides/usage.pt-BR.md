@@ -42,8 +42,14 @@ A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de conflit
    - **Guloso:** heurística rápida, adequada a redes grandes, sem garantia de ótimo. Não tem parâmetros.
    - **Algoritmo genético:** ainda não implementado; devolve a configuração atual.
 2. Em **Canais disponíveis por faixa**, abra cada faixa para ver o mapa do espectro: uma linha por largura de banda e, em cada linha, uma barra por opção, na posição e com a largura que ela ocupa no eixo de frequência. Clique nas barras para escolher os canais que as estratégias podem usar. A 40 MHz, cada barra é um par de primário e secundário, rotulado pelos dois canais (como 7+11); nas demais larguras, o rótulo é o canal primário, e a 80 e 160 MHz cada barra é um bloco de canais (como 36–48 a 80 MHz). A dica da barra mostra os canais, o primário enviado e o intervalo em MHz. Barras que se sobrepõem no eixo interferem entre si, e as marcadas que se sobrepõem a outra marcada da mesma largura ficam em laranja. Os atalhos **Padrão**, **Todos** e **Nenhum** marcam conjuntos prontos, e os de **Sem sobreposição** marcam uma única largura, com o maior conjunto de canais que não se sobrepõem (em 2,4 GHz, 1, 5, 9 e 13 a 20 MHz), desmarcando as demais. O resumo de cada faixa mostra o total de perfis (k), e cada largura, a sua parte. Os perfis padrão já vêm marcados; em 2,4 e 5 GHz é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
-3. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
-4. Acompanhe o progresso no grafo da direita, que indica a faixa em processamento. A execução pode ser cancelada enquanto estiver em andamento.
+3. Em **Critério de otimização**, escolha a ordem em que as estratégias comparam as soluções:
+   - **Padrão:** menos conflitos, depois menor interferência e, no desempate, maior largura de banda;
+   - **Energia no desempate:** menos conflitos, depois menor interferência e, no desempate, menor potência;
+   - **Energia primeiro:** menor potência, depois menos conflitos e menor interferência; aceita conflitos para economizar energia.
+
+   A potência vem do mesmo modelo de consumo exibido nos resultados. Configurações sem valor no modelo (160 MHz) contam como a maior potência modelada da faixa, e, em 6 GHz, que não tem valores no modelo, a energia não diferencia os perfis. Rodar a mesma rede com critérios diferentes mostra quanto de energia se ganha ou se perde em troca de conflitos e interferência.
+4. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
+5. Acompanhe o progresso no grafo da direita, que indica a faixa em processamento. A execução pode ser cancelada enquanto estiver em andamento.
 
 APs de faixas diferentes não interferem entre si: a análise monta um grafo para cada faixa, sem arestas entre faixas, e resolve cada um separadamente.
 
@@ -67,6 +73,7 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 - **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados em **Canais disponíveis por faixa**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
 - **Consumo:** estimativa de energia (kWh) e custo (R$, a R$ 0,72 por kWh), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*. A potência de cada AP é calculada pelo analysis_service com o modelo de Dembélé et al. (2023), pela faixa e pela largura de banda; APs a 160 MHz ou em 6 GHz, que não têm valor no modelo, ficam fora da soma.
 - **Metadados da execução:**
+  - *Critério de otimização*: o critério usado na análise;
   - *Arestas*: pares de APs com sobreposição de cobertura na mesma faixa, com ou sem conflito;
   - *Conflitos (antes / depois)*: pares de APs em conflito (interferência maior que zero) antes e depois da otimização;
   - *Densidade de conflitos (antes / depois)*: fração dos pares possíveis de APs que estão em conflito;
@@ -84,7 +91,7 @@ As configurações abrem pelo ícone de engrenagem na barra de navegação, em q
 
 A página **Teste de escalabilidade** (card na tela inicial, `/scalability`) mede até que tamanho de rede cada estratégia resolve o problema. Ela gera uma topologia pela semente, com o tamanho máximo, e analisa prefixos dela de tamanho crescente (os primeiros 10 APs, os primeiros 20, ...), de modo que cada instância contém a anterior. Nada é salvo no inventário de APs, e os grafos não são desenhados.
 
-1. Informe o **tamanho máximo** (até 1.000 APs), o **passo**, o **grau mínimo**, a **semente** (em branco, uma é sorteada), o **limite de tempo**, as **threads** e as **estratégias**. Os canais usados são os perfis padrão.
+1. Informe o **tamanho máximo** (até 1.000 APs), o **passo**, o **grau mínimo**, a **semente** (em branco, uma é sorteada), o **limite de tempo**, as **threads**, o **critério de otimização** e as **estratégias**. Os canais usados são os perfis padrão. O critério aparece nos parâmetros de cada execução do histórico e na coluna `objective` do CSV.
 2. Clique em **Executar teste**. O progresso mostra o tamanho e a estratégia em análise, e a execução pode ser cancelada. Só uma execução roda por vez, para que os tempos medidos não se misturem.
 3. Para cada tamanho, as estratégias exatas rodam primeiro. Uma estratégia **quebra** no primeiro tamanho em que deixa de resolver o problema: um método exato (o backtracking), quando não encontra o ótimo dentro do limite de tempo, que vale para cada faixa; um método sem garantia de ótimo (o guloso), quando excede o limite de tempo. Depois de quebrar, ela não é mais executada nos tamanhos seguintes, e o teste termina quando todas quebram ou o tamanho máximo é atingido.
 

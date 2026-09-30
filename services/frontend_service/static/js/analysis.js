@@ -150,6 +150,38 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // Parametros declarados por cada estrategia no servico de analise, indexados pelo nome da estrategia.
     let strategyDetails = {};
+    // Criterios de otimizacao publicados pelo analysis_service (nome -> rotulo e descricao).
+    let objectiveDetails = {};
+    const objectiveSelect = document.getElementById('analysis-objective');
+    const objectiveDescription = document.getElementById('analysis-objective-description');
+
+    function getObjectiveLabel(name) {
+        return (objectiveDetails[name] && objectiveDetails[name].label) || name || 'Padrão';
+    }
+
+    function renderObjectiveOptions(objectives, defaultObjective) {
+        if (!objectiveSelect || !Array.isArray(objectives) || !objectives.length) {
+            return;
+        }
+        objectiveDetails = objectives.reduce((byName, objective) => ({ ...byName, [objective.name]: objective }), {});
+        const current = objectiveSelect.value;
+        objectiveSelect.innerHTML = objectives
+            .map(objective => `<option value="${escapeHtml(objective.name)}">${escapeHtml(objective.label)}</option>`)
+            .join('');
+        objectiveSelect.value = objectiveDetails[current] ? current : (defaultObjective || objectives[0].name);
+        updateObjectiveDescription();
+    }
+
+    function updateObjectiveDescription() {
+        const detail = objectiveDetails[objectiveSelect && objectiveSelect.value];
+        if (objectiveDescription && detail) {
+            objectiveDescription.textContent = detail.description;
+        }
+    }
+
+    if (objectiveSelect) {
+        objectiveSelect.addEventListener('change', updateObjectiveDescription);
+    }
 
     function escapeHtml(text) {
         return String(text ?? '')
@@ -403,6 +435,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Estratégia</span>
                     <span class="analysis-execution-value">${execution.strategy ? escapeHtml(getStrategyDisplayName(execution.strategy)) : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Critério de otimização</span>
+                    <span class="analysis-execution-value">${escapeHtml(getObjectiveLabel(execution.objective || 'default'))}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Tempo</span>
@@ -661,7 +697,8 @@ window.addEventListener('DOMContentLoaded', function() {
             })),
             strategy: window.selectedStrategy,
             parameters: resolvedParameters,
-            channels: seletorCanais ? seletorCanais.selecao() : undefined
+            channels: seletorCanais ? seletorCanais.selecao() : undefined,
+            objective: objectiveSelect ? objectiveSelect.value : undefined
         };
     }
 
@@ -1655,6 +1692,9 @@ window.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (data && data.success && data.strategies && strategyInfo) {
                 strategyInfo.textContent = 'Estratégias: ' + Object.keys(data.strategies).map(getStrategyDisplayName).join(', ');
+            }
+            if (data && Array.isArray(data.objectives)) {
+                renderObjectiveOptions(data.objectives, data.default_objective);
             }
             if (data && Array.isArray(data.strategy_details)) {
                 strategyDetails = data.strategy_details.reduce(
