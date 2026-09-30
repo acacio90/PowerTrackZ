@@ -317,6 +317,26 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
                     with self.subTest(frequency=frequency, bandwidth=bandwidth, channel=channel):
                         self.assertIn(channel, primaries)
 
+    def test_channel_plan_options_report_the_occupied_spectrum(self):
+        options = self.get_json("/channel-plan")["options"]
+
+        def bounds(frequency, bandwidth, channel):
+            option = next(item for item in options[frequency][bandwidth] if item["channel"] == channel)
+            return option["lower_mhz"], option["upper_mhz"]
+
+        self.assertEqual(bounds("2.4 GHz", "20 MHz", "1"), (2402, 2422))
+        self.assertEqual(bounds("2.4 GHz", "40 MHz", "1"), (2402, 2442))
+        self.assertEqual(bounds("2.4 GHz", "40 MHz", "11"), (2432, 2472))
+        self.assertEqual(bounds("5 GHz", "80 MHz", "36"), (5170, 5250))
+        self.assertEqual(bounds("5 GHz", "160 MHz", "100"), (5490, 5650))
+        self.assertEqual(bounds("6 GHz", "20 MHz", "1"), (5945, 5965))
+        for frequency, bandwidths in options.items():
+            for bandwidth, entries in bandwidths.items():
+                width = float(bandwidth.split()[0])
+                for option in entries:
+                    with self.subTest(frequency=frequency, bandwidth=bandwidth, channel=option["channel"]):
+                        self.assertAlmostEqual(option["upper_mhz"] - option["lower_mhz"], width)
+
     def test_channel_plan_profiles_are_valid_combinations(self):
         plan = self.get_json("/channel-plan")
         profiles = plan["profiles"]

@@ -323,13 +323,11 @@ static int bonded_center_channel(double band, int channel, double bandwidth) {
     return channel;
 }
 
-static double center_frequency_mhz(const Node *node) {
-    double band = normalize_frequency_band(node->frequency);
-    int channel = parse_channel_number(node->channel);
+static double channel_center_mhz(double band, int channel, double bandwidth) {
     if (channel <= 0 || band == 0.0) {
         return 0.0;
     }
-    int center_channel = bonded_center_channel(band, channel, parse_bandwidth_mhz(node->bandwidth));
+    int center_channel = bonded_center_channel(band, channel, bandwidth);
     if (band == 2.4) {
         return 2407.0 + (5.0 * center_channel);
     }
@@ -340,6 +338,14 @@ static double center_frequency_mhz(const Node *node) {
         return 5950.0 + (5.0 * center_channel);
     }
     return 0.0;
+}
+
+static double center_frequency_mhz(const Node *node) {
+    return channel_center_mhz(
+        normalize_frequency_band(node->frequency),
+        parse_channel_number(node->channel),
+        parse_bandwidth_mhz(node->bandwidth)
+    );
 }
 
 static double spectral_overlap_factor(const Node *left, const Node *right) {
@@ -1276,9 +1282,14 @@ static void add_option_to_plan(cJSON *plan, const char *frequency, const char *b
     if (!options) {
         options = cJSON_AddArrayToObject(band, bandwidth);
     }
+    const char *primary = option_primary(frequency, bandwidth, channels);
+    double width = parse_bandwidth_mhz(bandwidth);
+    double center = channel_center_mhz(normalize_frequency_band(frequency), parse_channel_number(primary), width);
     cJSON *option = cJSON_CreateObject();
-    cJSON_AddStringToObject(option, "channel", option_primary(frequency, bandwidth, channels));
+    cJSON_AddStringToObject(option, "channel", primary);
     cJSON_AddItemToObject(option, "channels", channels);
+    cJSON_AddNumberToObject(option, "lower_mhz", center - (width / 2.0));
+    cJSON_AddNumberToObject(option, "upper_mhz", center + (width / 2.0));
     cJSON_AddItemToArray(options, option);
 }
 
