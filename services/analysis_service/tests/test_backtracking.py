@@ -254,6 +254,33 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         for field in ("edges_before", "edges_after", "density_before", "density_after"):
             self.assertNotIn(field, comparison)
 
+    def test_comparison_reports_interference_and_changed_access_points(self):
+        aps = [
+            self.ap_at("a", "2.4 GHz", "1"),
+            self.ap_at("b", "2.4 GHz", "1", offset=0.00001),
+            self.ap_at("c", "2.4GHz", "11", offset=0.00002),
+        ]
+        before = self.post_json("/collision-graph", {"aps": aps})
+        result = self.post_json(
+            "/analyze-graph",
+            {"aps": aps, "strategy": "backtracking", "parameters": {"time_limit_seconds": 0},
+             "channels": {"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}},
+        )
+        comparison = result["execution"]["comparison"]
+        nodes = result["graph_data"]["nodes"]
+
+        self.assertAlmostEqual(comparison["interference_before"], sum(link["interference_peso"] for link in before["links"]))
+        self.assertAlmostEqual(comparison["interference_after"], sum(link["interference_peso"] for link in result["graph_data"]["links"]))
+        self.assertAlmostEqual(comparison["interference_after"], result["execution"]["search"]["interference_score"])
+        # "2.4GHz" com o mesmo canal e largura nao conta como mudanca.
+        changed = [
+            node for node in nodes
+            if (node["channel"], float(node["bandwidth"].split()[0]), float(node["frequency"].rstrip("GHz ")))
+            != (node["proposed_channel"], float(node["proposed_bandwidth"].split()[0]), float(node["proposed_frequency"].rstrip("GHz ")))
+        ]
+        self.assertEqual(comparison["changed_nodes"], len(changed))
+        self.assertGreater(comparison["changed_nodes"], 0)
+
     def test_aps_in_different_bands_are_not_linked(self):
         aps = [self.ap_at("a24", "2.4 GHz", "1"), self.ap_at("a5", "5 GHz", "36")]
         self.assertEqual(self.post_json("/collision-graph", {"aps": aps})["links"], [])

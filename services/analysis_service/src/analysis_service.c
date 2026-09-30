@@ -574,8 +574,10 @@ double interference_percentage_for_config(
 }
 
 // Conta as arestas em conflito (w * s > 0) na configuracao proposta; sem propostas, na configuracao atual.
-static int count_conflicts_for_proposals(const Graph *graph, const ProposedConfig *proposals) {
+// Em interference_total, devolve a soma das interferencias (w * s) dessas arestas.
+static int count_conflicts_for_proposals(const Graph *graph, const ProposedConfig *proposals, double *interference_total) {
     int conflict_count = 0;
+    double total = 0.0;
     for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
         const Edge *edge = &graph->edges[edge_index];
         const Node *left_node = &graph->nodes[edge->source];
@@ -601,9 +603,20 @@ static int count_conflicts_for_proposals(const Graph *graph, const ProposedConfi
         );
         if (interference > 0.0) {
             conflict_count++;
+            total += interference;
         }
     }
+    if (interference_total) {
+        *interference_total = total;
+    }
     return conflict_count;
+}
+
+// Mesma configuracao pelos valores numericos ("2.4GHz" e "2.4 GHz" sao a mesma faixa).
+static bool same_configuration(const Node *node, const ProposedConfig *proposal) {
+    return normalize_frequency_band(node->frequency) == normalize_frequency_band(proposal->frequency)
+        && parse_channel_number(node->channel) == parse_channel_number(proposal->channel)
+        && parse_bandwidth_mhz(node->bandwidth) == parse_bandwidth_mhz(proposal->bandwidth);
 }
 
 static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposals) {
@@ -724,14 +737,25 @@ static void add_strategy_comparison_to_execution(cJSON *execution, const Graph *
         return;
     }
     // Conflitos (arestas com w * s > 0) antes e depois; as sobreposicoes sem conflito ficam de fora.
-    int conflicts_before = count_conflicts_for_proposals(graph, NULL);
-    int conflicts_after = count_conflicts_for_proposals(graph, proposals);
+    double interference_before = 0.0;
+    double interference_after = 0.0;
+    int conflicts_before = count_conflicts_for_proposals(graph, NULL, &interference_before);
+    int conflicts_after = count_conflicts_for_proposals(graph, proposals, &interference_after);
+    int changed_nodes = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        if (!same_configuration(&graph->nodes[index], &proposals[index])) {
+            changed_nodes++;
+        }
+    }
     cJSON *comparison = cJSON_AddObjectToObject(execution, "comparison");
     cJSON_AddNumberToObject(comparison, "nodes", graph->node_count);
     cJSON_AddNumberToObject(comparison, "conflicts_before", conflicts_before);
     cJSON_AddNumberToObject(comparison, "conflicts_after", conflicts_after);
     cJSON_AddNumberToObject(comparison, "conflict_density_before", edge_density_from_counts(graph->node_count, conflicts_before));
     cJSON_AddNumberToObject(comparison, "conflict_density_after", edge_density_from_counts(graph->node_count, conflicts_after));
+    cJSON_AddNumberToObject(comparison, "interference_before", interference_before);
+    cJSON_AddNumberToObject(comparison, "interference_after", interference_after);
+    cJSON_AddNumberToObject(comparison, "changed_nodes", changed_nodes);
 
     // Potencia total (W) antes e depois, pelo modelo de consumo; APs fora do modelo nao entram na soma.
     double power_before = 0.0;
