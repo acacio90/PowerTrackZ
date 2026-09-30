@@ -2,13 +2,20 @@ import logging
 import os
 from datetime import datetime
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 from access_point_generator import generate_access_point_infrastructure
 from access_point_import import import_access_points, upsert_access_point, validate_access_point_payload
 from controllers import AccessPointController, create_tables
-from models import AccessPoint, db
+from models import AccessPoint, ScalabilityRun, db
+from scalability import (
+    ScalabilityConflict,
+    ScalabilityRunner,
+    mark_interrupted_runs,
+    run_to_csv,
+    run_to_dict,
+)
 from zabbix_integration import (
     get_zabbix_config,
     get_zabbix_groups,
@@ -29,6 +36,9 @@ db.init_app(app)
 
 with app.app_context():
     create_tables()
+    mark_interrupted_runs()
+
+scalability_runner = ScalabilityRunner(app)
 
 
 @app.route("/health")
@@ -140,8 +150,9 @@ def generate_access_points():
     try:
         data = request.get_json() or {}
         node_count = int(data.get("node_count", 0))
-        clique_factor = int(data.get("clique_factor", 0))
-        payload = generate_access_point_infrastructure(node_count, clique_factor)
+        # "clique_factor" e o nome anterior de "min_degree", aceito por compatibilidade.
+        min_degree = int(data.get("min_degree", data.get("clique_factor", 0)))
+        payload = generate_access_point_infrastructure(node_count, min_degree, data.get("seed"))
         return jsonify({"success": True, "payload": payload}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -214,6 +225,73 @@ def delete_access_point(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/experiments/scalability", methods=["GET"])
+def list_scalability_runs():
+    runs = ScalabilityRun.query.order_by(ScalabilityRun.id.desc()).all()
+    return jsonify({"success": True, "runs": [run_to_dict(run, include_points=False) for run in runs]})
+
+
+@app.route("/experiments/scalability", methods=["POST"])
+def start_scalability_run():
+    try:
+        run = scalability_runner.start(request.get_json(silent=True) or {})
+        return jsonify({"success": True, "run": run_to_dict(run)}), 202
+    except ValueError as error:
+        return jsonify({"success": False, "error": str(error)}), 400
+    except ScalabilityConflict as error:
+        return jsonify({"success": False, "error": str(error)}), 409
+    except Exception as error:
+        logger.exception("Falha ao iniciar o teste de escalabilidade")
+        return jsonify({"success": False, "error": str(error)}), 500
+
+
+@app.route("/experiments/scalability/<int:run_id>", methods=["GET"])
+def get_scalability_run(run_id):
+    run = db.session.get(ScalabilityRun, run_id)
+    if not run:
+        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+    return jsonify({"success": True, "run": run_to_dict(run)})
+
+
+@app.route("/experiments/scalability/<int:run_id>/cancel", methods=["POST"])
+def cancel_scalability_run(run_id):
+    if not scalability_runner.cancel(run_id):
+        return jsonify({"success": False, "error": "Execucao nao esta em andamento"}), 409
+    return jsonify({"success": True, "message": "Cancelamento solicitado"})
+
+
+@app.route("/experiments/scalability/<int:run_id>", methods=["DELETE"])
+def delete_scalability_run(run_id):
+    run = db.session.get(ScalabilityRun, run_id)
+    if not run:
+        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+    if scalability_runner.is_active(run_id):
+        return jsonify({"success": False, "error": "Cancele a execucao antes de exclui-la"}), 409
+    db.session.delete(run)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/experiments/scalability/<int:run_id>/export", methods=["GET"])
+def export_scalability_run(run_id):
+    run = db.session.get(ScalabilityRun, run_id)
+    if not run:
+        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+    export_format = request.args.get("format", "json")
+    filename = f"powertrackz-escalabilidade-{run_id}"
+    if export_format == "csv":
+        return Response(
+            run_to_csv(run),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.csv"'},
+        )
+    if export_format == "json":
+        response = jsonify(run_to_dict(run))
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}.json"'
+        return response
+    return jsonify({"success": False, "error": "format deve ser csv ou json"}), 400
 
 
 if __name__ == "__main__":

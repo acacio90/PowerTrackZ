@@ -21,6 +21,7 @@ PowerTrackZ is a lean distributed system for monitoring and analyzing access poi
 - Configuration, testing and querying of the external Zabbix
 - Persistence of registered APs
 - Source of the data shown on the map
+- Execution and history of the scalability test, which calls the Analysis Service
 
 ### Analysis Service
 - Collision analysis and optimization
@@ -35,6 +36,7 @@ PowerTrackZ is a lean distributed system for monitoring and analyzing access poi
 3. The frontend's internal routes call the responsible microservice directly.
 4. The Access Point Service handles CRUD, import, generation and the Zabbix integration.
 5. The Analysis Service queries the Access Point Service when it needs to load the registered access points.
+6. In the scalability test, the Access Point Service generates the instances and calls the Analysis Service to analyze them, storing the results in its own database.
 
 ## Architecture Diagram
 

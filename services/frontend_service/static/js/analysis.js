@@ -1,4 +1,7 @@
 window.addEventListener('DOMContentLoaded', function() {
+    // Canais escolhidos para as estrategias em cada faixa; nulo enquanto o plano de canais nao carrega.
+    let seletorCanais = null;
+
     window.selectedStrategy = null;
 
     const style = document.createElement('style');
@@ -16,10 +19,58 @@ window.addEventListener('DOMContentLoaded', function() {
             border: none;
         }
         .analysis-summary {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
             margin-bottom: 1rem;
+        }
+        .analysis-summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 0.75rem;
+        }
+        .analysis-summary-unit {
+            text-transform: none;
+            letter-spacing: normal;
+        }
+        .analysis-change {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .analysis-change.is-better {
+            color: #15803d;
+        }
+        .analysis-change.is-worse {
+            color: #b42318;
+        }
+        .analysis-change.is-neutral {
+            color: #607080;
+        }
+        .analysis-summary-bands {
+            margin-top: 0.75rem;
+            overflow-x: auto;
+        }
+        .analysis-summary-bands table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .analysis-summary-bands caption {
+            caption-side: top;
+            padding: 0 0 0.35rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #607080;
+        }
+        .analysis-summary-bands th,
+        .analysis-summary-bands td {
+            padding: 0.4rem 0.6rem;
+            border-bottom: 1px solid #e2e7ec;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .analysis-summary-bands thead th {
+            font-size: 0.75rem;
+            color: #607080;
         }
         .analysis-summary[hidden] {
             display: none;
@@ -50,11 +101,6 @@ window.addEventListener('DOMContentLoaded', function() {
         .analysis-summary-detail {
             font-size: 0.85rem;
             color: #526272;
-        }
-        @media (max-width: 900px) {
-            .analysis-summary {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
         }
         .grafos-toolbar {
             display: flex;
@@ -634,18 +680,18 @@ window.addEventListener('DOMContentLoaded', function() {
     // Traduz o resultado da busca: otima, interrompida pelo limite ou cancelada; o guloso nao garante otimo.
     function describeSearchOutcome(strategy, search) {
         if (strategy !== 'backtracking') {
-            return 'Heuristica (sem garantia de otimo)';
+            return 'Heurística (sem garantia de ótimo)';
         }
         if (search.optimal) {
-            return 'Otima';
+            return 'Ótima';
         }
         if (search.stop_reason === 'time_limit') {
-            return 'Melhor encontrada ate o limite de tempo';
+            return 'Melhor encontrada até o limite de tempo';
         }
         if (search.stop_reason === 'cancelled') {
-            return 'Melhor encontrada ate o cancelamento';
+            return 'Melhor encontrada até o cancelamento';
         }
-        return 'Nao otima';
+        return 'Não ótima';
     }
 
     function renderSearchMetadata(strategy, search) {
@@ -673,6 +719,21 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         return items.join('');
+    }
+
+    // Uma linha por faixa: cada faixa e um grafo resolvido separadamente, com o proprio conjunto de canais (k).
+    function renderBandsMetadata(strategy, bands) {
+        return (bands || []).map(band => {
+            const search = band.search || {};
+            const conflicts = strategy === 'backtracking'
+                ? `conflitos ${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}`
+                : `conflitos ${search.conflicts ?? '-'}`;
+            return `
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts} | ${describeSearchOutcome(strategy, search)}</span>
+                </div>`;
+        }).join('');
     }
 
     function renderExecutionMetadata(execution) {
@@ -714,45 +775,50 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Arestas Antes / Depois</span>
-                    <span class="analysis-execution-value">${comparison.edges_before != null ? comparison.edges_before : '-'} / ${comparison.edges_after != null ? comparison.edges_after : '-'}</span>
+                    <span class="analysis-execution-label">Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.conflicts_before != null ? comparison.conflicts_before : '-'} / ${comparison.conflicts_after != null ? comparison.conflicts_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Densidade Antes / Depois</span>
-                    <span class="analysis-execution-value">${comparison.density_before != null ? comparison.density_before : '-'} / ${comparison.density_after != null ? comparison.density_after : '-'}</span>
+                    <span class="analysis-execution-label">Densidade de Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.conflict_density_before != null ? comparison.conflict_density_before : '-'} / ${comparison.conflict_density_after != null ? comparison.conflict_density_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
-                </div>${renderSearchMetadata(execution.strategy, execution.search)}
+                </div>${renderSearchMetadata(execution.strategy, execution.search)}${renderBandsMetadata(execution.strategy, execution.bands)}
             </div>
         `;
     }
 
-    function countConflicts(graphData) {
-        return (graphData?.links || [])
-            .filter(link => (Number(link.interference_peso ?? link.peso) || 0) > 0)
-            .length;
+    function formatNumber(value, digits = 1) {
+        return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     }
 
-    function formatPercentChange(before, after) {
-        if (!(before > 0)) {
-            return '-';
+    // Variacao de uma metrica em que menor e melhor (conflitos, interferencia, consumo): o sinal e a seta
+    // acompanham a cor, para a leitura nao depender so dela.
+    function formatChange(before, after, unit = '') {
+        if (before == null || after == null) {
+            return '<span class="analysis-change is-neutral">-</span>';
         }
-        const change = ((after - before) / before) * 100;
-        return `${change > 0 ? '+' : ''}${change.toFixed(1).replace('.', ',')}%`;
-    }
-
-    function consumptionForDays(containerId) {
-        const painel = getGraphPanel(containerId);
-        if (painel.dataset.consumoTotal === undefined) {
-            return null;
+        const delta = after - before;
+        if (Math.abs(delta) < 1e-9) {
+            return '<span class="analysis-change is-neutral">sem alteração</span>';
         }
-        return (Number(painel.dataset.consumoTotal) * 24 * getConsumptionDays()) / 1000;
+        const state = delta < 0 ? 'is-better' : delta > 0 ? 'is-worse' : 'is-neutral';
+        const arrow = delta < 0 ? '▼' : delta > 0 ? '▲' : '=';
+        const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+        const absolute = `${sign}${formatNumber(Math.abs(delta), unit ? 2 : Number.isInteger(delta) ? 0 : 1)}${unit}`;
+        const percent = before > 0 ? ` (${sign}${formatNumber(Math.abs((delta / before) * 100))}%)` : '';
+        const meaning = delta < 0 ? 'melhora' : delta > 0 ? 'piora' : 'sem alteração';
+        return `<span class="analysis-change ${state}" title="${meaning}">${arrow} ${absolute}${percent}</span>`;
     }
 
-    // Resumo do resultado acima dos grafos; os conflitos sao contados nas arestas desenhadas em vermelho.
+    function pluralizeDays(days) {
+        return `${days} dia${days === 1 ? '' : 's'}`;
+    }
 
+    // Resumo do resultado acima dos grafos. Os valores vem da resposta do analysis_service: conflitos e
+    // interferencia (soma de w * s) antes e depois, APs alterados e potencia pelo modelo de consumo.
     function renderResultSummary(execution) {
         const container = document.getElementById('analysis-summary');
         if (!container) {
@@ -760,46 +826,87 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         lastSummaryExecution = execution;
-        if (!execution || !optimizedGraphData) {
+        if (!execution || !optimizedGraphData || !execution.comparison) {
             container.hidden = true;
             container.innerHTML = '';
             return;
         }
 
-        const conflictsBefore = countConflicts(originalGraphData);
-        const conflictsAfter = countConflicts(optimizedGraphData);
-        const nodes = optimizedGraphData.nodes || [];
-        const changedCount = nodes.filter(nodeConfigChanged).length;
-        const energyBefore = consumptionForDays('cy1');
-        const energyAfter = consumptionForDays('cy2');
-        const energyDelta = energyBefore != null && energyAfter != null ? energyAfter - energyBefore : null;
-        const solution = execution.search
-            ? describeSearchOutcome(execution.strategy, execution.search)
-            : (execution.strategy === 'greedy' ? describeSearchOutcome('greedy', {}) : '-');
-        const kwh = value => `${value.toFixed(2).replace('.', ',')} kWh`;
+        const comparison = execution.comparison;
+        const days = getConsumptionDays();
+        const kwh = watts => (watts * 24 * days) / 1000;
+        const energyBefore = comparison.power_before_w != null ? kwh(comparison.power_before_w) : null;
+        const energyAfter = comparison.power_after_w != null ? kwh(comparison.power_after_w) : null;
+        const nodes = comparison.nodes || 0;
+        const changed = comparison.changed_nodes ?? 0;
+        const solution = describeSearchOutcome(execution.strategy, execution.search || {});
+        const unmodeled = comparison.power_unmodeled_after
+            ? ` · ${comparison.power_unmodeled_after} AP(s) fora do modelo de consumo`
+            : '';
+
+        const bands = execution.bands || [];
+        const bandRows = bands.map(band => {
+            const bandComparison = band.comparison || {};
+            const bandSearch = band.search || {};
+            return `
+                <tr>
+                    <th scope="row">${escapeHtml(String(band.frequency).replace('.', ','))}</th>
+                    <td>${band.nodes}</td>
+                    <td>${band.profile_count}</td>
+                    <td>${bandComparison.conflicts_before} → ${bandComparison.conflicts_after} ${formatChange(bandComparison.conflicts_before, bandComparison.conflicts_after)}</td>
+                    <td>${formatNumber(bandComparison.interference_before)} → ${formatNumber(bandComparison.interference_after)} ${formatChange(bandComparison.interference_before, bandComparison.interference_after)}</td>
+                    <td>${formatNumber(bandComparison.power_before_w)} → ${formatNumber(bandComparison.power_after_w)} W ${formatChange(bandComparison.power_before_w, bandComparison.power_after_w, ' W')}</td>
+                    <td>${escapeHtml(describeSearchOutcome(execution.strategy, bandSearch))}</td>
+                </tr>`;
+        }).join('');
 
         container.hidden = false;
         container.innerHTML = `
-            <div class="analysis-summary-item">
-                <span class="analysis-summary-label">Conflitos</span>
-                <span class="analysis-summary-value">${conflictsBefore} &rarr; ${conflictsAfter}</span>
-                <span class="analysis-summary-detail">${formatPercentChange(conflictsBefore, conflictsAfter)}</span>
+            <div class="analysis-summary-cards">
+                <div class="analysis-summary-item">
+                    <span class="analysis-summary-label">Conflitos</span>
+                    <span class="analysis-summary-value">${comparison.conflicts_before} → ${comparison.conflicts_after}</span>
+                    <span class="analysis-summary-detail">${formatChange(comparison.conflicts_before, comparison.conflicts_after)}</span>
+                </div>
+                <div class="analysis-summary-item">
+                    <span class="analysis-summary-label" title="Soma de w·s nas arestas em conflito">Interferência total</span>
+                    <span class="analysis-summary-value">${formatNumber(comparison.interference_before)} → ${formatNumber(comparison.interference_after)}</span>
+                    <span class="analysis-summary-detail">${formatChange(comparison.interference_before, comparison.interference_after)}</span>
+                </div>
+                <div class="analysis-summary-item">
+                    <span class="analysis-summary-label">APs alterados</span>
+                    <span class="analysis-summary-value">${changed} de ${nodes}</span>
+                    <span class="analysis-summary-detail">${nodes ? `${Math.round((changed / nodes) * 100)}% dos APs` : '-'}</span>
+                </div>
+                <div class="analysis-summary-item">
+                    <span class="analysis-summary-label">Consumo em ${pluralizeDays(days)} <span class="analysis-summary-unit">(kWh)</span></span>
+                    <span class="analysis-summary-value">${energyBefore != null && energyAfter != null ? `${formatNumber(energyBefore, 2)} → ${formatNumber(energyAfter, 2)}` : '-'}</span>
+                    <span class="analysis-summary-detail">${formatChange(energyBefore, energyAfter, ' kWh')}${unmodeled}</span>
+                </div>
+                <div class="analysis-summary-item">
+                    <span class="analysis-summary-label">${escapeHtml(getStrategyDisplayName(execution.strategy))}</span>
+                    <span class="analysis-summary-value">${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}</span>
+                    <span class="analysis-summary-detail">${escapeHtml(solution)}</span>
+                </div>
             </div>
-            <div class="analysis-summary-item">
-                <span class="analysis-summary-label">APs alterados</span>
-                <span class="analysis-summary-value">${changedCount} de ${nodes.length}</span>
-                <span class="analysis-summary-detail">${nodes.length ? `${Math.round((changedCount / nodes.length) * 100)}% dos APs` : '-'}</span>
-            </div>
-            <div class="analysis-summary-item">
-                <span class="analysis-summary-label">Consumo em ${getConsumptionDays()} dia(s)</span>
-                <span class="analysis-summary-value">${energyBefore != null && energyAfter != null ? `${kwh(energyBefore)} &rarr; ${kwh(energyAfter)}` : '-'}</span>
-                <span class="analysis-summary-detail">${energyDelta != null ? `${energyDelta > 0 ? '+' : ''}${kwh(energyDelta)} (${formatPercentChange(energyBefore, energyAfter)})` : '-'}</span>
-            </div>
-            <div class="analysis-summary-item">
-                <span class="analysis-summary-label">${escapeHtml(getStrategyDisplayName(execution.strategy))}</span>
-                <span class="analysis-summary-value">${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}</span>
-                <span class="analysis-summary-detail">${escapeHtml(solution)}</span>
-            </div>
+            ${bands.length ? `
+            <div class="analysis-summary-bands">
+                <table>
+                    <caption>Resultados por faixa</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Faixa</th>
+                            <th scope="col">APs</th>
+                            <th scope="col" title="Número de perfis de canal disponíveis">k</th>
+                            <th scope="col">Conflitos</th>
+                            <th scope="col" title="Soma de w·s nas arestas em conflito">Interferência</th>
+                            <th scope="col">Potência</th>
+                            <th scope="col">Solução</th>
+                        </tr>
+                    </thead>
+                    <tbody>${bandRows}</tbody>
+                </table>
+            </div>` : ''}
         `;
     }
 
@@ -907,7 +1014,8 @@ window.addEventListener('DOMContentLoaded', function() {
                 locked: Boolean(ap.locked)
             })),
             strategy: window.selectedStrategy,
-            parameters: resolvedParameters
+            parameters: resolvedParameters,
+            channels: seletorCanais ? seletorCanais.selecao() : undefined
         };
     }
 
@@ -1352,21 +1460,6 @@ window.addEventListener('DOMContentLoaded', function() {
         btnReenquadrar.addEventListener('click', refitGraphs);
     }
 
-    function consumoEnergia25Mbps(bandwidth, frequency) {
-        const bw = String(bandwidth || '').replace(/[^0-9]/g, '');
-        const freq = String(frequency || '').replace(',', '.');
-
-        if (freq.startsWith('5')) {
-            if (bw === '20') return 11.1;
-            if (bw === '40') return 10.3;
-            if (bw === '80') return 9.9;
-        } else if (freq.startsWith('2.4')) {
-            if (bw === '20') return 14.5;
-            if (bw === '40') return 13.8;
-        }
-        return null;
-    }
-
     function getConsumptionDays() {
         const input = document.getElementById('input-dias');
         return Math.max(1, parseInt(input && input.value, 10) || 1);
@@ -1381,21 +1474,18 @@ window.addEventListener('DOMContentLoaded', function() {
         const dias = getConsumptionDays();
         const consumoDias = (Number(painel.dataset.consumoTotal) * 24 * dias) / 1000;
         const valorFinal = consumoDias * 0.72;
-        infoGasto.innerHTML = `Consumo em ${dias} dia(s): <b>${consumoDias.toFixed(2)} kWh</b> | Custo: <b>R$ ${valorFinal.toFixed(2)}</b>`;
+        infoGasto.innerHTML = `Consumo em ${pluralizeDays(dias)}: <b>${formatNumber(consumoDias, 2)} kWh</b> | Custo: <b>R$ ${formatNumber(valorFinal, 2)}</b>`;
     }
 
-    function atualizarInfoConsumo(containerId, nodes, usarConfiguracaoProposta) {
-        let consumoTotal = 0;
-
-        nodes.forEach(node => {
-            const bandwidth = usarConfiguracaoProposta ? node.proposed_bandwidth : node.bandwidth;
-            const frequency = usarConfiguracaoProposta ? node.proposed_frequency : node.frequency;
-            const consumo = consumoEnergia25Mbps(bandwidth, frequency);
-            if (consumo) consumoTotal += consumo;
-        });
-
+    // A potencia total (W) da configuracao exibida vem do analysis_service (modelo de Dembele et al., 2023).
+    function atualizarInfoConsumo(containerId, graphData) {
         const painel = getGraphPanel(containerId);
-        painel.dataset.consumoTotal = String(consumoTotal);
+        const potencia = Number(graphData && graphData.power_w);
+        if (!Number.isFinite(potencia)) {
+            clearInfoConsumo(containerId);
+            return;
+        }
+        painel.dataset.consumoTotal = String(potencia);
         renderInfoConsumo(painel);
     }
 
@@ -1468,26 +1558,41 @@ window.addEventListener('DOMContentLoaded', function() {
             tbody.appendChild(tr);
 
             const button = tr.querySelector('.btn-editar');
-            button.addEventListener('click', function() {
+            button.addEventListener('click', async function() {
                 const tdProposta = tr.querySelector('.td-proposta');
 
                 if (!button.classList.contains('is-saving')) {
+                    let plano;
+                    try {
+                        plano = await window.ChannelPlan.carregar();
+                    } catch (err) {
+                        alert(err.message);
+                        return;
+                    }
+
+                    // Na proposta, so os canais escolhidos para as estrategias (ou os perfis padrao, sem o seletor).
                     tdProposta.innerHTML = `
                         <div class="analysis-inline-edit">
-                            <input type='text' class='input-edit' value='${proposta.channel}' />
-                            <input type='text' class='input-edit' value='${proposta.bandwidth}' />
-                            <input type='text' class='input-edit' value='${proposta.frequency}' />
+                            <select class="input-edit" data-field="channel" aria-label="Canal"></select>
+                            <select class="input-edit" data-field="bandwidth" aria-label="Largura de banda"></select>
+                            <select class="input-edit" data-field="frequency" aria-label="Frequencia"></select>
                         </div>
                     `;
+                    const selects = {
+                        channel: tdProposta.querySelector('[data-field="channel"]'),
+                        bandwidth: tdProposta.querySelector('[data-field="bandwidth"]'),
+                        frequency: tdProposta.querySelector('[data-field="frequency"]')
+                    };
+                    const opcoes = seletorCanais ? seletorCanais.selecao() : plano.profiles;
+                    window.ChannelPlan.vincular(selects, opcoes, proposta, { manterAtual: true });
                     button.classList.add('is-saving');
                     button.innerHTML = '<i class="fa-solid fa-floppy-disk"></i><span>Salvar</span>';
                     return;
                 }
 
-                const inputs = tdProposta.querySelectorAll('.input-edit');
-                apsOtimizado[idx].channel = inputs[0].value;
-                apsOtimizado[idx].bandwidth = inputs[1].value;
-                apsOtimizado[idx].frequency = inputs[2].value;
+                apsOtimizado[idx].channel = tdProposta.querySelector('[data-field="channel"]').value;
+                apsOtimizado[idx].bandwidth = tdProposta.querySelector('[data-field="bandwidth"]').value;
+                apsOtimizado[idx].frequency = tdProposta.querySelector('[data-field="frequency"]').value;
                 apsOtimizado[idx].locked = true;
                 criarAnaliseOtimizada();
             });
@@ -1539,7 +1644,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 originalGraphData = graphData;
                 renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
-                atualizarInfoConsumo('cy1', graphData.nodes, false);
+                atualizarInfoConsumo('cy1', graphData);
             })
             .catch(error => {
                 document.getElementById('cy1').innerHTML = '<p style="color:red">Erro ao carregar o grafo.</p>';
@@ -1623,7 +1728,7 @@ window.addEventListener('DOMContentLoaded', function() {
         optimizedGraphData = graphData;
         renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
-        atualizarInfoConsumo('cy2', graphData.nodes, true);
+        atualizarInfoConsumo('cy2', graphData);
         renderExecutionMetadata(data.execution || null);
         renderResultSummary(data.execution || { strategy: data.strategy_used });
         exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);
@@ -1734,7 +1839,7 @@ window.addEventListener('DOMContentLoaded', function() {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
                             description,
-                            step: stepText,
+                            step: progress.band ? `Faixa ${String(progress.band).replace('.', ',')}: ${stepText}` : stepText,
                             percentage: progress.percentage
                         });
                     } else if (event.type === 'result') {
@@ -1773,8 +1878,9 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const { values, error: parameterError } = collectStrategyParameters();
-        if (parameterError) {
-            showParameterError(parameterError);
+        const channelError = seletorCanais ? seletorCanais.validar() : null;
+        if (parameterError || channelError) {
+            showParameterError(parameterError || channelError);
             return;
         }
         hideParameterError();
@@ -1903,6 +2009,18 @@ window.addEventListener('DOMContentLoaded', function() {
 
     window.addEventListener('pagehide', cancelarAnaliseSilenciosamenteAoSair);
     window.addEventListener('beforeunload', cancelarAnaliseSilenciosamenteAoSair);
+
+    const channelsContainer = document.getElementById('analysis-channels');
+    if (channelsContainer && window.ChannelPlan) {
+        window.ChannelPlan.carregar()
+            .then(plano => {
+                seletorCanais = window.ChannelPlan.criarSeletor(channelsContainer, plano);
+            })
+            .catch(err => {
+                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Nao foi possivel carregar os canais; a analise usara os perfis padrao.</p>';
+                console.warn(err);
+            });
+    }
 
     fetchStrategiesFromServer();
     fetchAnalysisCapabilities();

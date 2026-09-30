@@ -29,6 +29,8 @@ services:
       - "${ACCESS_POINT_SERVICE_PORT:-5004}:5004"
     volumes:
       - ./services/access_point_service:/app
+      # Repositorio git, so leitura: o teste de escalabilidade registra a versao (commit, branch e tag).
+      - ./.git:/repo-git:ro
     environment:
       - FLASK_APP=app.main
       - FLASK_ENV=${FLASK_ENV:-development}
@@ -37,6 +39,8 @@ services:
       - PORT=5004
       - ACCESS_POINT_DATABASE_URI=${ACCESS_POINT_DATABASE_URI}
       - ACCESS_POINT_HTTP_TIMEOUT=${ACCESS_POINT_HTTP_TIMEOUT}
+      - ANALYSIS_SERVICE_URL=${ANALYSIS_SERVICE_URL}
+      - POWERTRACKZ_GIT_DIR=/repo-git
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]

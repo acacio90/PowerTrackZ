@@ -21,6 +21,7 @@ O PowerTrackZ é um sistema distribuído enxuto para monitorar e analisar pontos
 - Configuração, teste e consulta do Zabbix externo
 - Persistência dos APs cadastrados
 - Fonte dos dados exibidos no mapa
+- Execução e histórico do teste de escalabilidade, que chama o Analysis Service
 
 ### Analysis Service
 - Análise de colisão e otimização
@@ -35,6 +36,7 @@ O PowerTrackZ é um sistema distribuído enxuto para monitorar e analisar pontos
 3. As rotas internas do frontend chamam diretamente o microsserviço responsável.
 4. O Access Point Service concentra CRUD, importação, geração e integração com o Zabbix.
 5. O Analysis Service consulta o Access Point Service quando precisa carregar os pontos cadastrados.
+6. No teste de escalabilidade, o Access Point Service gera as instâncias e chama o Analysis Service para analisá-las, guardando os resultados no próprio banco.
 
 ## Diagrama de Arquitetura
 

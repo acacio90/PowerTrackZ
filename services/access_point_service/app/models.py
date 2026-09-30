@@ -30,6 +30,24 @@ class AccessPoint(db.Model):
         }
 
 
+class ScalabilityRun(db.Model):
+    """Execucao do teste de escalabilidade: parametros, versao do PowerTrackZ, pontos medidos e pontos de quebra."""
+    __tablename__ = 'scalability_runs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    finished_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), nullable=False, default='running')
+    progress = db.Column(db.Float, nullable=False, default=0.0)
+    current_step = db.Column(db.String(200))
+    version = db.Column(db.Text, nullable=False, default='{}')
+    parameters = db.Column(db.Text, nullable=False, default='{}')
+    strategies = db.Column(db.Text, nullable=False, default='[]')
+    points = db.Column(db.Text, nullable=False, default='[]')
+    breaks = db.Column(db.Text, nullable=False, default='{}')
+    error = db.Column(db.Text)
+
+
 class ZabbixConfig(db.Model):
     """Configuracao de conexao com o Zabbix externo."""
     __tablename__ = 'zabbix_config'

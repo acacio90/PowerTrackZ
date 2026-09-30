@@ -1,6 +1,11 @@
 import math
 import random
+import secrets
 from datetime import datetime
+
+
+MAX_NODE_COUNT = 1000
+MAX_SEED = 2**32 - 1
 
 
 FREQUENCY_PROFILES = [
@@ -41,11 +46,11 @@ def meters_to_longitude_degrees(meters, latitude):
     return 0 if meters_per_degree == 0 else meters / meters_per_degree
 
 
-def build_generated_access_points(node_count):
+def build_generated_access_points(node_count, rnd):
     aps = []
 
     for index in range(node_count):
-        profile = random.choice(FREQUENCY_PROFILES)
+        profile = rnd.choice(FREQUENCY_PROFILES)
         frequency = profile["frequency"]
         bandwidth = profile["bandwidth"]
         channel = profile["channel"]
@@ -64,10 +69,12 @@ def build_generated_access_points(node_count):
     return aps
 
 
-def build_generated_links(node_count, clique_factor):
+# Ligacoes usadas so para posicionar os APs: cada AP recebe ao menos min_degree vizinhos, perto dos quais e
+# colocado. A analise monta o proprio grafo pela sobreposicao das coberturas, em geral bem mais denso.
+def build_generated_links(node_count, min_degree, rnd):
     links = []
     adjacency = [set() for _ in range(node_count)]
-    minimum_connections = max(1, min(clique_factor, node_count - 1))
+    minimum_connections = max(1, min(min_degree, node_count - 1))
 
     for index in range(node_count - 1):
         adjacency[index].add(index + 1)
@@ -75,7 +82,7 @@ def build_generated_links(node_count, clique_factor):
 
     for index in range(node_count):
         while len(adjacency[index]) < minimum_connections:
-            candidate = random.randrange(node_count)
+            candidate = rnd.randrange(node_count)
             if candidate == index or candidate in adjacency[index]:
                 continue
 
@@ -93,7 +100,7 @@ def build_generated_links(node_count, clique_factor):
     return links
 
 
-def assign_coordinates_for_topology(aps, links):
+def assign_coordinates_for_topology(aps, links, rnd):
     if not aps:
         return aps
 
@@ -119,7 +126,10 @@ def assign_coordinates_for_topology(aps, links):
         current_id = queue.pop(0)
         current = by_id[current_id]
         neighbors = list(adjacency[current_id])
-        random.shuffle(neighbors)
+        # A ordem dos vizinhos no conjunto nao e estavel entre execucoes; ordenar antes de embaralhar
+        # torna o resultado dependente so da semente.
+        neighbors.sort()
+        rnd.shuffle(neighbors)
 
         for neighbor_id in neighbors:
             if neighbor_id in visited:
@@ -130,11 +140,11 @@ def assign_coordinates_for_topology(aps, links):
                 6,
                 min(
                     34,
-                    (current["radius"] + neighbor["radius"]) * random.uniform(0.42, 0.95),
+                    (current["radius"] + neighbor["radius"]) * rnd.uniform(0.42, 0.95),
                 ),
             )
-            angle = random.uniform(0, math.pi * 2)
-            local_jitter = random.uniform(-5.5, 5.5)
+            angle = rnd.uniform(0, math.pi * 2)
+            local_jitter = rnd.uniform(-5.5, 5.5)
             lat_offset = meters_to_latitude_degrees((desired_distance + local_jitter) * math.cos(angle))
             lng_offset = meters_to_longitude_degrees((desired_distance - local_jitter) * math.sin(angle), current["latitude"])
 
@@ -142,8 +152,8 @@ def assign_coordinates_for_topology(aps, links):
             neighbor_lng = current["longitude"] + lng_offset
 
             # Introduz deslocamentos irregulares para evitar topologia "arrumada".
-            neighbor_lat += meters_to_latitude_degrees(random.uniform(-3.5, 3.5))
-            neighbor_lng += meters_to_longitude_degrees(random.uniform(-3.5, 3.5), current["latitude"])
+            neighbor_lat += meters_to_latitude_degrees(rnd.uniform(-3.5, 3.5))
+            neighbor_lng += meters_to_longitude_degrees(rnd.uniform(-3.5, 3.5), current["latitude"])
 
             neighbor["latitude"] = round(neighbor_lat, 6)
             neighbor["longitude"] = round(neighbor_lng, 6)
@@ -154,8 +164,8 @@ def assign_coordinates_for_topology(aps, links):
         if ap["latitude"] is not None and ap["longitude"] is not None:
             continue
 
-        fallback_distance = random.uniform(8, 42)
-        fallback_angle = random.uniform(0, math.pi * 2)
+        fallback_distance = rnd.uniform(8, 42)
+        fallback_angle = rnd.uniform(0, math.pi * 2)
         ap["latitude"] = round(origin_lat + meters_to_latitude_degrees(fallback_distance * math.cos(fallback_angle)), 6)
         ap["longitude"] = round(origin_lng + meters_to_longitude_degrees(fallback_distance * math.sin(fallback_angle), origin_lat), 6)
 
@@ -165,23 +175,50 @@ def assign_coordinates_for_topology(aps, links):
     ]
 
 
-def generate_access_point_infrastructure(node_count, clique_factor):
+def resolve_seed(seed):
+    """Valida a semente informada ou sorteia uma, para que toda topologia possa ser recriada."""
+    if seed is None or seed == "":
+        return secrets.randbelow(MAX_SEED + 1)
+    if isinstance(seed, bool):
+        raise ValueError("seed deve ser um inteiro entre 0 e 4294967295")
+    try:
+        value = int(seed)
+    except (TypeError, ValueError):
+        raise ValueError("seed deve ser um inteiro entre 0 e 4294967295") from None
+    if isinstance(seed, float) and value != seed:
+        raise ValueError("seed deve ser um inteiro entre 0 e 4294967295")
+    if value < 0 or value > MAX_SEED:
+        raise ValueError("seed deve ser um inteiro entre 0 e 4294967295")
+    return value
+
+
+def generate_access_point_infrastructure(node_count, min_degree, seed=None):
+    """Gera APs posicionados em uma topologia. A mesma semente, com os mesmos parametros e a mesma versao do
+    gerador, produz a mesma topologia; sem semente, uma e sorteada e devolvida em metadata.seed."""
     if node_count < 2:
         raise ValueError("node_count deve ser maior ou igual a 2")
-    if clique_factor < 1:
-        raise ValueError("clique_factor deve ser maior ou igual a 1")
-    if clique_factor >= node_count:
-        raise ValueError("clique_factor deve ser menor que node_count")
+    if node_count > MAX_NODE_COUNT:
+        raise ValueError(f"node_count deve ser menor ou igual a {MAX_NODE_COUNT}")
+    if min_degree < 1:
+        raise ValueError("min_degree deve ser maior ou igual a 1")
+    if min_degree >= node_count:
+        raise ValueError("min_degree deve ser menor que node_count")
 
-    aps = build_generated_access_points(node_count)
-    links = build_generated_links(node_count, clique_factor)
-    positioned_aps = assign_coordinates_for_topology(aps, links)
+    resolved_seed = resolve_seed(seed)
+    # Gerador proprio: sorteios de outras partes do servico nao alteram a sequencia desta topologia.
+    rnd = random.Random(resolved_seed)
+    aps = build_generated_access_points(node_count, rnd)
+    links = build_generated_links(node_count, min_degree, rnd)
+    positioned_aps = assign_coordinates_for_topology(aps, links, rnd)
 
     return {
         "metadata": {
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "node_count": node_count,
-            "clique_factor": clique_factor,
+            "min_degree": min_degree,
+            # Nome anterior do parametro, mantido para quem le arquivos gerados antes.
+            "clique_factor": min_degree,
+            "seed": resolved_seed,
         },
         "aps": positioned_aps,
         "links": links,

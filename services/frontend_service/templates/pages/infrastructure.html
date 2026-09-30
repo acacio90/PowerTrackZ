@@ -138,22 +138,17 @@
 
                         <div class="form-group">
                             <label for="modal-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
-                            <select id="modal-frequency" name="frequency" required class="form-control">
-                                <option value="">Selecione a frequência</option>
-                                <option value="2.4">2.4 GHz</option>
-                                <option value="5">5 GHz</option>
-                                <option value="6">6 GHz</option>
-                            </select>
+                            <select id="modal-frequency" name="frequency" required class="form-control"></select>
                         </div>
 
                         <div class="form-group">
                             <label for="modal-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
-                            <input type="text" id="modal-bandwidth" name="bandwidth" required placeholder="Ex: 20">
+                            <select id="modal-bandwidth" name="bandwidth" required class="form-control"></select>
                         </div>
 
                         <div class="form-group">
                             <label for="modal-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
-                            <input type="number" id="modal-channel" name="channel" min="1" max="165" required placeholder="1-165">
+                            <select id="modal-channel" name="channel" required class="form-control"></select>
                         </div>
                     </div>
 
@@ -189,15 +184,15 @@
                         </div>
                         <div class="form-group">
                             <label for="edit-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
-                            <input type="text" id="edit-frequency" name="frequency" required>
+                            <select id="edit-frequency" name="frequency" required class="form-control"></select>
                         </div>
                         <div class="form-group">
                             <label for="edit-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
-                            <input type="text" id="edit-bandwidth" name="bandwidth" required>
+                            <select id="edit-bandwidth" name="bandwidth" required class="form-control"></select>
                         </div>
                         <div class="form-group">
                             <label for="edit-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
-                            <input type="number" id="edit-channel" name="channel" min="1" max="165" required>
+                            <select id="edit-channel" name="channel" required class="form-control"></select>
                         </div>
                         <input type="hidden" id="edit-id" name="id">
                     </div>
@@ -239,16 +234,20 @@
                     <form id="form-load-generate" class="load-generate" hidden>
                         <div class="form-group">
                             <label for="generate-node-count"><i class="fas fa-circle-nodes"></i> Quantidade de nós</label>
-                            <input type="number" id="generate-node-count" min="2" max="500" value="12" required>
+                            <input type="number" id="generate-node-count" min="2" max="1000" value="12" required>
                         </div>
                         <div class="form-group">
-                            <label for="generate-clique-factor"><i class="fas fa-share-nodes"></i> Fator de clique</label>
-                            <input type="number" id="generate-clique-factor" min="1" max="20" value="2" required>
+                            <label for="generate-min-degree"><i class="fas fa-share-nodes"></i> Grau mínimo</label>
+                            <input type="number" id="generate-min-degree" min="1" max="20" value="2" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="generate-seed"><i class="fas fa-seedling"></i> Semente (opcional)</label>
+                            <input type="number" id="generate-seed" min="0" max="4294967295" step="1" placeholder="Aleatória">
                         </div>
                         <button type="submit" class="btn btn-primary" id="submit-load-generate">
                             <i class="fas fa-wand-magic-sparkles"></i> Gerar
                         </button>
-                        <p class="load-note">O fator de clique define o mínimo de conexões que cada AP tentará manter.</p>
+                        <p class="load-note">O grau mínimo é o número de vizinhos perto dos quais cada AP é posicionado. O grafo analisado é montado depois, pela sobreposição das coberturas, e costuma ser mais denso; as métricas dele aparecem na revisão. A mesma semente, com os mesmos parâmetros, gera a mesma topologia; sem semente, uma é sorteada e informada após a geração.</p>
                     </form>
 
                     <div id="load-feedback" class="import-feedback" hidden></div>
@@ -258,6 +257,7 @@
                             <span id="load-review-summary"></span>
                             <span class="load-source-badge" id="load-review-source"></span>
                         </div>
+                        <div class="load-review-metrics" id="load-review-metrics" hidden></div>
                         <div class="table-wrapper load-review-table">
                             <table class="data-table app-table">
                                 <thead>
@@ -293,13 +293,21 @@
     <script>
     window.savedAccessPoints = {{ (points or [])|tojson }};
     </script>
+    <script src="{{ url_for('static', filename='js/channel-plan.js') }}"></script>
     <script src="{{ url_for('static', filename='js/infrastructure.js') }}"></script>
     <script src="{{ url_for('static', filename='js/infrastructure-load.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
     <script>
-    function openEditModal(pointId) {
+    async function openEditModal(pointId) {
         const point = (window.savedAccessPoints || []).find(item => String(item.id) === String(pointId));
         if (!point) return;
+        let plano;
+        try {
+            plano = await window.ChannelPlan.carregar();
+        } catch (err) {
+            alert(err.message);
+            return;
+        }
         let lat = point.latitude;
         let lng = point.longitude;
         if ((lat === null || lat === undefined) && window.lastSelectedCoordinates) lat = window.lastSelectedCoordinates.lat;
@@ -308,9 +316,16 @@
         document.getElementById('edit-description').value = point.name || '';
         document.getElementById('edit-latitude').value = lat ?? '';
         document.getElementById('edit-longitude').value = lng ?? '';
-        document.getElementById('edit-frequency').value = point.frequency || '';
-        document.getElementById('edit-bandwidth').value = point.bandwidth || '';
-        document.getElementById('edit-channel').value = point.channel || '';
+        // No inventario, todos os canais permitidos; uma configuracao invalida fica por selecionar.
+        window.ChannelPlan.vincular(
+            {
+                frequency: document.getElementById('edit-frequency'),
+                bandwidth: document.getElementById('edit-bandwidth'),
+                channel: document.getElementById('edit-channel')
+            },
+            plano.valid,
+            point
+        );
         document.getElementById('modal-edit-point').style.display = 'flex';
     }
 

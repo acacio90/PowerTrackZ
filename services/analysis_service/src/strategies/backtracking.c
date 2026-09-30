@@ -3,6 +3,7 @@
 #include "backtracking.h"
 
 #include <limits.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -14,14 +15,9 @@
 #define TASK_EXPANSION_LEVELS 2
 #define STOP_CHECK_INTERVAL 4096
 
-typedef struct {
-    const char *channel;
-    const char *bandwidth;
-    const char *frequency;
-} ConfigProfile;
-
-static const ConfigProfile CONFIG_PROFILES[] = {
-    {"1", "60 MHz", "2.4 GHz"},
+// Perfis padrao de busca. Em 2,4 GHz so existem canais de 20 e 40 MHz; em 5 GHz, de 20, 40 e 80 MHz.
+// A ordem desempata perfis de mesmo custo.
+static const ProposedConfig CONFIG_PROFILES[] = {
     {"1", "40 MHz", "2.4 GHz"},
     {"11", "40 MHz", "2.4 GHz"},
     {"1", "20 MHz", "2.4 GHz"},
@@ -39,12 +35,16 @@ static const ConfigProfile CONFIG_PROFILES[] = {
     {"157", "20 MHz", "5 GHz"},
 };
 
-#define PROFILE_COUNT ((int) (sizeof(CONFIG_PROFILES) / sizeof(CONFIG_PROFILES[0])))
+static const ProfileSet DEFAULT_PROFILE_SET = {
+    CONFIG_PROFILES,
+    (int) (sizeof(CONFIG_PROFILES) / sizeof(CONFIG_PROFILES[0])),
+};
 
 typedef struct {
     int profile_index;
     int delta_conflicts;
     double delta_interference_score;
+    double bandwidth;
 } ProfileCandidate;
 
 // Custo lexicografico: menos conflitos, depois menor interferencia e, por fim, maior largura de banda.
@@ -54,9 +54,10 @@ typedef struct {
     double bandwidth;
 } AssignmentCost;
 
-// Dados comuns as estrategias: ordem de visita, perfis fixos e limite superior de banda restante.
+// Dados comuns as estrategias: perfis disponiveis, ordem de visita, perfis fixos e limite superior de banda restante.
 typedef struct {
     const Graph *graph;
+    const ProfileSet *profiles;
     int *order;
     int order_count;
     int *base_profiles;
@@ -90,6 +91,9 @@ typedef struct {
     Job *job;
     int stream_fd;
     pthread_mutex_t *stream_lock;
+    const char *band_label;
+    double progress_offset;
+    double progress_scale;
 } ParallelSearch;
 
 typedef struct {
@@ -150,6 +154,19 @@ static double bandwidth_score(const char *bandwidth) {
     return score > 0.0 ? score : 0.0;
 }
 
+// Compara faixas pelo valor numerico ("2.4 GHz" e "2.4GHz" sao a mesma faixa).
+static bool same_band(const char *left, const char *right) {
+    double left_band = left ? atof(left) : 0.0;
+    double right_band = right ? atof(right) : 0.0;
+    return left_band > 0.0 && fabs(left_band - right_band) < 1e-9;
+}
+
+static bool same_profile(const ProposedConfig *profile, const Node *node) {
+    return same_band(profile->frequency, node->frequency)
+        && atoi(profile->channel) == atoi(node->channel)
+        && bandwidth_score(profile->bandwidth) == bandwidth_score(node->bandwidth);
+}
+
 static int compare_costs(const AssignmentCost *left, const AssignmentCost *right) {
     if (left->conflicts != right->conflicts) {
         return left->conflicts < right->conflicts ? -1 : 1;
@@ -169,15 +186,16 @@ static bool node_is_fixed(const Graph *graph, const int *profiles, int node_inde
 
 // Calcula o custo incremental de aplicar um perfil ao no atual frente aos vizinhos ja definidos.
 static int node_conflict_delta(
-    const Graph *graph,
+    const SearchSetup *setup,
     int node_index,
     int profile_index,
     const int *assigned_profiles,
     double *interference_score
 ) {
+    const Graph *graph = setup->graph;
     int conflicts = 0;
     double total_interference = 0.0;
-    const ConfigProfile *profile = &CONFIG_PROFILES[profile_index];
+    const ProposedConfig *profile = &setup->profiles->items[profile_index];
     const Node *node = &graph->nodes[node_index];
 
     for (int neighbor_pos = 0; neighbor_pos < node->neighbor_count; neighbor_pos++) {
@@ -187,7 +205,7 @@ static int node_conflict_delta(
             continue;
         }
 
-        const ConfigProfile *neighbor_profile = &CONFIG_PROFILES[neighbor_profile_index];
+        const ProposedConfig *neighbor_profile = &setup->profiles->items[neighbor_profile_index];
         double interference = interference_percentage_for_config(
             node,
             profile->channel,
@@ -214,8 +232,8 @@ static int compare_profile_candidates(const void *left_ptr, const void *right_pt
     const ProfileCandidate *right = right_ptr;
     const bool left_is_clean = left->delta_conflicts == 0;
     const bool right_is_clean = right->delta_conflicts == 0;
-    double left_bandwidth = bandwidth_score(CONFIG_PROFILES[left->profile_index].bandwidth);
-    double right_bandwidth = bandwidth_score(CONFIG_PROFILES[right->profile_index].bandwidth);
+    double left_bandwidth = left->bandwidth;
+    double right_bandwidth = right->bandwidth;
 
     if (left_is_clean != right_is_clean) {
         return left_is_clean ? -1 : 1;
@@ -251,23 +269,25 @@ static int compare_profile_candidates(const void *left_ptr, const void *right_pt
 
 // Lista os perfis compativeis com a frequencia do no, ja ordenados pela prioridade de busca.
 static int collect_candidates(
-    const Graph *graph,
+    const SearchSetup *setup,
     int node_index,
     const int *assigned_profiles,
     ProfileCandidate *candidates
 ) {
     int candidate_count = 0;
-    const Node *node = &graph->nodes[node_index];
-    for (int profile_index = 0; profile_index < PROFILE_COUNT; profile_index++) {
-        if (strcmp(CONFIG_PROFILES[profile_index].frequency, node->frequency) != 0) {
+    const Node *node = &setup->graph->nodes[node_index];
+    for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
+        const ProposedConfig *profile = &setup->profiles->items[profile_index];
+        if (!same_band(profile->frequency, node->frequency)) {
             continue;
         }
         double delta_interference_score = 0.0;
-        int delta_conflicts = node_conflict_delta(graph, node_index, profile_index, assigned_profiles, &delta_interference_score);
+        int delta_conflicts = node_conflict_delta(setup, node_index, profile_index, assigned_profiles, &delta_interference_score);
         candidates[candidate_count++] = (ProfileCandidate){
             .profile_index = profile_index,
             .delta_conflicts = delta_conflicts,
             .delta_interference_score = delta_interference_score,
+            .bandwidth = bandwidth_score(profile->bandwidth),
         };
     }
     qsort(candidates, (size_t) candidate_count, sizeof(ProfileCandidate), compare_profile_candidates);
@@ -277,14 +297,14 @@ static int collect_candidates(
 static void apply_candidate(AssignmentCost *cost, const ProfileCandidate *candidate) {
     cost->conflicts += candidate->delta_conflicts;
     cost->interference += candidate->delta_interference_score;
-    cost->bandwidth += bandwidth_score(CONFIG_PROFILES[candidate->profile_index].bandwidth);
+    cost->bandwidth += candidate->bandwidth;
 }
 
-static double max_bandwidth_for_frequency(const char *frequency) {
+static double max_bandwidth_for_frequency(const ProfileSet *profiles, const char *frequency) {
     double best = 0.0;
-    for (int profile_index = 0; profile_index < PROFILE_COUNT; profile_index++) {
-        if (strcmp(CONFIG_PROFILES[profile_index].frequency, frequency) == 0) {
-            double score = bandwidth_score(CONFIG_PROFILES[profile_index].bandwidth);
+    for (int profile_index = 0; profile_index < profiles->count; profile_index++) {
+        if (same_band(profiles->items[profile_index].frequency, frequency)) {
+            double score = bandwidth_score(profiles->items[profile_index].bandwidth);
             if (score > best) {
                 best = score;
             }
@@ -294,9 +314,10 @@ static double max_bandwidth_for_frequency(const char *frequency) {
 }
 
 // Prepara ordem de visita, perfis dos APs travados e o limite superior de banda por profundidade.
-static void setup_search(const Graph *graph, SearchSetup *setup) {
+static void setup_search(const Graph *graph, const ProfileSet *profiles, SearchSetup *setup) {
     int node_count = graph->node_count;
     setup->graph = graph;
+    setup->profiles = profiles && profiles->count > 0 ? profiles : &DEFAULT_PROFILE_SET;
     setup->order = checked_malloc(sizeof(int) * node_count, "malloc search order");
     setup->base_profiles = checked_malloc(sizeof(int) * node_count, "malloc base profiles");
     setup->remaining_bandwidth = checked_malloc(sizeof(double) * (node_count + 1), "malloc remaining bandwidth");
@@ -311,11 +332,8 @@ static void setup_search(const Graph *graph, SearchSetup *setup) {
             continue;
         }
         setup->base_bandwidth += bandwidth_score(node->bandwidth);
-        for (int profile_index = 0; profile_index < PROFILE_COUNT; profile_index++) {
-            const ConfigProfile *profile = &CONFIG_PROFILES[profile_index];
-            if (strcmp(profile->channel, node->channel) == 0 &&
-                strcmp(profile->bandwidth, node->bandwidth) == 0 &&
-                strcmp(profile->frequency, node->frequency) == 0) {
+        for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
+            if (same_profile(&setup->profiles->items[profile_index], node)) {
                 setup->base_profiles[node_index] = profile_index;
                 break;
             }
@@ -328,7 +346,7 @@ static void setup_search(const Graph *graph, SearchSetup *setup) {
         int node_index = setup->order[depth];
         double node_bound = node_is_fixed(graph, setup->base_profiles, node_index)
             ? 0.0
-            : max_bandwidth_for_frequency(graph->nodes[node_index].frequency);
+            : max_bandwidth_for_frequency(setup->profiles, graph->nodes[node_index].frequency);
         setup->remaining_bandwidth[depth] = setup->remaining_bandwidth[depth + 1] + node_bound;
     }
 }
@@ -342,7 +360,7 @@ static void free_setup(SearchSetup *setup) {
 // Atribui a cada no, na ordem de grau, o melhor perfil local; e a primeira folha da busca exata.
 static AssignmentCost greedy_assign(const SearchSetup *setup, int *profiles) {
     const Graph *graph = setup->graph;
-    ProfileCandidate candidates[PROFILE_COUNT];
+    ProfileCandidate candidates[setup->profiles->count];
     AssignmentCost cost = {0, 0.0, setup->base_bandwidth};
     memcpy(profiles, setup->base_profiles, sizeof(int) * graph->node_count);
 
@@ -351,7 +369,7 @@ static AssignmentCost greedy_assign(const SearchSetup *setup, int *profiles) {
         if (node_is_fixed(graph, profiles, node_index)) {
             continue;
         }
-        int candidate_count = collect_candidates(graph, node_index, profiles, candidates);
+        int candidate_count = collect_candidates(setup, node_index, profiles, candidates);
         if (candidate_count == 0) {
             continue;
         }
@@ -361,7 +379,8 @@ static AssignmentCost greedy_assign(const SearchSetup *setup, int *profiles) {
     return cost;
 }
 
-static ProposedConfig *proposals_from_profiles(const Graph *graph, const int *profiles) {
+static ProposedConfig *proposals_from_profiles(const SearchSetup *setup, const int *profiles) {
+    const Graph *graph = setup->graph;
     ProposedConfig *proposals = calloc((size_t) (graph->node_count > 0 ? graph->node_count : 1), sizeof(ProposedConfig));
     if (!proposals) {
         perror("calloc proposals");
@@ -374,11 +393,7 @@ static ProposedConfig *proposals_from_profiles(const Graph *graph, const int *pr
             proposals[node_index] = (ProposedConfig){node->channel, node->bandwidth, node->frequency};
             continue;
         }
-        proposals[node_index] = (ProposedConfig){
-            CONFIG_PROFILES[chosen_profile].channel,
-            CONFIG_PROFILES[chosen_profile].bandwidth,
-            CONFIG_PROFILES[chosen_profile].frequency,
-        };
+        proposals[node_index] = setup->profiles->items[chosen_profile];
     }
     return proposals;
 }
@@ -414,8 +429,8 @@ static void enumerate_tasks(
             depth++;
             continue;
         }
-        ProfileCandidate candidates[PROFILE_COUNT];
-        int candidate_count = collect_candidates(graph, node_index, profiles, candidates);
+        ProfileCandidate candidates[setup->profiles->count];
+        int candidate_count = collect_candidates(setup, node_index, profiles, candidates);
         if (candidate_count == 0) {
             depth++;
             continue;
@@ -468,7 +483,8 @@ static void emit_search_progress(ParallelSearch *search, int completed_tasks) {
     int best_conflicts = search->best_cost.conflicts;
     pthread_mutex_unlock(&search->best_lock);
 
-    double percentage = search->task_count > 0 ? (95.0 * completed_tasks) / search->task_count : 95.0;
+    double band_percentage = search->task_count > 0 ? (95.0 * completed_tasks) / search->task_count : 95.0;
+    double percentage = (search->progress_offset * 100.0) + (search->progress_scale * band_percentage);
     int total_nodes = search->setup->graph->node_count;
     cJSON *payload = cJSON_CreateObject();
     cJSON_AddStringToObject(payload, "stage", "assignment");
@@ -480,6 +496,9 @@ static void emit_search_progress(ParallelSearch *search, int completed_tasks) {
     cJSON_AddBoolToObject(payload, "complete_assignment_found", true);
     cJSON_AddNumberToObject(payload, "completed_tasks", completed_tasks);
     cJSON_AddNumberToObject(payload, "task_count", search->task_count);
+    if (search->band_label) {
+        cJSON_AddStringToObject(payload, "band", search->band_label);
+    }
     if (!stream_event(search->stream_fd, search->stream_lock, "progress", payload)) {
         atomic_store(&search->job->cancelled, 1);
     }
@@ -566,8 +585,8 @@ static void search_depth(WorkerState *worker, int depth) {
         return;
     }
 
-    ProfileCandidate candidates[PROFILE_COUNT];
-    int candidate_count = collect_candidates(graph, node_index, worker->profiles, candidates);
+    ProfileCandidate candidates[setup->profiles->count];
+    int candidate_count = collect_candidates(setup, node_index, worker->profiles, candidates);
     if (candidate_count == 0) {
         search_depth(worker, depth + 1);
         return;
@@ -621,12 +640,12 @@ static void *search_worker(void *arg) {
     return NULL;
 }
 
-ProposedConfig *build_greedy_proposals(const Graph *graph, Job *job, AssignmentStats *stats) {
+ProposedConfig *build_greedy_proposals(const Graph *graph, Job *job, const ProfileSet *profile_set, AssignmentStats *stats) {
     SearchSetup setup;
-    setup_search(graph, &setup);
+    setup_search(graph, profile_set, &setup);
     int *profiles = checked_malloc(sizeof(int) * graph->node_count, "malloc greedy profiles");
     AssignmentCost cost = greedy_assign(&setup, profiles);
-    ProposedConfig *proposals = proposals_from_profiles(graph, profiles);
+    ProposedConfig *proposals = proposals_from_profiles(&setup, profiles);
 
     if (stats) {
         *stats = (AssignmentStats){
@@ -667,7 +686,7 @@ ProposedConfig *build_backtracking_proposals(
     );
 
     SearchSetup setup;
-    setup_search(graph, &setup);
+    setup_search(graph, options ? options->profiles : NULL, &setup);
     int *best_profiles = checked_malloc(sizeof(int) * graph->node_count, "malloc best profiles");
     AssignmentCost initial = greedy_assign(&setup, best_profiles);
 
@@ -691,6 +710,9 @@ ProposedConfig *build_backtracking_proposals(
         .job = job,
         .stream_fd = options ? options->stream_fd : -1,
         .stream_lock = options ? options->stream_lock : NULL,
+        .band_label = options ? options->band_label : NULL,
+        .progress_offset = options ? options->progress_offset : 0.0,
+        .progress_scale = options && options->progress_scale > 0.0 ? options->progress_scale : 1.0,
     };
     atomic_init(&search.next_task, 0);
     atomic_init(&search.completed_tasks, 0);
@@ -745,10 +767,14 @@ ProposedConfig *build_backtracking_proposals(
         (long long) atomic_load(&search.nodes_explored)
     );
 
-    ProposedConfig *proposals = proposals_from_profiles(graph, best_profiles);
+    ProposedConfig *proposals = proposals_from_profiles(&setup, best_profiles);
     free(workers);
     free(tasks);
     free(best_profiles);
     free_setup(&setup);
     return proposals;
+}
+
+const ProfileSet *default_search_profiles(void) {
+    return &DEFAULT_PROFILE_SET;
 }

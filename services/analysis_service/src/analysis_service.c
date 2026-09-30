@@ -25,7 +25,39 @@
 #endif
 
 #include "analysis_service.h"
+#include "strategies/backtracking.h"
 #include "strategies/strategy.h"
+
+// Trechos contiguos de canais de 20 MHz permitidos no Brasil. Em 5 e 6 GHz os canais
+// largos agregam blocos alinhados ao inicio do trecho; em 2,4 GHz os canais se sobrepoem
+// e qualquer canal pode ser o primario de um canal de 40 MHz.
+typedef struct {
+    const char *frequency;
+    int first_channel;
+    int last_channel;
+    int channel_step;
+    bool aligned_blocks;
+} ChannelSegment;
+
+typedef struct {
+    const char *frequency;
+    int bandwidths[4];
+    int bandwidth_count;
+} BandBandwidths;
+
+static const ChannelSegment CHANNEL_SEGMENTS[] = {
+    {"2.4 GHz", 1, 13, 1, false},
+    {"5 GHz", 36, 64, 4, true},
+    {"5 GHz", 100, 144, 4, true},
+    {"5 GHz", 149, 165, 4, true},
+    {"6 GHz", 1, 233, 4, true},
+};
+
+static const BandBandwidths BAND_BANDWIDTHS[] = {
+    {"2.4 GHz", {20, 40}, 2},
+    {"5 GHz", {20, 40, 80, 160}, 4},
+    {"6 GHz", {20, 40, 80, 160}, 4},
+};
 
 typedef struct {
     int fd;
@@ -253,22 +285,96 @@ static double parse_bandwidth_mhz(const char *bandwidth) {
     return atof(bandwidth);
 }
 
-static double center_frequency_mhz(const Node *node) {
-    double band = normalize_frequency_band(node->frequency);
-    int channel = parse_channel_number(node->channel);
+// Canal central do bloco agregado que contem o canal primario. Em 2,4 GHz, o secundario de um
+// canal de 40 MHz fica 4 canais acima quando cabe na faixa (primarios 1 a 9) e abaixo nos demais.
+// Em 5 e 6 GHz, o bloco e o alinhado ao inicio do trecho em CHANNEL_SEGMENTS; um canal sem bloco
+// completo naquela largura mantem o proprio centro.
+static int bonded_center_channel(double band, int channel, double bandwidth) {
+    int channels_per_block = 0;
+    if (bandwidth == 40.0) {
+        channels_per_block = 2;
+    } else if (bandwidth == 80.0) {
+        channels_per_block = 4;
+    } else if (bandwidth == 160.0) {
+        channels_per_block = 8;
+    }
+    if (channels_per_block == 0) {
+        return channel;
+    }
+    if (band == 2.4) {
+        return channels_per_block == 2 ? (channel + 4 <= 13 ? channel + 2 : channel - 2) : channel;
+    }
+
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t index = 0; index < segment_count; index++) {
+        const ChannelSegment *segment = &CHANNEL_SEGMENTS[index];
+        if (!segment->aligned_blocks
+            || normalize_frequency_band(segment->frequency) != band
+            || channel < segment->first_channel
+            || channel > segment->last_channel
+            || (channel - segment->first_channel) % segment->channel_step != 0) {
+            continue;
+        }
+        int block_span = channels_per_block * segment->channel_step;
+        int block_start = segment->first_channel + ((channel - segment->first_channel) / block_span) * block_span;
+        int block_end = block_start + (channels_per_block - 1) * segment->channel_step;
+        return block_end <= segment->last_channel ? (block_start + block_end) / 2 : channel;
+    }
+    return channel;
+}
+
+static double channel_center_mhz(double band, int channel, double bandwidth) {
     if (channel <= 0 || band == 0.0) {
         return 0.0;
     }
+    int center_channel = bonded_center_channel(band, channel, bandwidth);
     if (band == 2.4) {
-        return 2407.0 + (5.0 * channel);
+        return 2407.0 + (5.0 * center_channel);
     }
     if (band == 5.0) {
-        return 5000.0 + (5.0 * channel);
+        return 5000.0 + (5.0 * center_channel);
     }
     if (band == 6.0) {
-        return 5950.0 + (5.0 * channel);
+        return 5950.0 + (5.0 * center_channel);
     }
     return 0.0;
+}
+
+// Potencia media (W) de um AP transmitindo a 25 Mbps, por faixa e largura (Dembele et al., 2023). Faixas e
+// larguras fora da tabela (160 MHz e 6 GHz) nao tem valor no modelo.
+typedef struct {
+    double band;
+    double bandwidth;
+    double watts;
+} PowerModelEntry;
+
+static const PowerModelEntry POWER_MODEL[] = {
+    {2.4, 20.0, 14.5},
+    {2.4, 40.0, 13.8},
+    {5.0, 20.0, 11.1},
+    {5.0, 40.0, 10.3},
+    {5.0, 80.0, 9.9},
+};
+
+// Devolve a potencia do AP ou um valor negativo quando a configuracao nao esta no modelo.
+static double access_point_power_w(const char *frequency, const char *bandwidth) {
+    double band = normalize_frequency_band(frequency);
+    double width = parse_bandwidth_mhz(bandwidth);
+    size_t entry_count = sizeof(POWER_MODEL) / sizeof(POWER_MODEL[0]);
+    for (size_t index = 0; index < entry_count; index++) {
+        if (POWER_MODEL[index].band == band && POWER_MODEL[index].bandwidth == width) {
+            return POWER_MODEL[index].watts;
+        }
+    }
+    return -1.0;
+}
+
+static double center_frequency_mhz(const Node *node) {
+    return channel_center_mhz(
+        normalize_frequency_band(node->frequency),
+        parse_channel_number(node->channel),
+        parse_bandwidth_mhz(node->bandwidth)
+    );
 }
 
 static double spectral_overlap_factor(const Node *left, const Node *right) {
@@ -467,8 +573,11 @@ double interference_percentage_for_config(
     return spatial_factor * spectral_factor;
 }
 
-static int count_edges_for_proposals(const Graph *graph, const ProposedConfig *proposals) {
-    int edge_count = 0;
+// Conta as arestas em conflito (w * s > 0) na configuracao proposta; sem propostas, na configuracao atual.
+// Em interference_total, devolve a soma das interferencias (w * s) dessas arestas.
+static int count_conflicts_for_proposals(const Graph *graph, const ProposedConfig *proposals, double *interference_total) {
+    int conflict_count = 0;
+    double total = 0.0;
     for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
         const Edge *edge = &graph->edges[edge_index];
         const Node *left_node = &graph->nodes[edge->source];
@@ -482,7 +591,7 @@ static int count_edges_for_proposals(const Graph *graph, const ProposedConfig *p
         const char *right_bandwidth = right_proposal && right_proposal->bandwidth ? right_proposal->bandwidth : right_node->bandwidth;
         const char *right_frequency = right_proposal && right_proposal->frequency ? right_proposal->frequency : right_node->frequency;
 
-        double interference_after = interference_percentage_for_config(
+        double interference = interference_percentage_for_config(
             left_node,
             left_channel,
             left_bandwidth,
@@ -492,17 +601,30 @@ static int count_edges_for_proposals(const Graph *graph, const ProposedConfig *p
             right_bandwidth,
             right_frequency
         );
-        if (interference_after > 0.0) {
-            edge_count++;
+        if (interference > 0.0) {
+            conflict_count++;
+            total += interference;
         }
     }
-    return edge_count;
+    if (interference_total) {
+        *interference_total = total;
+    }
+    return conflict_count;
+}
+
+// Mesma configuracao pelos valores numericos ("2.4GHz" e "2.4 GHz" sao a mesma faixa).
+static bool same_configuration(const Node *node, const ProposedConfig *proposal) {
+    return normalize_frequency_band(node->frequency) == normalize_frequency_band(proposal->frequency)
+        && parse_channel_number(node->channel) == parse_channel_number(proposal->channel)
+        && parse_bandwidth_mhz(node->bandwidth) == parse_bandwidth_mhz(proposal->bandwidth);
 }
 
 static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposals) {
     cJSON *json = cJSON_CreateObject();
     cJSON *nodes = cJSON_AddArrayToObject(json, "nodes");
     cJSON *links = cJSON_AddArrayToObject(json, "links");
+    double total_power = 0.0;
+    int unmodeled_nodes = 0;
 
     for (int i = 0; i < graph->node_count; i++) {
         const Node *node = &graph->nodes[i];
@@ -527,10 +649,27 @@ static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposa
         cJSON_AddNumberToObject(item, "y", node->y);
         cJSON_AddNumberToObject(item, "raio", node->raio);
         cJSON_AddBoolToObject(item, "locked", node->locked);
+        double power = access_point_power_w(node->frequency, node->bandwidth);
+        double proposed_power = access_point_power_w(proposed_frequency, proposed_bandwidth);
+        if (power >= 0.0) {
+            cJSON_AddNumberToObject(item, "power_w", power);
+        } else {
+            cJSON_AddNullToObject(item, "power_w");
+        }
+        if (proposed_power >= 0.0) {
+            cJSON_AddNumberToObject(item, "proposed_power_w", proposed_power);
+            total_power += proposed_power;
+        } else {
+            cJSON_AddNullToObject(item, "proposed_power_w");
+            unmodeled_nodes++;
+        }
         cJSON_AddItemToArray(nodes, item);
         free(color);
         free(proposed_color);
     }
+    // Potencia total da configuracao exibida (a proposta, quando ha; senao, a atual).
+    cJSON_AddNumberToObject(json, "power_w", total_power);
+    cJSON_AddNumberToObject(json, "power_unmodeled_nodes", unmodeled_nodes);
 
     for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
         const Edge *edge = &graph->edges[edge_index];
@@ -597,14 +736,54 @@ static void add_strategy_comparison_to_execution(cJSON *execution, const Graph *
     if (!execution || !graph || !proposals) {
         return;
     }
-    int edges_before = graph->edge_count;
-    int edges_after = count_edges_for_proposals(graph, proposals);
+    // Conflitos (arestas com w * s > 0) antes e depois; as sobreposicoes sem conflito ficam de fora.
+    double interference_before = 0.0;
+    double interference_after = 0.0;
+    int conflicts_before = count_conflicts_for_proposals(graph, NULL, &interference_before);
+    int conflicts_after = count_conflicts_for_proposals(graph, proposals, &interference_after);
+    int changed_nodes = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        if (!same_configuration(&graph->nodes[index], &proposals[index])) {
+            changed_nodes++;
+        }
+    }
     cJSON *comparison = cJSON_AddObjectToObject(execution, "comparison");
     cJSON_AddNumberToObject(comparison, "nodes", graph->node_count);
-    cJSON_AddNumberToObject(comparison, "edges_before", edges_before);
-    cJSON_AddNumberToObject(comparison, "edges_after", edges_after);
-    cJSON_AddNumberToObject(comparison, "density_before", edge_density_from_counts(graph->node_count, edges_before));
-    cJSON_AddNumberToObject(comparison, "density_after", edge_density_from_counts(graph->node_count, edges_after));
+    cJSON_AddNumberToObject(comparison, "conflicts_before", conflicts_before);
+    cJSON_AddNumberToObject(comparison, "conflicts_after", conflicts_after);
+    cJSON_AddNumberToObject(comparison, "conflict_density_before", edge_density_from_counts(graph->node_count, conflicts_before));
+    cJSON_AddNumberToObject(comparison, "conflict_density_after", edge_density_from_counts(graph->node_count, conflicts_after));
+    cJSON_AddNumberToObject(comparison, "interference_before", interference_before);
+    cJSON_AddNumberToObject(comparison, "interference_after", interference_after);
+    cJSON_AddNumberToObject(comparison, "changed_nodes", changed_nodes);
+
+    // Potencia total (W) antes e depois, pelo modelo de consumo; APs fora do modelo nao entram na soma.
+    double power_before = 0.0;
+    double power_after = 0.0;
+    int unmodeled_before = 0;
+    int unmodeled_after = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        const Node *node = &graph->nodes[index];
+        double before = access_point_power_w(node->frequency, node->bandwidth);
+        double after = access_point_power_w(
+            proposals[index].frequency ? proposals[index].frequency : node->frequency,
+            proposals[index].bandwidth ? proposals[index].bandwidth : node->bandwidth
+        );
+        if (before >= 0.0) {
+            power_before += before;
+        } else {
+            unmodeled_before++;
+        }
+        if (after >= 0.0) {
+            power_after += after;
+        } else {
+            unmodeled_after++;
+        }
+    }
+    cJSON_AddNumberToObject(comparison, "power_before_w", power_before);
+    cJSON_AddNumberToObject(comparison, "power_after_w", power_after);
+    cJSON_AddNumberToObject(comparison, "power_unmodeled_before", unmodeled_before);
+    cJSON_AddNumberToObject(comparison, "power_unmodeled_after", unmodeled_after);
 }
 
 static void add_search_stats_to_execution(cJSON *execution, const AssignmentStats *stats) {
@@ -665,34 +844,170 @@ static cJSON *build_placeholder_analysis_json(const char *strategy, const Graph 
     return json;
 }
 
+#define MAX_BANDS 3
+
+// Faixas presentes no grafo, em ordem crescente. APs de faixa desconhecida ficam fora e mantem a configuracao.
+static int collect_bands(const Graph *graph, double *bands) {
+    int count = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        double band = normalize_frequency_band(graph->nodes[index].frequency);
+        bool known = band == 0.0;
+        for (int position = 0; position < count && !known; position++) {
+            known = bands[position] == band;
+        }
+        if (known || count >= MAX_BANDS) {
+            continue;
+        }
+        int position = count++;
+        while (position > 0 && bands[position - 1] > band) {
+            bands[position] = bands[position - 1];
+            position--;
+        }
+        bands[position] = band;
+    }
+    return count;
+}
+
+// Subgrafo com os APs de uma faixa. Os nos compartilham as cadeias do grafo original; so vizinhos, nos e
+// arestas sao alocados, e free_band_subgraph libera apenas isso.
+static void build_band_subgraph(const Graph *graph, double band, Graph *subgraph, int *original_indexes, int *local_indexes) {
+    memset(subgraph, 0, sizeof(*subgraph));
+    for (int index = 0; index < graph->node_count; index++) {
+        local_indexes[index] = -1;
+        if (normalize_frequency_band(graph->nodes[index].frequency) != band) {
+            continue;
+        }
+        Node node = graph->nodes[index];
+        node.neighbors = NULL;
+        node.neighbor_count = 0;
+        node.neighbor_capacity = 0;
+        local_indexes[index] = subgraph->node_count;
+        original_indexes[subgraph->node_count] = index;
+        add_node(subgraph, node);
+    }
+    for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
+        const Edge *edge = &graph->edges[edge_index];
+        int source = local_indexes[edge->source];
+        int target = local_indexes[edge->target];
+        if (source >= 0 && target >= 0) {
+            add_edge(subgraph, source, target, edge->peso);
+        }
+    }
+}
+
+static void free_band_subgraph(Graph *subgraph) {
+    for (int index = 0; index < subgraph->node_count; index++) {
+        free(subgraph->nodes[index].neighbors);
+    }
+    free(subgraph->nodes);
+    free(subgraph->edges);
+    memset(subgraph, 0, sizeof(*subgraph));
+}
+
+// Consolida as faixas: somas de conflitos, interferencia, banda e busca; a solucao e otima so se todas forem.
+static void accumulate_band_stats(AssignmentStats *total, const AssignmentStats *band) {
+    total->nodes_explored += band->nodes_explored;
+    total->task_count += band->task_count;
+    total->initial_conflicts += band->initial_conflicts;
+    total->conflicts += band->conflicts;
+    total->interference_score += band->interference_score;
+    total->bandwidth_score += band->bandwidth_score;
+    total->optimal = total->optimal && band->optimal;
+    if (band->stop_reason == ASSIGNMENT_STOP_CANCELLED
+        || (band->stop_reason == ASSIGNMENT_STOP_TIME_LIMIT && total->stop_reason == ASSIGNMENT_STOP_COMPLETED)) {
+        total->stop_reason = band->stop_reason;
+    }
+}
+
 static cJSON *build_strategy_response_json(
     const AnalysisStrategy *strategy,
     Graph *graph,
     cJSON *parameters,
+    const ProfileSet *profiles,
     Job *job,
     int stream_fd,
     pthread_mutex_t *stream_lock,
     double started_at
 ) {
     int requested_threads = (int) strategy_parameter_value(strategy, parameters, "thread_count", 1);
-    int effective_threads = find_strategy_parameter(strategy, "thread_count")
-        ? effective_thread_count(graph, requested_threads)
-        : 1;
+    bool uses_threads = find_strategy_parameter(strategy, "thread_count") != NULL;
+    int effective_threads = uses_threads ? effective_thread_count(graph, requested_threads) : 1;
     double time_limit_seconds = strategy_parameter_value(strategy, parameters, "time_limit_seconds", 0.0);
 
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
     cJSON_AddStringToObject(json, "strategy_used", strategy->name);
     cJSON_AddItemToObject(json, "analysis", build_strategy_analysis_json(strategy, graph, effective_threads));
-    AnalysisExecutionContext context = {
-        .job = job,
-        .thread_count = effective_threads,
-        .time_limit_seconds = time_limit_seconds,
-        .stream_fd = stream_fd,
-        .stream_lock = stream_lock,
-    };
-    AssignmentStats stats = {0};
-    ProposedConfig *proposals = strategy->run(graph, &context, &stats);
+
+    ProposedConfig *proposals = calloc((size_t) (graph->node_count > 0 ? graph->node_count : 1), sizeof(ProposedConfig));
+    int *original_indexes = malloc(sizeof(int) * (size_t) (graph->node_count > 0 ? graph->node_count : 1));
+    int *local_indexes = malloc(sizeof(int) * (size_t) (graph->node_count > 0 ? graph->node_count : 1));
+    ProposedConfig *band_profile_items = malloc(sizeof(ProposedConfig) * (size_t) (profiles && profiles->count > 0 ? profiles->count : 1));
+    if (!proposals || !original_indexes || !local_indexes || !band_profile_items) {
+        perror("malloc band analysis");
+        exit(1);
+    }
+    for (int index = 0; index < graph->node_count; index++) {
+        const Node *node = &graph->nodes[index];
+        proposals[index] = (ProposedConfig){node->channel, node->bandwidth, node->frequency};
+    }
+
+    double bands[MAX_BANDS];
+    int band_count = collect_bands(graph, bands);
+    AssignmentStats total = {.stop_reason = ASSIGNMENT_STOP_COMPLETED, .optimal = band_count > 0};
+    cJSON *bands_json = cJSON_CreateArray();
+
+    // Cada faixa e um problema independente, resolvido em sequencia com o proprio limite de tempo.
+    for (int band_index = 0; band_index < band_count; band_index++) {
+        if (job && is_cancelled(job)) {
+            total.stop_reason = ASSIGNMENT_STOP_CANCELLED;
+            total.optimal = false;
+            break;
+        }
+        char band_label[32];
+        snprintf(band_label, sizeof(band_label), "%g GHz", bands[band_index]);
+
+        ProfileSet band_profiles = {band_profile_items, 0};
+        for (int index = 0; profiles && index < profiles->count; index++) {
+            if (normalize_frequency_band(profiles->items[index].frequency) == bands[band_index]) {
+                band_profile_items[band_profiles.count++] = profiles->items[index];
+            }
+        }
+
+        Graph subgraph;
+        build_band_subgraph(graph, bands[band_index], &subgraph, original_indexes, local_indexes);
+        AnalysisExecutionContext context = {
+            .job = job,
+            .thread_count = uses_threads ? effective_thread_count(&subgraph, requested_threads) : 1,
+            .time_limit_seconds = time_limit_seconds,
+            .stream_fd = stream_fd,
+            .stream_lock = stream_lock,
+            .profiles = &band_profiles,
+            .band_label = band_label,
+            .progress_offset = (double) band_index / band_count,
+            .progress_scale = 1.0 / band_count,
+        };
+        AssignmentStats band_stats = {0};
+        ProposedConfig *band_proposals = strategy->run(&subgraph, &context, &band_stats);
+        for (int index = 0; index < subgraph.node_count; index++) {
+            proposals[original_indexes[index]] = band_proposals[index];
+        }
+        accumulate_band_stats(&total, &band_stats);
+
+        cJSON *band_json = cJSON_CreateObject();
+        cJSON_AddStringToObject(band_json, "frequency", band_label);
+        cJSON_AddNumberToObject(band_json, "nodes", subgraph.node_count);
+        cJSON_AddNumberToObject(band_json, "edges", subgraph.edge_count);
+        cJSON_AddNumberToObject(band_json, "density", graph_density(&subgraph));
+        cJSON_AddNumberToObject(band_json, "profile_count", band_profiles.count);
+        add_strategy_comparison_to_execution(band_json, &subgraph, band_proposals);
+        add_search_stats_to_execution(band_json, &band_stats);
+        cJSON_AddItemToArray(bands_json, band_json);
+
+        free(band_proposals);
+        free_band_subgraph(&subgraph);
+    }
+
     double completed_at = now_seconds();
     cJSON *execution = build_execution_json(
         strategy->name,
@@ -702,11 +1017,15 @@ static cJSON *build_strategy_response_json(
         completed_at
     );
     add_strategy_comparison_to_execution(execution, graph, proposals);
-    add_search_stats_to_execution(execution, &stats);
+    add_search_stats_to_execution(execution, &total);
+    cJSON_AddItemToObject(execution, "bands", bands_json);
     cJSON_AddItemToObject(json, "execution", execution);
     cJSON_AddItemToObject(json, "graph_data", build_graph_json(graph, proposals));
     cJSON_AddItemToObject(json, "summary", build_summary_json(graph));
     free(proposals);
+    free(original_indexes);
+    free(local_indexes);
+    free(band_profile_items);
     return json;
 }
 
@@ -784,6 +1103,21 @@ static cJSON *build_strategy_parameters_json(const AnalysisStrategy *strategy) {
     return json;
 }
 
+// Raio de cobertura (m) usado quando o AP nao informa o seu; os mesmos valores da interface e do gerador.
+static double default_coverage_radius(const char *frequency) {
+    double band = normalize_frequency_band(frequency);
+    if (band == 2.4) {
+        return 20.0;
+    }
+    if (band == 5.0) {
+        return 15.0;
+    }
+    if (band == 6.0) {
+        return 12.0;
+    }
+    return 10.0;
+}
+
 static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
     double build_started_at = now_seconds();
     memset(graph, 0, sizeof(*graph));
@@ -812,7 +1146,7 @@ static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
         cJSON *locked = cJSON_GetObjectItemCaseSensitive(ap, "locked");
         node.x = cJSON_IsNumber(x) ? x->valuedouble : 0.0;
         node.y = cJSON_IsNumber(y) ? y->valuedouble : 0.0;
-        node.raio = cJSON_IsNumber(raio) ? raio->valuedouble : 50.0;
+        node.raio = cJSON_IsNumber(raio) ? raio->valuedouble : default_coverage_radius(node.frequency);
         node.locked = cJSON_IsBool(locked) ? cJSON_IsTrue(locked) : 0;
         add_node(graph, node);
     }
@@ -822,8 +1156,13 @@ static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
         return false;
     }
 
+    // APs de faixas diferentes nao interferem (s = 0): o grafo e a uniao disjunta dos grafos de cada faixa.
     for (int left = 0; left < graph->node_count; left++) {
+        double left_band = normalize_frequency_band(graph->nodes[left].frequency);
         for (int right = left + 1; right < graph->node_count; right++) {
+            if (left_band == 0.0 || normalize_frequency_band(graph->nodes[right].frequency) != left_band) {
+                continue;
+            }
             double peso = collision_percentage(&graph->nodes[left], &graph->nodes[right]);
             if (peso > 0.0) {
                 add_edge(graph, left, right, peso);
@@ -965,11 +1304,269 @@ static void handle_strategies(int fd) {
         cJSON_AddStringToObject(detail, "name", strategy->name);
         cJSON_AddStringToObject(detail, "description", strategy->description);
         cJSON_AddStringToObject(detail, "mode", strategy->mode);
+        cJSON_AddBoolToObject(detail, "exact", strategy->exact);
         cJSON_AddBoolToObject(detail, "implemented", strategy->run != NULL);
         cJSON_AddItemToObject(detail, "parameters", build_strategy_parameters_json(strategy));
         cJSON_AddItemToArray(details, detail);
     }
     cJSON_AddStringToObject(json, "message", "Estrategias disponiveis para analise de grafos");
+    char *text = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    send_http(fd, 200, "OK", "application/json", text);
+    free(text);
+}
+
+static void add_channel_to_plan(cJSON *plan, const char *frequency, const char *bandwidth, const char *channel) {
+    cJSON *band = cJSON_GetObjectItemCaseSensitive(plan, frequency);
+    if (!band) {
+        band = cJSON_AddObjectToObject(plan, frequency);
+    }
+    cJSON *channels = cJSON_GetObjectItemCaseSensitive(band, bandwidth);
+    if (!channels) {
+        channels = cJSON_AddArrayToObject(band, bandwidth);
+    }
+    cJSON_AddItemToArray(channels, cJSON_CreateString(channel));
+}
+
+static cJSON *build_valid_channel_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    size_t band_count = sizeof(BAND_BANDWIDTHS) / sizeof(BAND_BANDWIDTHS[0]);
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t band_index = 0; band_index < band_count; band_index++) {
+        const BandBandwidths *band = &BAND_BANDWIDTHS[band_index];
+        for (int width_index = 0; width_index < band->bandwidth_count; width_index++) {
+            int bandwidth = band->bandwidths[width_index];
+            int channels_per_block = bandwidth / 20;
+            char bandwidth_label[16];
+            snprintf(bandwidth_label, sizeof(bandwidth_label), "%d MHz", bandwidth);
+
+            for (size_t segment_index = 0; segment_index < segment_count; segment_index++) {
+                const ChannelSegment *segment = &CHANNEL_SEGMENTS[segment_index];
+                if (strcmp(segment->frequency, band->frequency) != 0) {
+                    continue;
+                }
+                int block_span = segment->aligned_blocks ? channels_per_block * segment->channel_step : segment->channel_step;
+                int block_size = segment->aligned_blocks ? channels_per_block : 1;
+                for (int block_start = segment->first_channel;
+                     block_start + (block_size - 1) * segment->channel_step <= segment->last_channel;
+                     block_start += block_span) {
+                    for (int offset = 0; offset < block_size; offset++) {
+                        char channel_label[8];
+                        snprintf(channel_label, sizeof(channel_label), "%d", block_start + offset * segment->channel_step);
+                        add_channel_to_plan(plan, band->frequency, bandwidth_label, channel_label);
+                    }
+                }
+            }
+        }
+    }
+    return plan;
+}
+
+static cJSON *build_search_profile_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    const ProfileSet *profiles = default_search_profiles();
+    for (int index = 0; index < profiles->count; index++) {
+        const ProposedConfig *profile = &profiles->items[index];
+        add_channel_to_plan(plan, profile->frequency, profile->bandwidth, profile->channel);
+    }
+    return plan;
+}
+
+// Primario enviado por uma opcao de busca: o do perfil padrao que cai no bloco, se houver (mantem os resultados
+// padrao); senao, o primeiro canal do bloco. Qualquer primario do bloco tem o mesmo centro.
+static const char *option_primary(const char *frequency, const char *bandwidth, cJSON *channels) {
+    const ProfileSet *defaults = default_search_profiles();
+    for (int index = 0; index < defaults->count; index++) {
+        const ProposedConfig *profile = &defaults->items[index];
+        if (strcmp(profile->frequency, frequency) != 0 || strcmp(profile->bandwidth, bandwidth) != 0) {
+            continue;
+        }
+        cJSON *channel = NULL;
+        cJSON_ArrayForEach(channel, channels) {
+            if (strcmp(channel->valuestring, profile->channel) == 0) {
+                return profile->channel;
+            }
+        }
+    }
+    return cJSON_GetArrayItem(channels, 0)->valuestring;
+}
+
+static void add_option_to_plan(cJSON *plan, const char *frequency, const char *bandwidth, cJSON *channels) {
+    cJSON *band = cJSON_GetObjectItemCaseSensitive(plan, frequency);
+    if (!band) {
+        band = cJSON_AddObjectToObject(plan, frequency);
+    }
+    cJSON *options = cJSON_GetObjectItemCaseSensitive(band, bandwidth);
+    if (!options) {
+        options = cJSON_AddArrayToObject(band, bandwidth);
+    }
+    const char *primary = option_primary(frequency, bandwidth, channels);
+    double width = parse_bandwidth_mhz(bandwidth);
+    double center = channel_center_mhz(normalize_frequency_band(frequency), parse_channel_number(primary), width);
+    cJSON *option = cJSON_CreateObject();
+    cJSON_AddStringToObject(option, "channel", primary);
+    cJSON_AddItemToObject(option, "channels", channels);
+    cJSON_AddNumberToObject(option, "lower_mhz", center - (width / 2.0));
+    cJSON_AddNumberToObject(option, "upper_mhz", center + (width / 2.0));
+    cJSON_AddItemToArray(options, option);
+}
+
+// Opcoes para escolher os perfis de busca: uma por posicao distinta no espectro. Em 5 e 6 GHz, cada bloco
+// alinhado de canais agregados e uma opcao. Em 2,4 GHz, cada canal de 20 MHz e uma opcao, e cada par de 40 MHz
+// (primario e secundario 4 canais acima) tambem; os primarios 10 a 13 repetem os pares 6+10 a 9+13.
+static cJSON *build_search_option_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    size_t band_count = sizeof(BAND_BANDWIDTHS) / sizeof(BAND_BANDWIDTHS[0]);
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t band_index = 0; band_index < band_count; band_index++) {
+        const BandBandwidths *band = &BAND_BANDWIDTHS[band_index];
+        for (int width_index = 0; width_index < band->bandwidth_count; width_index++) {
+            int bandwidth = band->bandwidths[width_index];
+            int channels_per_block = bandwidth / 20;
+            char bandwidth_label[16];
+            snprintf(bandwidth_label, sizeof(bandwidth_label), "%d MHz", bandwidth);
+
+            for (size_t segment_index = 0; segment_index < segment_count; segment_index++) {
+                const ChannelSegment *segment = &CHANNEL_SEGMENTS[segment_index];
+                if (strcmp(segment->frequency, band->frequency) != 0) {
+                    continue;
+                }
+                // Distancia entre o primeiro e o ultimo canal de 20 MHz do bloco.
+                int block_reach = segment->aligned_blocks
+                    ? (channels_per_block - 1) * segment->channel_step
+                    : (channels_per_block - 1) * 4;
+                int block_span = segment->aligned_blocks ? channels_per_block * segment->channel_step : segment->channel_step;
+                for (int block_start = segment->first_channel;
+                     block_start + block_reach <= segment->last_channel;
+                     block_start += block_span) {
+                    cJSON *channels = cJSON_CreateArray();
+                    int channel_step = segment->aligned_blocks ? segment->channel_step : 4;
+                    for (int offset = 0; offset < channels_per_block; offset++) {
+                        char channel_label[8];
+                        snprintf(channel_label, sizeof(channel_label), "%d", block_start + offset * channel_step);
+                        cJSON_AddItemToArray(channels, cJSON_CreateString(channel_label));
+                    }
+                    add_option_to_plan(plan, band->frequency, bandwidth_label, channels);
+                }
+            }
+        }
+    }
+    return plan;
+}
+
+typedef struct {
+    ProposedConfig *items;
+    int count;
+    int capacity;
+} ProfileList;
+
+static void append_profile(ProfileList *list, const char *channel, const char *bandwidth, const char *frequency) {
+    if (list->count >= list->capacity) {
+        list->capacity = list->capacity > 0 ? list->capacity * 2 : 32;
+        list->items = realloc(list->items, sizeof(ProposedConfig) * (size_t) list->capacity);
+        if (!list->items) {
+            perror("realloc profiles");
+            exit(1);
+        }
+    }
+    list->items[list->count++] = (ProposedConfig){channel, bandwidth, frequency};
+}
+
+static bool channel_in_plan(cJSON *plan, const char *frequency, const char *bandwidth, const char *channel) {
+    cJSON *channels = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(plan, frequency), bandwidth);
+    cJSON *item = NULL;
+    cJSON_ArrayForEach(item, channels) {
+        if (cJSON_IsString(item) && strcmp(item->valuestring, channel) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Perfis da requisicao: as faixas informadas em "channels" usam os canais escolhidos, validados contra o plano
+// de canais permitidos; as demais usam os perfis padrao. As cadeias apontam para o payload, que vive ate o fim
+// da requisicao.
+static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *error, size_t error_size) {
+    memset(list, 0, sizeof(*list));
+    cJSON *channels = cJSON_GetObjectItemCaseSensitive(payload, "channels");
+    if (channels && !cJSON_IsNull(channels) && !cJSON_IsObject(channels)) {
+        snprintf(error, error_size, "Campo channels deve ser um objeto por faixa e largura de banda");
+        return false;
+    }
+    bool has_selection = cJSON_IsObject(channels);
+
+    if (has_selection) {
+        cJSON *valid = build_valid_channel_plan();
+        cJSON *band = NULL;
+        cJSON_ArrayForEach(band, channels) {
+            if (!cJSON_IsObject(band) || !cJSON_GetObjectItemCaseSensitive(valid, band->string)) {
+                snprintf(error, error_size, "Faixa invalida em channels: %s", band->string);
+                cJSON_Delete(valid);
+                return false;
+            }
+            int band_profiles = 0;
+            cJSON *width = NULL;
+            cJSON_ArrayForEach(width, band) {
+                if (!cJSON_IsArray(width) || !cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(valid, band->string), width->string)) {
+                    snprintf(error, error_size, "Largura de banda invalida em %s: %s", band->string, width->string);
+                    cJSON_Delete(valid);
+                    return false;
+                }
+                cJSON *channel = NULL;
+                cJSON_ArrayForEach(channel, width) {
+                    if (!cJSON_IsString(channel) || !channel_in_plan(valid, band->string, width->string, channel->valuestring)) {
+                        snprintf(
+                            error,
+                            error_size,
+                            "Canal invalido em %s a %s: %s",
+                            band->string,
+                            width->string,
+                            cJSON_IsString(channel) ? channel->valuestring : "(nao textual)"
+                        );
+                        cJSON_Delete(valid);
+                        return false;
+                    }
+                    append_profile(list, channel->valuestring, width->string, band->string);
+                    band_profiles++;
+                }
+            }
+            if (band_profiles == 0) {
+                snprintf(error, error_size, "Informe ao menos um canal para a faixa %s", band->string);
+                cJSON_Delete(valid);
+                return false;
+            }
+        }
+        cJSON_Delete(valid);
+    }
+
+    const ProfileSet *defaults = default_search_profiles();
+    for (int index = 0; index < defaults->count; index++) {
+        const ProposedConfig *profile = &defaults->items[index];
+        if (!has_selection || !cJSON_GetObjectItemCaseSensitive(channels, profile->frequency)) {
+            append_profile(list, profile->channel, profile->bandwidth, profile->frequency);
+        }
+    }
+    return true;
+}
+
+static bool reject_invalid_channels(int fd, cJSON *payload, ProfileList *profiles) {
+    char error[256];
+    if (build_requested_profiles(payload, profiles, error, sizeof(error))) {
+        return false;
+    }
+    free(profiles->items);
+    memset(profiles, 0, sizeof(*profiles));
+    analysis_log(ANALYSIS_LOG_INFO, NULL, "canais invalidos: %s", error);
+    send_json_error(fd, 400, error);
+    return true;
+}
+
+static void handle_channel_plan(int fd) {
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddBoolToObject(json, "success", true);
+    cJSON_AddItemToObject(json, "valid", build_valid_channel_plan());
+    cJSON_AddItemToObject(json, "profiles", build_search_profile_plan());
+    cJSON_AddItemToObject(json, "options", build_search_option_plan());
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
@@ -1039,6 +1636,64 @@ static void handle_analyze_overview(int fd) {
     free(text);
 }
 
+static void add_graph_metrics(cJSON *json, const Graph *graph) {
+    int max_degree = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        if (graph->nodes[index].neighbor_count > max_degree) {
+            max_degree = graph->nodes[index].neighbor_count;
+        }
+    }
+    cJSON_AddNumberToObject(json, "nodes", graph->node_count);
+    cJSON_AddNumberToObject(json, "edges", graph->edge_count);
+    cJSON_AddNumberToObject(json, "density", graph_density(graph));
+    cJSON_AddNumberToObject(json, "average_degree", graph->node_count > 0 ? (2.0 * graph->edge_count) / graph->node_count : 0.0);
+    cJSON_AddNumberToObject(json, "max_degree", max_degree);
+}
+
+// Metricas do grafo de conflitos potenciais (APs da mesma faixa com coberturas sobrepostas), no total e por
+// faixa, sem executar estrategia nem devolver o grafo inteiro.
+static void handle_graph_metrics(int fd, cJSON *payload) {
+    Graph graph;
+    char *error_message = NULL;
+    if (!build_graph(payload, &graph, &error_message)) {
+        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        free(error_message);
+        return;
+    }
+
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddBoolToObject(json, "success", true);
+    add_graph_metrics(json, &graph);
+    cJSON *bands_json = cJSON_AddArrayToObject(json, "bands");
+    double bands[MAX_BANDS];
+    int band_count = collect_bands(&graph, bands);
+    int *original_indexes = malloc(sizeof(int) * (size_t) graph.node_count);
+    int *local_indexes = malloc(sizeof(int) * (size_t) graph.node_count);
+    if (!original_indexes || !local_indexes) {
+        perror("malloc graph metrics");
+        exit(1);
+    }
+    for (int band_index = 0; band_index < band_count; band_index++) {
+        Graph subgraph;
+        build_band_subgraph(&graph, bands[band_index], &subgraph, original_indexes, local_indexes);
+        char band_label[32];
+        snprintf(band_label, sizeof(band_label), "%g GHz", bands[band_index]);
+        cJSON *band_json = cJSON_CreateObject();
+        cJSON_AddStringToObject(band_json, "frequency", band_label);
+        add_graph_metrics(band_json, &subgraph);
+        cJSON_AddItemToArray(bands_json, band_json);
+        free_band_subgraph(&subgraph);
+    }
+    free(original_indexes);
+    free(local_indexes);
+
+    char *text = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    send_http(fd, 200, "OK", "application/json", text);
+    free(text);
+    free_graph(&graph);
+}
+
 static void handle_collision_graph(int fd, cJSON *payload) {
     Graph graph;
     char *error_message = NULL;
@@ -1070,15 +1725,22 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
     if (reject_invalid_parameters(fd, selected_strategy, payload)) {
         return;
     }
+    ProfileList profiles;
+    if (reject_invalid_channels(fd, payload, &profiles)) {
+        return;
+    }
     if (!build_graph(payload, &graph, &error_message)) {
         send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
         free(error_message);
+        free(profiles.items);
         return;
     }
     double started_at = now_seconds();
+    ProfileSet profile_set = {profiles.items, profiles.count};
     cJSON *json = selected_strategy->run
-        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), NULL, -1, NULL, started_at)
+        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), &profile_set, NULL, -1, NULL, started_at)
         : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
+    free(profiles.items);
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
@@ -1097,6 +1759,10 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     if (reject_invalid_parameters(fd, selected_strategy, payload)) {
         return;
     }
+    ProfileList profiles;
+    if (reject_invalid_channels(fd, payload, &profiles)) {
+        return;
+    }
 
     Job *job = register_job();
     int thread_count = parse_thread_count(payload);
@@ -1112,6 +1778,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     cJSON_AddStringToObject(started, "message", "Montando grafo base e preparando atribuicao");
     if (!stream_event(fd, &stream_lock, "started", started)) {
         analysis_log(ANALYSIS_LOG_ERROR, job->id, "falha ao enviar evento started");
+        free(profiles.items);
         pthread_mutex_destroy(&stream_lock);
         unregister_job(job);
         return;
@@ -1127,15 +1794,18 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
         cJSON_AddNumberToObject(error_payload, "status_code", 400);
         stream_event(fd, &stream_lock, "error", error_payload);
         free(error_message);
+        free(profiles.items);
         pthread_mutex_destroy(&stream_lock);
         unregister_job(job);
         return;
     }
 
     double started_at = now_seconds();
+    ProfileSet profile_set = {profiles.items, profiles.count};
     cJSON *json = selected_strategy->run
-        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), job, fd, &stream_lock, started_at)
+        ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), &profile_set, job, fd, &stream_lock, started_at)
         : build_placeholder_response_json(selected_strategy->name, &graph, thread_count, started_at);
+    free(profiles.items);
     if (atomic_load(&job->cancelled)) {
         analysis_log(ANALYSIS_LOG_INFO, job->id, "analise cancelada durante execucao");
         cJSON *cancelled = cJSON_CreateObject();
@@ -1183,9 +1853,15 @@ static void handle_cancel_analysis(int fd, cJSON *payload) {
 static void handle_compare_strategies(int fd, cJSON *payload) {
     Graph graph;
     char *error_message = NULL;
+    ProfileList profiles;
+    if (reject_invalid_channels(fd, payload, &profiles)) {
+        return;
+    }
+    ProfileSet profile_set = {profiles.items, profiles.count};
     if (!build_graph(payload, &graph, &error_message)) {
         send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
         free(error_message);
+        free(profiles.items);
         return;
     }
 
@@ -1220,7 +1896,7 @@ static void handle_compare_strategies(int fd, cJSON *payload) {
             continue;
         }
         cJSON *result = selected_strategy->run
-            ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), NULL, -1, NULL, now_seconds())
+            ? build_strategy_response_json(selected_strategy, &graph, payload_parameters(payload), &profile_set, NULL, -1, NULL, now_seconds())
             : build_placeholder_response_json(selected_strategy->name, &graph, 1, now_seconds());
         if (result) {
             cJSON *analysis = cJSON_DetachItemFromObject(result, "analysis");
@@ -1243,6 +1919,7 @@ static void handle_compare_strategies(int fd, cJSON *payload) {
     send_http(fd, 200, "OK", "application/json", text);
     free(text);
     free_graph(&graph);
+    free(profiles.items);
 }
 
 static char *read_request_text(int fd) {
@@ -1346,6 +2023,7 @@ static void route_request(int fd, Request *request) {
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/health") == 0) { handle_health(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/strategies") == 0) { handle_strategies(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/capabilities") == 0) { handle_capabilities(fd); return; }
+    if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/channel-plan") == 0) { handle_channel_plan(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/analyze") == 0) { handle_analyze_overview(fd); return; }
 
     cJSON *payload = request->body && request->body[0] ? cJSON_Parse(request->body) : cJSON_CreateObject();
@@ -1355,6 +2033,8 @@ static void route_request(int fd, Request *request) {
 
     if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/collision-graph") == 0) {
         handle_collision_graph(fd, payload);
+    } else if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/graph-metrics") == 0) {
+        handle_graph_metrics(fd, payload);
     } else if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/backtracking") == 0) {
         cJSON_ReplaceItemInObject(payload, "strategy", cJSON_CreateString("backtracking"));
         handle_analyze_graph(fd, payload);

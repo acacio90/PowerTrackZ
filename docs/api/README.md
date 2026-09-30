@@ -26,8 +26,17 @@ POST /api/access_points/generate
 GET /api/access_points/{id}
 PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
+GET /scalability
+GET /api/experiments/scalability
+POST /api/experiments/scalability
+GET /api/experiments/scalability/{id}
+DELETE /api/experiments/scalability/{id}
+POST /api/experiments/scalability/{id}/cancel
+GET /api/experiments/scalability/{id}/export?format=csv|json
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
+GET /api/analysis/channel-plan
+POST /api/analysis/graph-metrics
 POST /api/analysis/analyze-graph
 POST /api/analysis/backtracking
 POST /api/analysis/analyze-graph-stream
@@ -55,7 +64,17 @@ GET /zabbix/groups
 GET /zabbix/config
 POST /zabbix/save-config
 POST /zabbix/test-connection
+GET /experiments/scalability
+POST /experiments/scalability
+GET /experiments/scalability/{id}
+DELETE /experiments/scalability/{id}
+POST /experiments/scalability/{id}/cancel
+GET /experiments/scalability/{id}/export?format=csv|json
 ```
+
+`POST /access_points/generate` takes `node_count` (2 to 1000), `min_degree` (1 to `node_count` − 1; the former name, `clique_factor`, is still accepted) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
+
+`POST /experiments/scalability` starts the scalability test in the background and answers HTTP 202 with the created run. It takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600) and `thread_count`; invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) and `points` (one point per size and strategy). The listing omits `points`, and the export returns the CSV or the JSON as a file. The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
 
@@ -66,6 +85,7 @@ GET /health
 GET /analyze
 GET /strategies
 GET /capabilities
+GET /channel-plan
 POST /analyze-graph
 POST /backtracking
 POST /analyze-graph-stream
@@ -73,9 +93,10 @@ POST /backtracking-stream
 POST /cancel-analysis
 POST /compare-strategies
 POST /collision-graph
+POST /graph-metrics
 ```
 
-Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy:
+Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy and whether it is an exact method (`exact`):
 
 ```json
 {
@@ -89,3 +110,19 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
 ```
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+
+`POST /graph-metrics` takes `aps`, like the analysis routes, and returns the metrics of the graph the analysis would build (`nodes`, `edges`, `density`, `average_degree` and `max_degree`), in total and in `bands`, without running a strategy. APs without `raio` use the band's default radius: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz.
+
+`GET /channel-plan` returns the channels that the interface offers when editing a configuration, grouped by frequency and bandwidth:
+
+```json
+{
+  "success": true,
+  "valid": {"2.4 GHz": {"20 MHz": ["1", "2", "..."], "40 MHz": ["1", "..."]}, "5 GHz": {"...": []}, "6 GHz": {"...": []}},
+  "profiles": {"2.4 GHz": {"40 MHz": ["1", "11"], "20 MHz": ["1", "6", "11"]}, "5 GHz": {"...": []}}
+}
+```
+
+`valid` lists every channel allowed in Brazil and is used when registering and editing APs. `profiles` lists the default profiles the strategies can propose, and `options`, one option per distinct channel block at each width, used to choose the search profiles.
+
+The analysis routes accept the `channels` field, in the `profiles` format, with the channels the strategies may use in each band; bands that are not given use the default. Each band is solved in its own graph, and the response reports the per-band results in `execution.bands`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
