@@ -2,6 +2,10 @@
 
 {% block title %}Início - PowerTrackZ{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/home.css') }}">
+{% endblock %}
+
 {% block content %}
 {# Header #}
 <header class="home-header">

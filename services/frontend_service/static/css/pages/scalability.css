@@ -1,0 +1,256 @@
+/* Página Teste de escalabilidade */
+.scal-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+}
+
+.scal-card {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #e2e7ec;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.scal-card h1 {
+    margin: 0 0 0.35rem;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #18222d;
+}
+
+.scal-card h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #18222d;
+}
+
+.scal-lead {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #526272;
+}
+
+.scal-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem 1rem;
+    margin-top: 1rem;
+}
+
+.scal-form label,
+.scal-field-label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4b5a67;
+}
+
+.scal-form input[type="number"] {
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid #cbd5df;
+    border-radius: 8px;
+}
+
+.scal-strategies {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1.25rem;
+}
+
+.scal-strategies label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-weight: 400;
+    font-size: 0.88rem;
+    color: #22313f;
+}
+
+.scal-kind {
+    font-size: 0.75rem;
+    color: #607080;
+}
+
+.scal-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.scal-note {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #607080;
+}
+
+.scal-error {
+    margin: 0.75rem 0 0;
+    font-size: 0.85rem;
+    color: #b42318;
+}
+
+.scal-progress-bar {
+    height: 10px;
+    margin: 0.5rem 0;
+    border-radius: 999px;
+    background: #e8edf2;
+    overflow: hidden;
+}
+
+.scal-progress-bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: #2a78d6;
+    transition: width 0.3s ease;
+}
+
+.scal-progress-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #4b5a67;
+}
+
+.scal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.25rem;
+    margin-bottom: 0.9rem;
+    font-size: 0.85rem;
+    color: #4b5a67;
+}
+
+.scal-meta strong {
+    color: #18222d;
+}
+
+.scal-breaks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.scal-break {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid #e2e7ec;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: #22313f;
+}
+
+.scal-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.scal-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.scal-chart h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #18222d;
+}
+
+.scal-chart p {
+    margin: 0 0 0.5rem;
+    font-size: 0.78rem;
+    color: #607080;
+}
+
+.scal-chart-box {
+    position: relative;
+    height: 300px;
+}
+
+.scal-table-wrap {
+    overflow-x: auto;
+}
+
+.scal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+}
+
+.scal-table th,
+.scal-table td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid #e2e7ec;
+    text-align: left;
+    white-space: nowrap;
+    color: #22313f;
+}
+
+.scal-table thead th {
+    font-size: 0.75rem;
+    color: #607080;
+}
+
+.scal-table tr.is-selected td {
+    background: #f1f6fd;
+}
+
+.scal-table tr.is-broken td {
+    font-weight: 600;
+}
+
+.scal-details summary {
+    margin: 1rem 0 0.5rem;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #22313f;
+}
+
+.scal-row-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.scal-row-actions a,
+.scal-row-actions button {
+    padding: 0.15rem 0.55rem;
+    border: 1px solid #cbd5df;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.78rem;
+    color: #22313f;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.scal-status {
+    font-weight: 600;
+}
+
+.scal-empty {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #607080;
+}

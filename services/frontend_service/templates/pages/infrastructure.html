@@ -3,16 +3,8 @@
 {% block title %}Sua infraestrutura - PowerTrackZ{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/leaflet-overrides.css') }}">
-<style>
-    .row-missing-coords {
-        background-color: #ffeaea !important;
-    }
-
-    .row-has-coords {
-        background-color: #eaffea !important;
-    }
-</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/infrastructure.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -100,7 +92,7 @@
                             <button class="map-add-button" id="btn-add-point" type="button" aria-label="Adicionar ponto de acesso">
                                 <i class="fas fa-plus"></i>
                             </button>
-                            <div id="map" style="height: 400px;"></div>
+                            <div id="map"></div>
                         </div>
                         <div class="map-actions">
                             <button class="btn btn-secondary map-analysis-button" id="btn-analyze" type="button">
@@ -113,7 +105,7 @@
         </div>
     </section>
 
-        <div id="modal-add-point" class="modal" style="display:none;">
+        <div id="modal-add-point" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2><i class="fas fa-wifi"></i> Novo Ponto de Acesso</h2>
@@ -162,7 +154,7 @@
             </div>
         </div>
 
-        <div id="modal-edit-point" class="modal" style="display:none;">
+        <div id="modal-edit-point" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2><i class="fas fa-edit"></i> Editar Ponto de Acesso</h2>
@@ -205,7 +197,7 @@
                 </form>
             </div>
         </div>
-        <div id="modal-load-points" class="modal" style="display:none;">
+        <div id="modal-load-points" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2><i class="fas fa-cloud-arrow-down"></i> Carregar APs</h2>
