@@ -199,9 +199,12 @@ main {
     background-color: rgba(255,255,255,0.1);
 }
 
-.nav-link.active {
+/* Mesma especificidade da regra do Bootstrap (.navbar-nav .nav-link.active), que deixaria o texto escuro. */
+.navbar-nav .nav-link.active {
     color: var(--text-light);
-    box-shadow: inset 0 -3px 0 rgba(255,255,255,0.85);
+    font-weight: 600;
+    background-color: rgba(255,255,255,0.12);
+    box-shadow: inset 0 -3px 0 #4dabf7;
 }
 
 .nav-link i {
