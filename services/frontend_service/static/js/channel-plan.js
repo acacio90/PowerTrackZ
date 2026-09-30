@@ -94,22 +94,23 @@
         return String(frequencia).replace('.', ',');
     }
 
-    // Caixas de selecao dos canais que as estrategias podem usar em cada faixa (o k de cada grafo), a partir
-    // dos canais permitidos e com os perfis padrao ja marcados. Faixas sem perfis padrao (6 GHz) comecam
-    // recolhidas e vazias; sem canais marcados, seus APs mantem a configuracao atual.
+    // Caixas de selecao dos perfis que as estrategias podem usar em cada faixa (o k de cada grafo). Ha uma
+    // caixa por posicao distinta no espectro ("options" do plano): em larguras agregadas, um bloco como 36-48
+    // a 80 MHz, que envia o seu canal primario. Os perfis padrao ja vem marcados, e as faixas comecam
+    // recolhidas; sem canais marcados em 6 GHz, que nao tem perfis padrao, seus APs mantem a configuracao.
     function criarSeletor(container, plano) {
-        const faixas = ordenar(Object.keys(plano.valid || {}));
+        const opcoesPorFaixa = plano.options || {};
+        const faixas = ordenar(Object.keys(opcoesPorFaixa));
         const padrao = plano.profiles || {};
         container.innerHTML = '';
 
         faixas.forEach(frequencia => {
             const detalhes = document.createElement('details');
             detalhes.className = 'analysis-channel-band';
-            detalhes.open = Object.keys(padrao[frequencia] || {}).length > 0;
             const resumo = document.createElement('summary');
             detalhes.appendChild(resumo);
 
-            ordenar(Object.keys(plano.valid[frequencia])).forEach(largura => {
+            ordenar(Object.keys(opcoesPorFaixa[frequencia])).forEach(largura => {
                 const linha = document.createElement('div');
                 linha.className = 'analysis-channel-row';
                 const rotulo = document.createElement('span');
@@ -119,18 +120,24 @@
                 canais.className = 'analysis-channel-options';
                 const marcados = (padrao[frequencia] || {})[largura] || [];
 
-                ordenar(plano.valid[frequencia][largura]).forEach(canal => {
+                opcoesPorFaixa[frequencia][largura].forEach(bloco => {
                     const opcao = document.createElement('label');
                     opcao.className = 'analysis-channel-chip';
                     const caixa = document.createElement('input');
                     caixa.type = 'checkbox';
-                    caixa.value = canal;
+                    caixa.value = bloco.channel;
                     caixa.dataset.frequency = frequencia;
                     caixa.dataset.bandwidth = largura;
-                    caixa.checked = marcados.includes(canal);
+                    caixa.checked = marcados.includes(bloco.channel);
                     caixa.addEventListener('change', () => atualizarResumo(detalhes, frequencia));
+                    const canaisDoBloco = bloco.channels || [bloco.channel];
+                    opcao.title = canaisDoBloco.length > 1
+                        ? `Canais ${canaisDoBloco.join(', ')} (primario ${bloco.channel})`
+                        : `Canal ${bloco.channel}`;
                     opcao.appendChild(caixa);
-                    opcao.appendChild(document.createTextNode(canal));
+                    opcao.appendChild(document.createTextNode(
+                        canaisDoBloco.length > 1 ? `${canaisDoBloco[0]}–${canaisDoBloco[canaisDoBloco.length - 1]}` : bloco.channel
+                    ));
                     canais.appendChild(opcao);
                 });
 

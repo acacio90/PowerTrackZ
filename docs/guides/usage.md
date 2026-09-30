@@ -42,7 +42,7 @@ The **Análise** page (**Análise** menu, `/analysis`) builds the collision grap
      - *Limite de tempo (s)*: time limit, 60 s by default, up to 3600 s, applied to each band. Check *Sem limite* to let the search run to completion.
    - **Greedy:** fast heuristic, suited to large networks, with no optimality guarantee. It has no parameters.
    - **Genetic:** not implemented yet; returns the current configuration.
-2. In **Canais disponíveis por faixa**, check the channels the strategies may use in each band and bandwidth; the summary of each band shows the total number of profiles (k). The default profiles come checked; in 2.4 and 5 GHz at least one channel must remain checked, and the 6 GHz band starts empty, with its APs keeping their current configuration.
+2. In **Canais disponíveis por faixa**, open each band and check the channels the strategies may use at each bandwidth; the summary of each band shows the total number of profiles (k). At bonded widths, each option is a channel block, such as 36–48 at 80 MHz, since any primary in the block occupies the same spectrum. The default profiles come checked; in 2.4 and 5 GHz at least one channel must remain checked, and the 6 GHz band starts empty, with its APs keeping their current configuration.
 3. Adjust the parameters and click **Executar análise**. Values outside the accepted range are flagged below the fields, and the analysis does not start.
 4. Follow the progress on the graph on the right, which shows the band being processed. The run can be cancelled while it is in progress.
 

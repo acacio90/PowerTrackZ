@@ -280,6 +280,43 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertNotIn("233", six["40 MHz"])
         self.assertEqual(len(six["160 MHz"]), 56)
 
+    def test_channel_plan_options_list_each_distinct_block_once(self):
+        plan = self.get_json("/channel-plan")
+        options = plan["options"]
+
+        def blocks(frequency, bandwidth):
+            return [option["channels"] for option in options[frequency][bandwidth]]
+
+        self.assertEqual(len(blocks("2.4 GHz", "20 MHz")), 13)
+        self.assertEqual(blocks("2.4 GHz", "40 MHz"), [[str(p), str(p + 4)] for p in range(1, 10)])
+        self.assertEqual(len(blocks("5 GHz", "20 MHz")), 25)
+        self.assertEqual(len(blocks("5 GHz", "40 MHz")), 12)
+        self.assertEqual(
+            blocks("5 GHz", "80 MHz"),
+            [["36", "40", "44", "48"], ["52", "56", "60", "64"], ["100", "104", "108", "112"],
+             ["116", "120", "124", "128"], ["132", "136", "140", "144"], ["149", "153", "157", "161"]],
+        )
+        self.assertEqual(len(blocks("5 GHz", "160 MHz")), 2)
+        self.assertEqual(
+            [len(blocks("6 GHz", width)) for width in ("20 MHz", "40 MHz", "80 MHz", "160 MHz")],
+            [59, 29, 14, 7],
+        )
+
+        for frequency, bandwidths in options.items():
+            for bandwidth, entries in bandwidths.items():
+                for option in entries:
+                    with self.subTest(frequency=frequency, bandwidth=bandwidth, option=option):
+                        self.assertIn(option["channel"], option["channels"])
+                        self.assertIn(option["channel"], plan["valid"][frequency][bandwidth])
+
+        # Cada perfil padrao e o primario da opcao que cobre o seu bloco (11 a 40 MHz e o par 7+11).
+        for frequency, bandwidths in plan["profiles"].items():
+            for bandwidth, channels in bandwidths.items():
+                primaries = [option["channel"] for option in options[frequency][bandwidth]]
+                for channel in channels:
+                    with self.subTest(frequency=frequency, bandwidth=bandwidth, channel=channel):
+                        self.assertIn(channel, primaries)
+
     def test_channel_plan_profiles_are_valid_combinations(self):
         plan = self.get_json("/channel-plan")
         profiles = plan["profiles"]

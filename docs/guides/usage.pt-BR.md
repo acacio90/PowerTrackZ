@@ -40,7 +40,7 @@ A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de colisõ
      - *Limite de tempo (s)*: 60 s por padrão, até 3600 s, aplicado a cada faixa. Marque *Sem limite* para deixar a busca terminar por completo.
    - **Greedy:** heurística rápida, adequada a redes grandes, sem garantia de ótimo. Não possui parâmetros.
    - **Genetic:** ainda não implementada; devolve a configuração atual.
-2. Em **Canais disponíveis por faixa**, marque os canais que as estratégias podem usar em cada faixa e largura de banda; o resumo de cada faixa mostra o total de perfis (k). Os perfis padrão já vêm marcados; em 2,4 e 5 GHz é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
+2. Em **Canais disponíveis por faixa**, abra cada faixa e marque os canais que as estratégias podem usar em cada largura de banda; o resumo de cada faixa mostra o total de perfis (k). Nas larguras agregadas, cada opção é um bloco de canais, como 36–48 a 80 MHz, já que qualquer primário do bloco ocupa o mesmo espectro. Os perfis padrão já vêm marcados; em 2,4 e 5 GHz é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
 3. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
 4. Acompanhe o progresso no grafo da direita, que indica a faixa em processamento. A execução pode ser cancelada enquanto estiver em andamento.
 

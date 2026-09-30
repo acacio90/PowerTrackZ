@@ -1248,6 +1248,83 @@ static cJSON *build_search_profile_plan(void) {
     return plan;
 }
 
+// Primario enviado por uma opcao de busca: o do perfil padrao que cai no bloco, se houver (mantem os resultados
+// padrao); senao, o primeiro canal do bloco. Qualquer primario do bloco tem o mesmo centro.
+static const char *option_primary(const char *frequency, const char *bandwidth, cJSON *channels) {
+    const ProfileSet *defaults = default_search_profiles();
+    for (int index = 0; index < defaults->count; index++) {
+        const ProposedConfig *profile = &defaults->items[index];
+        if (strcmp(profile->frequency, frequency) != 0 || strcmp(profile->bandwidth, bandwidth) != 0) {
+            continue;
+        }
+        cJSON *channel = NULL;
+        cJSON_ArrayForEach(channel, channels) {
+            if (strcmp(channel->valuestring, profile->channel) == 0) {
+                return profile->channel;
+            }
+        }
+    }
+    return cJSON_GetArrayItem(channels, 0)->valuestring;
+}
+
+static void add_option_to_plan(cJSON *plan, const char *frequency, const char *bandwidth, cJSON *channels) {
+    cJSON *band = cJSON_GetObjectItemCaseSensitive(plan, frequency);
+    if (!band) {
+        band = cJSON_AddObjectToObject(plan, frequency);
+    }
+    cJSON *options = cJSON_GetObjectItemCaseSensitive(band, bandwidth);
+    if (!options) {
+        options = cJSON_AddArrayToObject(band, bandwidth);
+    }
+    cJSON *option = cJSON_CreateObject();
+    cJSON_AddStringToObject(option, "channel", option_primary(frequency, bandwidth, channels));
+    cJSON_AddItemToObject(option, "channels", channels);
+    cJSON_AddItemToArray(options, option);
+}
+
+// Opcoes para escolher os perfis de busca: uma por posicao distinta no espectro. Em 5 e 6 GHz, cada bloco
+// alinhado de canais agregados e uma opcao. Em 2,4 GHz, cada canal de 20 MHz e uma opcao, e cada par de 40 MHz
+// (primario e secundario 4 canais acima) tambem; os primarios 10 a 13 repetem os pares 6+10 a 9+13.
+static cJSON *build_search_option_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    size_t band_count = sizeof(BAND_BANDWIDTHS) / sizeof(BAND_BANDWIDTHS[0]);
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t band_index = 0; band_index < band_count; band_index++) {
+        const BandBandwidths *band = &BAND_BANDWIDTHS[band_index];
+        for (int width_index = 0; width_index < band->bandwidth_count; width_index++) {
+            int bandwidth = band->bandwidths[width_index];
+            int channels_per_block = bandwidth / 20;
+            char bandwidth_label[16];
+            snprintf(bandwidth_label, sizeof(bandwidth_label), "%d MHz", bandwidth);
+
+            for (size_t segment_index = 0; segment_index < segment_count; segment_index++) {
+                const ChannelSegment *segment = &CHANNEL_SEGMENTS[segment_index];
+                if (strcmp(segment->frequency, band->frequency) != 0) {
+                    continue;
+                }
+                // Distancia entre o primeiro e o ultimo canal de 20 MHz do bloco.
+                int block_reach = segment->aligned_blocks
+                    ? (channels_per_block - 1) * segment->channel_step
+                    : (channels_per_block - 1) * 4;
+                int block_span = segment->aligned_blocks ? channels_per_block * segment->channel_step : segment->channel_step;
+                for (int block_start = segment->first_channel;
+                     block_start + block_reach <= segment->last_channel;
+                     block_start += block_span) {
+                    cJSON *channels = cJSON_CreateArray();
+                    int channel_step = segment->aligned_blocks ? segment->channel_step : 4;
+                    for (int offset = 0; offset < channels_per_block; offset++) {
+                        char channel_label[8];
+                        snprintf(channel_label, sizeof(channel_label), "%d", block_start + offset * channel_step);
+                        cJSON_AddItemToArray(channels, cJSON_CreateString(channel_label));
+                    }
+                    add_option_to_plan(plan, band->frequency, bandwidth_label, channels);
+                }
+            }
+        }
+    }
+    return plan;
+}
+
 typedef struct {
     ProposedConfig *items;
     int count;
@@ -1360,6 +1437,7 @@ static void handle_channel_plan(int fd) {
     cJSON_AddBoolToObject(json, "success", true);
     cJSON_AddItemToObject(json, "valid", build_valid_channel_plan());
     cJSON_AddItemToObject(json, "profiles", build_search_profile_plan());
+    cJSON_AddItemToObject(json, "options", build_search_option_plan());
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
