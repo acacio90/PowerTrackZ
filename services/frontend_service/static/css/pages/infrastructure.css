@@ -7,15 +7,15 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 1.5rem;
-    background: #fff;
-    border-radius: 0.5rem;
-    box-shadow: var(--shadow);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
     overflow-x: auto;
     overflow-y: hidden;
 }
 
 .card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    box-shadow: var(--shadow-md);
 }
 
 @media (max-width: 640px) {
@@ -25,9 +25,9 @@
 }
 
 .card-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--gray-900);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-strong);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -35,7 +35,7 @@
 }
 
 .card-title i {
-    color: var(--primary);
+    color: var(--color-accent);
 }
 
 /* Formulário */
@@ -56,7 +56,7 @@
 
 .form-actions {
     padding: 0.75rem 1rem 0.75rem 1rem;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
@@ -66,31 +66,31 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-weight: 500;
-    color: var(--gray-700);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
     margin-bottom: 0.5rem;
 }
 
 .form-label i {
-    color: var(--primary);
+    color: var(--color-accent);
 }
 
 input[type="text"],
 input[type="number"] {
     width: 100%;
     padding: 0.625rem;
-    border: 1px solid var(--gray-300);
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    color: var(--gray-900);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-strong);
     transition: all 0.2s;
 }
 
 input[type="text"]:focus,
 input[type="number"]:focus {
     outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
 }
 
 /* Tabela */
@@ -105,7 +105,7 @@ input[type="number"]:focus {
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     table-layout: fixed;
 }
 
@@ -113,24 +113,24 @@ input[type="number"]:focus {
 .data-table td {
     padding: 0.75rem;
     text-align: left;
-    border-bottom: 1px solid #dee2e6;
-    font-size: 0.94rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-size-md);
 }
 
 .data-table th {
-    background-color: #f8f9fa;
+    background-color: var(--color-surface-muted);
     position: sticky;
     top: 0;
     z-index: 10;
 }
 
 .data-table tr:hover {
-    background-color: rgba(0,0,0,0.02);
+    background-color: var(--color-surface-muted);
 }
 
 .coords {
-    color: var(--gray-500);
-    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
     overflow-wrap: anywhere;
     word-break: break-word;
 }
@@ -138,16 +138,16 @@ input[type="number"]:focus {
 .action-button {
     padding: 0.375rem;
     background: none;
-    border: 1px solid var(--primary);
-    color: var(--primary);
-    border-radius: 0.25rem;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .action-button:hover {
-    background-color: var(--primary);
-    color: white;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn {
@@ -155,36 +155,36 @@ input[type="number"]:focus {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    font-weight: 500;
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
 }
 
 .btn-primary {
-    background-color: var(--primary);
-    color: white;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
     border: none;
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-dark);
+    background-color: var(--color-accent);
 }
 
 .btn-secondary {
-    background-color: var(--gray-600);
-    color: white;
+    background-color: var(--color-text-muted);
+    color: var(--color-on-accent);
     border: none;
 }
 
 .btn-secondary:hover {
-    background-color: var(--gray-700);
+    background-color: var(--color-text);
 }
 
 .page-register {
     flex: 1 0 auto;
-    background: #f5f6fa;
+    background: var(--color-bg);
     position: relative;
     z-index: 0;
 }
@@ -275,8 +275,8 @@ input[type="number"]:focus {
 
 .table-section .card-title,
 .map-section .card-title {
-    font-size: 1.5rem !important;
-    line-height: 1.2;
+    font-size: var(--font-size-xl) !important;
+    line-height: var(--line-height-tight);
     margin-bottom: 1.25rem;
 }
 
@@ -296,9 +296,9 @@ input[type="number"]:focus {
     position: relative;
     width: 100%;
     height: clamp(300px, calc(100vh - 360px), 440px);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     overflow: hidden;
-    background-color: var(--bg-secondary);
+    background-color: var(--color-bg);
     isolation: isolate;
     z-index: 0;
 }
@@ -313,28 +313,28 @@ input[type="number"]:focus {
     align-items: center;
     justify-content: center;
     border: none;
-    border-radius: 999px;
-    background: var(--primary);
-    color: #fff;
-    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-lg);
     cursor: pointer;
     transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
     z-index: 4;
 }
 
 .map-add-button:hover {
-    background: var(--primary-dark);
+    background: var(--color-accent);
     transform: translateY(-1px);
-    box-shadow: 0 14px 28px rgba(37, 99, 235, 0.32);
+    box-shadow: var(--shadow-lg);
 }
 
 .map-add-button:focus-visible {
-    outline: 2px solid rgba(37, 99, 235, 0.25);
+    outline: 2px solid var(--color-accent-ring);
     outline-offset: 3px;
 }
 
 .map-add-button i {
-    font-size: 1rem;
+    font-size: var(--font-size-base);
 }
 
 .map-actions {
@@ -345,7 +345,7 @@ input[type="number"]:focus {
     width: 100%;
     justify-content: center;
     padding: 0.8rem 1rem;
-    border-radius: 0.7rem;
+    border-radius: var(--radius-lg);
 }
 
 #map {
@@ -411,7 +411,7 @@ body > .footer {
 
 #modal-add-point .modal-header h2,
 #modal-edit-point .modal-header h2 {
-    font-size: 1.15rem;
+    font-size: var(--font-size-lg);
 }
 
 @media (max-width: 1080px) {
@@ -466,39 +466,39 @@ body > .footer {
 }
 
 .import-feedback {
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
     padding: 0.9rem 1rem;
     margin-bottom: 1rem;
     border: 1px solid transparent;
 }
 
 .import-feedback-title {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     margin-bottom: 0.35rem;
 }
 
 .import-feedback-list {
     margin: 0;
     padding-left: 1.2rem;
-    color: var(--gray-700);
+    color: var(--color-text);
 }
 
 .import-feedback-success {
-    background: #ecfdf3;
-    border-color: #86efac;
-    color: #166534;
+    background: var(--color-success-soft);
+    border-color: var(--color-success-border);
+    color: var(--color-success);
 }
 
 .import-feedback-warning {
-    background: #fffbeb;
-    border-color: #fcd34d;
-    color: #92400e;
+    background: var(--color-warning-soft);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning);
 }
 
 .import-feedback-error {
-    background: #fef2f2;
-    border-color: #fca5a5;
-    color: #991b1b;
+    background: var(--color-danger-soft);
+    border-color: var(--color-danger-border);
+    color: var(--color-danger);
 }
 
 @media (max-width: 768px) {
@@ -514,7 +514,7 @@ body > .footer {
 
 .empty-inventory-row td {
     padding: 1.5rem 1rem;
-    color: var(--gray-600);
+    color: var(--color-text);
     text-align: center;
 }
 
@@ -534,14 +534,14 @@ body > .footer {
 }
 
 #modal-load-points .modal-header h2 {
-    font-size: 1.15rem;
+    font-size: var(--font-size-lg);
 }
 
 #modal-load-points .form-actions {
     margin-top: 0;
     padding: 0.75rem 1rem 1rem;
     justify-content: flex-end;
-    border-top: 1px solid var(--gray-200);
+    border-top: 1px solid var(--color-border);
 }
 
 .load-body {
@@ -563,18 +563,18 @@ body > .footer {
     align-items: flex-start;
     gap: 0.25rem;
     padding: 0.85rem 1rem;
-    border: 1px solid var(--gray-300);
-    border-radius: 0.6rem;
-    background: #fff;
-    color: var(--gray-800);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-strong);
     text-align: left;
     cursor: pointer;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .load-source:hover {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
 }
 
 .load-source:disabled {
@@ -583,17 +583,17 @@ body > .footer {
 }
 
 .load-source > i {
-    color: var(--primary);
-    font-size: 1.1rem;
+    color: var(--color-accent);
+    font-size: var(--font-size-lg);
 }
 
 .load-source-title {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .load-source-text {
-    color: var(--gray-500);
-    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
     line-height: 1.35;
 }
 
@@ -604,9 +604,9 @@ body > .footer {
     gap: 0.75rem;
     padding: 0.85rem 1rem;
     margin-bottom: 1rem;
-    border-radius: 0.6rem;
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
 }
 
 .load-generate[hidden],
@@ -621,16 +621,16 @@ body > .footer {
 .load-generate label {
     display: block;
     margin-bottom: 0.35rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--gray-700);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
 }
 
 .load-note {
     grid-column: 1 / -1;
     margin: 0;
-    color: var(--gray-500);
-    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
 }
 
 .load-review-meta {
@@ -639,17 +639,17 @@ body > .footer {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 0.6rem;
-    color: var(--gray-600);
-    font-size: 0.9rem;
+    color: var(--color-text);
+    font-size: var(--font-size-md);
 }
 
 .load-source-badge {
     padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    background: #e8f1fb;
-    color: #2a567a;
-    font-size: 0.75rem;
-    font-weight: 700;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-hover);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;
@@ -658,11 +658,11 @@ body > .footer {
 .load-review-metrics {
     margin-bottom: 0.6rem;
     padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    background: var(--gray-50);
-    border: 1px solid var(--gray-200);
-    color: var(--gray-700);
-    font-size: 0.85rem;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
 }
 
 .load-review-metrics[hidden] {
@@ -704,14 +704,14 @@ body > .footer {
 }
 
 .map-container .leaflet-popup-content {
-    font-size: 1rem !important;
+    font-size: var(--font-size-base) !important;
     margin: 10px !important;
     padding: 8px !important;
 }
 
 .map-container .leaflet-popup-content-wrapper {
     padding: 0 !important;
-    border-radius: 4px !important;
+    border-radius: var(--radius-sm) !important;
 }
 
 .map-container .leaflet-popup-tip-container {
@@ -720,24 +720,24 @@ body > .footer {
 
 .map-container .leaflet-control-zoom {
     border: none !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
 .map-container .leaflet-control-zoom a {
-    color: #333 !important;
-    background-color: #fff !important;
+    color: var(--color-text-strong) !important;
+    background-color: var(--color-surface) !important;
     border: none !important;
     width: 30px !important;
     height: 30px !important;
     line-height: 30px !important;
     text-align: center !important;
     text-decoration: none !important;
-    border-radius: 4px !important;
+    border-radius: var(--radius-sm) !important;
     margin-bottom: 5px !important;
 }
 
 .map-container .leaflet-control-zoom a:hover {
-    background-color: #f8f9fa !important;
+    background-color: var(--color-surface-muted) !important;
 }
 
 .map-container .leaflet-control-zoom a:first-child {
@@ -751,9 +751,9 @@ body > .footer {
 }
 
 .map-container .leaflet-control-attribution {
-    font-size: 0.8rem !important;
-    color: #666 !important;
-    background-color: rgba(255,255,255,0.8) !important;
+    font-size: var(--font-size-sm) !important;
+    color: var(--color-text-muted) !important;
+    background-color: var(--color-surface-translucent) !important;
     padding: 0 5px !important;
 }
 
@@ -785,37 +785,37 @@ body > .footer {
 }
 
 .map-container .leaflet-tooltip {
-    background-color: #fff !important;
-    border: 1px solid #ddd !important;
-    border-radius: 4px !important;
-    color: #333 !important;
+    background-color: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-text-strong) !important;
     padding: 6px 12px !important;
-    font-size: 0.9rem !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    font-size: var(--font-size-md) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
 /* Controles adicionais */
 .map-container .leaflet-bar {
-    box-shadow: 0 1px 5px rgba(0,0,0,0.2) !important;
-    border-radius: 4px !important;
+    box-shadow: var(--shadow-md) !important;
+    border-radius: var(--radius-sm) !important;
 }
 
 .map-container .leaflet-bar a {
     border: none !important;
-    background-color: #fff !important;
-    color: #333 !important;
+    background-color: var(--color-surface) !important;
+    color: var(--color-text-strong) !important;
 }
 
 .map-container .leaflet-bar a:hover {
-    background-color: #f8f9fa !important;
-    color: #007bff !important;
+    background-color: var(--color-surface-muted) !important;
+    color: var(--color-accent) !important;
 } 
 
 /* Linhas do inventário conforme as coordenadas */
 .row-missing-coords {
-    background-color: #ffeaea !important;
+    background-color: var(--color-danger-soft) !important;
 }
 
 .row-has-coords {
-    background-color: #eaffea !important;
+    background-color: var(--color-success-soft) !important;
 }

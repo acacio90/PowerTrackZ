@@ -1,23 +1,23 @@
 /* Tabela padrão (app-table) */
 .app-table-card {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
     padding: 1.5rem;
 }
 
 .app-table-title {
     margin: 0 0 1rem;
-    font-size: 1.75rem;
+    font-size: var(--font-size-xl);
     line-height: 1.15;
-    color: #18222d;
+    color: var(--color-text-strong);
 }
 
 .app-table-shell {
     overflow: hidden;
-    border: 1px solid #dbe3ea;
-    border-radius: 12px;
-    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
 }
 
 .app-table-wrap {
@@ -36,14 +36,14 @@
     padding: 1rem 1.1rem;
     text-align: left;
     vertical-align: middle;
-    border-bottom: 1px solid #e5ebf0;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .app-table th {
-    background: #f7fafc;
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: #314556;
+    background: var(--color-surface-muted);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
 }
 
 .app-table tbody tr:last-child td {
@@ -51,14 +51,14 @@
 }
 
 .app-table tbody tr:hover {
-    background: #fbfdff;
+    background: var(--color-surface-muted);
 }
 
 /* Navbar */
 .navbar {
     height: var(--navbar-height);
-    background-color: var(--primary-color);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: var(--color-surface-inverse);
+    box-shadow: var(--shadow-sm);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -73,9 +73,9 @@
 }
 
 .navbar-brand {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-light);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-on-inverse);
     text-decoration: none;
     letter-spacing: 0.5px;
     display: flex;
@@ -87,7 +87,7 @@
 }
 
 .navbar-brand i {
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
 }
 
 .navbar-nav {
@@ -109,34 +109,34 @@
 }
 
 .nav-link {
-    color: rgba(255,255,255,0.85);
+    color: var(--color-on-inverse-muted);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     display: flex;
     align-items: center;
     gap: 0.5rem;
     transition: color 0.2s ease;
     padding: 0 1rem;
     height: 100%;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     white-space: nowrap;
 }
 
 .nav-link:hover {
-    color: var(--text-light);
-    background-color: rgba(255,255,255,0.1);
+    color: var(--color-on-inverse);
+    background-color: var(--color-inverse-hover);
 }
 
 /* Mesma especificidade da regra do Bootstrap (.navbar-nav .nav-link.active), que deixaria o texto escuro. */
 .navbar-nav .nav-link.active {
-    color: var(--text-light);
-    font-weight: 600;
-    background-color: rgba(255,255,255,0.12);
-    box-shadow: inset 0 -3px 0 #4dabf7;
+    color: var(--color-on-inverse);
+    font-weight: var(--font-weight-semibold);
+    background-color: var(--color-inverse-hover);
+    box-shadow: inset 0 -3px 0 var(--color-accent-light);
 }
 
 .nav-link i {
-    font-size: 1rem;
+    font-size: var(--font-size-base);
 }
 
 .nav-settings-button {
@@ -147,7 +147,7 @@
 }
 
 .nav-settings-button i {
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
 }
 
 /* Responsividade do Navbar */
@@ -197,7 +197,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--color-overlay);
     z-index: 1000;
     animation: fadeIn 0.3s ease-in-out;
     overflow-y: auto;
@@ -205,13 +205,13 @@
 
 .modal-content {
     position: relative;
-    background-color: #fff;
+    background-color: var(--color-surface);
     margin: 40px auto 0 auto;
     padding: 0;
     width: 90%;
     max-width: 500px;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     animation: slideIn 0.3s ease-in-out;
     display: flex;
     flex-direction: column;
@@ -222,7 +222,7 @@
 
 .modal-header {
     padding: 0.75rem 1rem 0.5rem 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--color-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -230,27 +230,27 @@
 
 .modal-header h2 {
     margin: 0;
-    color: #333;
-    font-size: 1.5rem;
+    color: var(--color-text-strong);
+    font-size: var(--font-size-xl);
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .modal-header h2 i {
-    color: #007bff;
+    color: var(--color-accent);
 }
 
 .close {
-    color: #666;
-    font-size: 1.8rem;
-    font-weight: bold;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     transition: color 0.2s;
 }
 
 .close:hover {
-    color: #333;
+    color: var(--color-text-strong);
 }
 
 .form-group {
@@ -260,40 +260,40 @@
 }
 
 .form-group label {
-    color: #555;
-    font-weight: 500;
+    color: var(--color-text);
+    font-weight: var(--font-weight-medium);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
 }
 
 .form-group label i {
-    color: #007bff;
+    color: var(--color-accent);
 }
 
 .form-group input,
 .form-group select {
     padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-group input:focus,
 .form-group select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
     outline: none;
 }
 
 .form-group input::placeholder {
-    color: #999;
+    color: var(--color-text-muted);
 }
 
 .form-group select {
-    background-color: #fff;
+    background-color: var(--color-surface);
     cursor: pointer;
 }
 
@@ -304,9 +304,9 @@
 .btn {
     padding: 0.5rem 1rem;
     border: none;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-weight: 500;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -315,21 +315,88 @@
 }
 
 .btn-primary {
-    background-color: #007bff;
-    color: white;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn-primary:hover {
-    background-color: #0056b3;
+    background-color: var(--color-accent-hover);
 }
 
 .btn-secondary {
-    background-color: #6c757d;
-    color: white;
+    background-color: var(--color-text-muted);
+    color: var(--color-on-accent);
 }
 
 .btn-secondary:hover {
-    background-color: #545b62;
+    background-color: var(--color-text);
+}
+
+/* Estados dos botões do Bootstrap (hover, foco, ativo e desabilitado) com as cores dos tokens */
+.btn-primary {
+    --bs-btn-color: var(--color-on-accent);
+    --bs-btn-bg: var(--color-accent);
+    --bs-btn-border-color: var(--color-accent);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-accent-hover);
+    --bs-btn-hover-border-color: var(--color-accent-hover);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-accent-hover);
+    --bs-btn-active-border-color: var(--color-accent-hover);
+    --bs-btn-disabled-bg: var(--color-accent);
+    --bs-btn-disabled-border-color: var(--color-accent);
+    --bs-btn-focus-shadow-rgb: 35, 109, 201;
+}
+
+.btn-secondary {
+    --bs-btn-bg: var(--color-text-muted);
+    --bs-btn-border-color: var(--color-text-muted);
+    --bs-btn-hover-bg: var(--color-text);
+    --bs-btn-hover-border-color: var(--color-text);
+    --bs-btn-active-bg: var(--color-text);
+    --bs-btn-active-border-color: var(--color-text);
+    --bs-btn-disabled-bg: var(--color-text-muted);
+    --bs-btn-disabled-border-color: var(--color-text-muted);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--color-accent);
+    --bs-btn-border-color: var(--color-accent);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-accent);
+    --bs-btn-hover-border-color: var(--color-accent);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-accent-hover);
+    --bs-btn-active-border-color: var(--color-accent-hover);
+    --bs-btn-disabled-color: var(--color-accent);
+    --bs-btn-disabled-border-color: var(--color-accent);
+    --bs-btn-focus-shadow-rgb: 35, 109, 201;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--color-text);
+    --bs-btn-border-color: var(--color-border-strong);
+    --bs-btn-hover-color: var(--color-text-strong);
+    --bs-btn-hover-bg: var(--color-surface-sunken);
+    --bs-btn-hover-border-color: var(--color-border-strong);
+    --bs-btn-active-color: var(--color-text-strong);
+    --bs-btn-active-bg: var(--color-surface-sunken);
+    --bs-btn-active-border-color: var(--color-border-strong);
+    --bs-btn-disabled-color: var(--color-text-muted);
+    --bs-btn-disabled-border-color: var(--color-border);
+    --bs-btn-focus-shadow-rgb: 35, 109, 201;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--color-danger);
+    --bs-btn-border-color: var(--color-danger);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-danger);
+    --bs-btn-hover-border-color: var(--color-danger);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-danger);
+    --bs-btn-active-border-color: var(--color-danger);
+    --bs-btn-focus-shadow-rgb: 180, 35, 24;
 }
 
 @keyframes fadeIn {
@@ -348,66 +415,66 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: var(--border-radius);
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-medium);
 }
 
 .loading {
-    color: #f59e0b;
+    color: var(--color-warning);
 }
 
 .success {
-    color: #10b981;
+    color: var(--color-success);
 }
 
 .error {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 
 /* Footer */
 .footer {
-    background-color: #fff;
-    border-top: 1px solid #eaeaea;
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
     padding: 1rem 0;
     margin-top: auto;
 }
 
 .footer .container {
     text-align: center;
-    color: #6c757d;
+    color: var(--color-text-muted);
 }
 
 /* Títulos de cartão */
 .card-title {
-    color: #333;
-    font-size: 1.5rem !important;
+    color: var(--color-text-strong);
+    font-size: var(--font-size-xl) !important;
     margin-bottom: 1.5rem;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .form-label {
-    font-weight: 500;
-    color: #495057;
-    font-size: 1rem !important;
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
+    font-size: var(--font-size-base) !important;
 }
 
 .form-control {
-    border: 1px solid #ced4da;
-    border-radius: 0.25rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
     padding: 0.5rem;
-    font-size: 1rem !important;
+    font-size: var(--font-size-base) !important;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .form-control:focus {
-    border-color: #80bdff;
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
 }
 
 /* Tabelas do Bootstrap */
 .table th {
-    background-color: #f8f9fa;
-    font-weight: 600;
+    background-color: var(--color-surface-muted);
+    font-weight: var(--font-weight-semibold);
 }
 
 .table td {
@@ -422,12 +489,12 @@
 }
 
 .btn.btn-primary {
-    background: #007bff;
-    color: #fff;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 0.5rem 1.2rem;
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     cursor: pointer;
     transition: background 0.2s;
     display: flex;
@@ -435,7 +502,7 @@
     gap: 0.5rem;
 }
 .btn.btn-primary:hover {
-    background: #0056b3;
+    background: var(--color-accent-hover);
 }
 
 @media (max-width: 900px) {
@@ -448,6 +515,26 @@
 #settingsModal .modal-content {
     z-index: 1070 !important;
     position: relative;
+}
+
+/* Salvar e Testar conexão com a mesma largura; o status da conexão fica na linha de baixo */
+.settings-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--space-3);
+}
+
+.settings-actions .btn {
+    justify-content: center;
+    padding: 0.6rem 1rem;
+    font-size: var(--font-size-md);
+    white-space: nowrap;
+}
+
+.settings-actions .connection-status {
+    grid-column: 1 / -1;
+    justify-self: start;
 }
 
 .modal-backdrop {

@@ -74,4 +74,5 @@ http://localhost:3000
 - API: [docs/api/README.md](docs/api/README.md)
 - Installation: [docs/guides/installation.md](docs/guides/installation.md)
 - Usage: [docs/guides/usage.md](docs/guides/usage.md)
+- Design tokens: [docs/design/README.md](docs/design/README.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
