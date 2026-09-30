@@ -46,7 +46,7 @@ window.addEventListener('DOMContentLoaded', function() {
         <label for="input-dias">Dias da estimativa de consumo
             <input id="input-dias" type="number" min="1" value="15">
         </label>
-        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-outline-secondary" title="Reenquadrar os dois grafos">
+        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-secondary" title="Reenquadrar os dois grafos">
             <i class="fa-solid fa-expand"></i> Reenquadrar
         </button>
     `;
@@ -56,7 +56,7 @@ window.addEventListener('DOMContentLoaded', function() {
     grafosComparacao.appendChild(criarContainerGrafo('cy2', 'Configuração proposta'));
     const executionContainer = document.createElement('div');
     executionContainer.id = 'analysis-execution-container';
-    executionContainer.className = 'analysis-execution-card';
+    executionContainer.className = 'panel analysis-execution-card';
     executionContainer.hidden = true;
     const tabelaContainer = document.createElement('div');
     tabelaContainer.id = 'tabela-alteracoes-container';
@@ -81,7 +81,7 @@ window.addEventListener('DOMContentLoaded', function() {
         header.innerHTML = `<h3 class="grafo-painel-titulo">${titulo}</h3><span class="info-gasto"></span>`;
 
         const container = document.createElement('div');
-        container.className = 'grafo-container';
+        container.className = 'panel panel-flush grafo-container';
 
         const cyDiv = document.createElement('div');
         cyDiv.id = id;
@@ -93,7 +93,7 @@ window.addEventListener('DOMContentLoaded', function() {
         const loadingOverlay = document.createElement('div');
         loadingOverlay.className = 'analysis-loading-overlay';
         loadingOverlay.innerHTML = `
-            <div class="analysis-loading-card">
+            <div class="panel panel-floating analysis-loading-card">
                 <div class="analysis-loading-header">
                     <div class="analysis-loading-spinner"></div>
                     <p class="analysis-loading-title">Processando analise</p>
@@ -106,7 +106,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-loading-step">Aguardando resposta do servidor</span>
                     <span class="analysis-loading-percent">Progresso do algoritmo: --</span>
                 </div>
-                <button type="button" class="analysis-loading-cancel btn btn-outline-danger">Cancelar</button>
+                <button type="button" class="btn btn-secondary analysis-loading-cancel">Cancelar</button>
             </div>
         `;
 
@@ -509,27 +509,27 @@ window.addEventListener('DOMContentLoaded', function() {
         container.hidden = false;
         container.innerHTML = `
             <div class="analysis-summary-cards">
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Conflitos</span>
                     <span class="analysis-summary-value">${comparison.conflicts_before} → ${comparison.conflicts_after}</span>
                     <span class="analysis-summary-detail">${formatChange(comparison.conflicts_before, comparison.conflicts_after)}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label" title="Soma de w·s nas arestas em conflito">Interferência total</span>
                     <span class="analysis-summary-value">${formatNumber(comparison.interference_before)} → ${formatNumber(comparison.interference_after)}</span>
                     <span class="analysis-summary-detail">${formatChange(comparison.interference_before, comparison.interference_after)}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">APs alterados</span>
                     <span class="analysis-summary-value">${changed} de ${nodes}</span>
                     <span class="analysis-summary-detail">${nodes ? `${Math.round((changed / nodes) * 100)}% dos APs` : '-'}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Consumo em ${pluralizeDays(days)} <span class="analysis-summary-unit">(kWh)</span></span>
                     <span class="analysis-summary-value">${energyBefore != null && energyAfter != null ? `${formatNumber(energyBefore, 2)} → ${formatNumber(energyAfter, 2)}` : '-'}</span>
                     <span class="analysis-summary-detail">${formatChange(energyBefore, energyAfter, ' kWh')}${unmodeled}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">${escapeHtml(getStrategyDisplayName(execution.strategy))}</span>
                     <span class="analysis-summary-value">${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}</span>
                     <span class="analysis-summary-detail">${escapeHtml(solution)}</span>
@@ -537,7 +537,7 @@ window.addEventListener('DOMContentLoaded', function() {
             </div>
             ${bands.length ? `
             <div class="analysis-summary-bands">
-                <table>
+                <table class="app-table app-table-compact">
                     <caption>Resultados por faixa</caption>
                     <thead>
                         <tr>
@@ -1157,7 +1157,7 @@ window.addEventListener('DOMContentLoaded', function() {
     function exibirTabelaAlteracoes(nodes, estrategia = null) {
         const container = document.getElementById('tabela-alteracoes-container');
         container.innerHTML = '';
-        container.className = 'app-table-card analysis-changes';
+        container.className = 'panel analysis-changes';
 
         const tabela = document.createElement('table');
         tabela.className = 'app-table analysis-table';
@@ -1199,7 +1199,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 <td class="analysis-ap-name">${node.label || node.id}</td>
                 <td>${renderConfigPills(original, false)}</td>
                 <td class="td-proposta">${renderConfigPills(proposta, mudou)}</td>
-                <td><button class="analysis-edit-button btn-editar" type="button"><i class="fa-solid fa-pen"></i><span>Editar</span></button></td>
+                <td><button class="btn btn-secondary btn-sm analysis-edit-button btn-editar" type="button"><i class="fa-solid fa-pen"></i><span>Editar</span></button></td>
             `;
             tbody.appendChild(tr);
 
@@ -1264,7 +1264,7 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderConfigPills(config, highlight = false) {
-        const pillClass = highlight ? 'analysis-config-pill is-new' : 'analysis-config-pill';
+        const pillClass = highlight ? 'tag tag-accent' : 'tag';
         const changeIcon = highlight
             ? '<span class="analysis-change-icon" title="Configuracao alterada">&#8635;</span>'
             : '';

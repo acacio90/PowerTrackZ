@@ -7,7 +7,7 @@
 
 {% block content %}
 <section class="scal-page">
-    <div class="scal-card">
+    <div class="scal-card panel">
         <h1><i class="fas fa-gauge-high"></i> Teste de escalabilidade</h1>
         <p class="scal-lead">
             Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
@@ -57,16 +57,16 @@
         <p class="scal-error" id="scal-error" hidden></p>
     </div>
 
-    <div class="scal-card" id="scal-progress" hidden>
+    <div class="scal-card panel" id="scal-progress" hidden>
         <h2>Em execução</h2>
         <div class="scal-progress-bar"><span id="scal-progress-fill"></span></div>
         <div class="scal-progress-row">
             <span id="scal-progress-text"></span>
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="scal-cancel">Cancelar</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="scal-cancel">Cancelar</button>
         </div>
     </div>
 
-    <div class="scal-card" id="scal-result" hidden>
+    <div class="scal-card panel" id="scal-result" hidden>
         <h2 id="scal-result-title"></h2>
         <div class="scal-meta" id="scal-result-meta"></div>
         <div class="scal-breaks" id="scal-result-breaks"></div>
@@ -85,7 +85,7 @@
         <details class="scal-details">
             <summary>Tabela dos pontos medidos</summary>
             <div class="scal-table-wrap">
-                <table class="scal-table">
+                <table class="app-table app-table-compact scal-table">
                     <thead>
                         <tr>
                             <th scope="col">APs</th>
@@ -107,10 +107,10 @@
         </details>
     </div>
 
-    <div class="scal-card">
+    <div class="scal-card panel">
         <h2>Histórico de execuções</h2>
         <div class="scal-table-wrap">
-            <table class="scal-table">
+            <table class="app-table app-table-compact scal-table">
                 <thead>
                     <tr>
                         <th scope="col">#</th>

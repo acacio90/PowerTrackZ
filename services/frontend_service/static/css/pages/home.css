@@ -1,8 +1,4 @@
 /* Página inicial */
-.card-body {
-    padding: 1.5rem;
-}
-
 .home-header {
     text-align: center;
     padding: 3rem 0;
@@ -27,7 +23,7 @@
     line-height: 1.6;
 }
 
-/* Grid de features */
+/* Grade de funcionalidades: cada cartão é um .panel */
 .features-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 360px));
@@ -38,20 +34,12 @@
     margin: 0 auto;
 }
 
-/* Cards */
 .feature-card {
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
     height: 100%;
-}
-
-.feature-card:hover {
-    box-shadow: var(--shadow-md);
+    padding: var(--space-6);
 }
 
 .feature-card .card-body {
-    padding: 2rem;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -71,9 +59,6 @@
 }
 
 .feature-card .card-title {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-strong);
     margin-bottom: 1rem;
     line-height: var(--line-height-tight);
 }
@@ -85,47 +70,10 @@
     flex-grow: 1;
 }
 
-/* Botões */
 .feature-card .btn {
     width: 100%;
-    padding: 0.75rem 1.5rem;
-    font-weight: var(--font-weight-medium);
-    text-align: center;
-    border-radius: var(--radius-md);
-    transition: all 0.2s ease;
 }
 
-.btn-infrastructure {
-    background-color: var(--color-accent);
-    color: var(--color-on-accent);
-}
-
-.btn-infrastructure:hover {
-    background-color: var(--color-accent);
-    color: var(--color-on-accent);
-}
-
-.btn-analysis {
-    background-color: var(--color-accent);
-    color: var(--color-on-accent);
-}
-
-.btn-analysis:hover {
-    background-color: var(--color-accent-hover);
-    color: var(--color-on-accent);
-}
-
-.btn-scalability {
-    background-color: var(--color-accent);
-    color: var(--color-on-accent);
-}
-
-.btn-scalability:hover {
-    background-color: var(--color-accent-hover);
-    color: var(--color-on-accent);
-}
-
-/* Responsividade */
 @media (max-width: 1024px) {
     .features-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -141,18 +89,17 @@
     .home-title {
         font-size: var(--font-size-2xl);
     }
-    
+
     .home-subtitle {
-        font-size: var(--font-size-lg);
         padding: 0 1rem;
     }
-    
+
     .features-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
 
-    .feature-card .card-body {
-        padding: 1.5rem;
+    .feature-card {
+        padding: var(--space-5);
     }
-} 
+}

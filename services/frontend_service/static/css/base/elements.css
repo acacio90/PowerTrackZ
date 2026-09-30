@@ -6,7 +6,13 @@
 }
 
 html {
-    font-size: 16px !important;
+    font-size: 16px;
+}
+
+/* Foco do teclado visível em todos os elementos interativos; campos e botões usam o anel de foco próprio. */
+:where(a, button, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 body {

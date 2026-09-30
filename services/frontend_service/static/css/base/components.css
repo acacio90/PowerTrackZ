@@ -1,60 +1,10 @@
-/* Tabela padrão (app-table) */
-.app-table-card {
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-    padding: 1.5rem;
-}
+/*
+ * Componentes compartilhados: barra de navegação, botões, campos, painéis, tabelas, chips e selos, modais,
+ * status e rodapé. Cada tipo de componente tem um único estilo, baseado nos tokens (tokens.css).
+ * Documentação: docs/design/README.md (pt-BR: docs/design/README.pt-BR.md).
+ */
 
-.app-table-title {
-    margin: 0 0 1rem;
-    font-size: var(--font-size-xl);
-    line-height: 1.15;
-    color: var(--color-text-strong);
-}
-
-.app-table-shell {
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-}
-
-.app-table-wrap {
-    overflow-x: auto;
-}
-
-.app-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    table-layout: fixed;
-}
-
-.app-table th,
-.app-table td {
-    padding: 1rem 1.1rem;
-    text-align: left;
-    vertical-align: middle;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.app-table th {
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text);
-}
-
-.app-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.app-table tbody tr:hover {
-    background: var(--color-surface-muted);
-}
-
-/* Navbar */
+/* ---------- Barra de navegação ---------- */
 .navbar {
     height: var(--navbar-height);
     background-color: var(--color-surface-inverse);
@@ -84,6 +34,12 @@
     padding: 0;
     height: 100%;
     margin: 0;
+}
+
+/* O Bootstrap escurece a marca no hover (pensado para barra clara); aqui ela mantém a cor. */
+.navbar-brand:hover,
+.navbar-brand:focus {
+    color: var(--color-on-inverse);
 }
 
 .navbar-brand i {
@@ -150,7 +106,12 @@
     font-size: var(--font-size-lg);
 }
 
-/* Responsividade do Navbar */
+/* Sobre a barra escura, o contorno de foco usa o destaque claro. */
+.navbar :focus-visible {
+    outline-color: var(--color-accent-light);
+    outline-offset: -2px;
+}
+
 @media (max-width: 768px) {
     .navbar {
         height: auto;
@@ -189,7 +150,337 @@
     }
 }
 
-/* Modal */
+/* ---------- Botões ----------
+ * Usa o .btn do Bootstrap e define as variantes pelas variáveis dele (--bs-btn-*), para que hover, ativo,
+ * foco e desabilitado sigam o mesmo mecanismo em todas: principal (.btn-primary), secundário (.btn-secondary),
+ * perigo (.btn-danger) e discreto (.btn-ghost), em dois tamanhos (padrão e .btn-sm).
+ */
+.btn {
+    --bs-btn-padding-x: 1rem;
+    --bs-btn-padding-y: 0.5rem;
+    --bs-btn-font-family: var(--font-family-base);
+    --bs-btn-font-size: var(--font-size-md);
+    --bs-btn-font-weight: var(--font-weight-semibold);
+    --bs-btn-line-height: 1.4;
+    --bs-btn-border-width: 1px;
+    --bs-btn-border-radius: var(--radius-sm);
+    --bs-btn-box-shadow: none;
+    --bs-btn-focus-box-shadow: var(--shadow-focus);
+    --bs-btn-disabled-opacity: 0.55;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-sm {
+    --bs-btn-padding-x: 0.65rem;
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-font-size: var(--font-size-sm);
+    --bs-btn-border-radius: var(--radius-sm);
+}
+
+.btn-primary {
+    --bs-btn-color: var(--color-on-accent);
+    --bs-btn-bg: var(--color-accent);
+    --bs-btn-border-color: var(--color-accent);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-accent-hover);
+    --bs-btn-hover-border-color: var(--color-accent-hover);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-accent-hover);
+    --bs-btn-active-border-color: var(--color-accent-hover);
+    --bs-btn-disabled-color: var(--color-on-accent);
+    --bs-btn-disabled-bg: var(--color-accent);
+    --bs-btn-disabled-border-color: var(--color-accent);
+}
+
+.btn-secondary {
+    --bs-btn-color: var(--color-text);
+    --bs-btn-bg: var(--color-surface);
+    --bs-btn-border-color: var(--color-border-strong);
+    --bs-btn-hover-color: var(--color-text-strong);
+    --bs-btn-hover-bg: var(--color-surface-sunken);
+    --bs-btn-hover-border-color: var(--color-border-strong);
+    --bs-btn-active-color: var(--color-text-strong);
+    --bs-btn-active-bg: var(--color-surface-sunken);
+    --bs-btn-active-border-color: var(--color-border-strong);
+    --bs-btn-disabled-color: var(--color-text-muted);
+    --bs-btn-disabled-bg: var(--color-surface);
+    --bs-btn-disabled-border-color: var(--color-border);
+}
+
+.btn-danger {
+    --bs-btn-color: var(--color-danger);
+    --bs-btn-bg: var(--color-surface);
+    --bs-btn-border-color: var(--color-danger-border);
+    --bs-btn-hover-color: var(--color-on-accent);
+    --bs-btn-hover-bg: var(--color-danger);
+    --bs-btn-hover-border-color: var(--color-danger);
+    --bs-btn-active-color: var(--color-on-accent);
+    --bs-btn-active-bg: var(--color-danger);
+    --bs-btn-active-border-color: var(--color-danger);
+    --bs-btn-disabled-color: var(--color-danger);
+    --bs-btn-disabled-bg: var(--color-surface);
+    --bs-btn-disabled-border-color: var(--color-danger-border);
+}
+
+.btn-ghost {
+    --bs-btn-color: var(--color-accent);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--color-accent-hover);
+    --bs-btn-hover-bg: var(--color-accent-soft);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--color-accent-hover);
+    --bs-btn-active-bg: var(--color-accent-soft);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--color-text-muted);
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-border-color: transparent;
+}
+
+/* ---------- Campos de formulário ----------
+ * Um único estilo para campos de texto, número e seleção. O :where() mantém a especificidade zero para os
+ * elementos, e .form-control/.form-select vencem as regras do Bootstrap, carregado antes.
+ */
+.form-control,
+.form-select,
+:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]), select, textarea) {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    color: var(--color-text-strong);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    line-height: 1.4;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus,
+.form-select:focus,
+:where(input, select, textarea):focus {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
+    outline: none;
+}
+
+.form-control::placeholder,
+:where(input, textarea)::placeholder {
+    color: var(--color-text-muted);
+}
+
+.form-control:disabled,
+:where(input, select, textarea):disabled {
+    background-color: var(--color-surface-sunken);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+:where(select) {
+    cursor: pointer;
+}
+
+/* Ícone ao lado do campo (input-group do Bootstrap), com a mesma borda e altura dos campos */
+.input-group-text {
+    padding: 0.5rem 0.75rem;
+    border-color: var(--color-border-strong);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-md);
+    line-height: 1.4;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-group label,
+.form-label {
+    color: var(--color-text);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-md);
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group label i {
+    color: var(--color-accent);
+}
+
+/* ---------- Painéis ----------
+ * .panel é a superfície padrão de cartões e seções. Modificadores: .panel-compact (menos espaço interno),
+ * .panel-flush (quase sem espaço, para grafos), .panel-muted (fundo neutro, sem sombra) e .panel-floating
+ * (elementos sobrepostos ao conteúdo).
+ */
+.panel {
+    padding: var(--space-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.panel-compact {
+    padding: var(--space-3) var(--space-4);
+}
+
+.panel-flush {
+    padding: var(--space-2);
+}
+
+.panel-muted {
+    background: var(--color-surface-muted);
+    box-shadow: none;
+}
+
+.panel-floating {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+
+.card-title {
+    color: var(--color-text-strong);
+    font-size: var(--font-size-xl);
+    margin-bottom: 1.5rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+/* ---------- Tabelas ----------
+ * .app-table é a tabela padrão; .app-table-compact, a versão densa para tabelas de dados e histórico.
+ * O contorno fica no .app-table-shell, e a rolagem horizontal, no .app-table-wrap.
+ */
+.app-table-title {
+    margin: 0 0 1rem;
+    font-size: var(--font-size-xl);
+    line-height: 1.15;
+    color: var(--color-text-strong);
+}
+
+.app-table-shell {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+}
+
+.app-table-wrap {
+    overflow-x: auto;
+}
+
+.app-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: var(--font-size-md);
+}
+
+.app-table th,
+.app-table td {
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-strong);
+}
+
+.app-table th {
+    background: var(--color-surface-muted);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+}
+
+.app-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.app-table tbody tr:hover {
+    background: var(--color-surface-muted);
+}
+
+.app-table-compact {
+    table-layout: auto;
+    font-size: var(--font-size-sm);
+}
+
+.app-table-compact th,
+.app-table-compact td {
+    padding: 0.45rem 0.6rem;
+    white-space: nowrap;
+}
+
+.app-table-compact thead th {
+    background: transparent;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* ---------- Chips e selos ----------
+ * .chip é interativo (atalhos e filtros); .tag é só informativo, com as variantes .tag-accent e .tag-outline.
+ */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0.2rem 0.65rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text-strong);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.chip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent-hover);
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0.2rem 0.6rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
+    color: var(--color-text);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.tag-accent {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-hover);
+}
+
+.tag-outline {
+    background: transparent;
+    border-color: var(--color-border);
+    color: var(--color-text-strong);
+}
+
+/* ---------- Modais ----------
+ * Os modais da infraestrutura são abertos pelo JavaScript da página (display: flex). O de configurações usa o
+ * Bootstrap, com o fundo escuro vindo do próprio .modal; por isso o .modal-backdrop do Bootstrap fica oculto.
+ */
 .modal {
     display: none;
     position: fixed;
@@ -210,7 +501,7 @@
     padding: 0;
     width: 90%;
     max-width: 500px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     animation: slideIn 0.3s ease-in-out;
     display: flex;
@@ -253,150 +544,21 @@
     color: var(--color-text-strong);
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+.modal-backdrop {
+    display: none;
 }
 
-.form-group label {
-    color: var(--color-text);
-    font-weight: var(--font-weight-medium);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: var(--font-size-md);
+@media (max-width: 900px) {
+    .modal-content {
+        padding: 1rem;
+    }
 }
 
-.form-group label i {
-    color: var(--color-accent);
-}
-
-.form-group input,
-.form-group select {
-    padding: 0.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-md);
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-focus);
-    outline: none;
-}
-
-.form-group input::placeholder {
-    color: var(--color-text-muted);
-}
-
-.form-group select {
-    background-color: var(--color-surface);
-    cursor: pointer;
-}
-
-.form-group select option {
-    padding: 0.5rem;
-}
-
-.btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
-}
-
-.btn-primary {
-    background-color: var(--color-accent);
-    color: var(--color-on-accent);
-}
-
-.btn-primary:hover {
-    background-color: var(--color-accent-hover);
-}
-
-.btn-secondary {
-    background-color: var(--color-text-muted);
-    color: var(--color-on-accent);
-}
-
-.btn-secondary:hover {
-    background-color: var(--color-text);
-}
-
-/* Estados dos botões do Bootstrap (hover, foco, ativo e desabilitado) com as cores dos tokens */
-.btn-primary {
-    --bs-btn-color: var(--color-on-accent);
-    --bs-btn-bg: var(--color-accent);
-    --bs-btn-border-color: var(--color-accent);
-    --bs-btn-hover-color: var(--color-on-accent);
-    --bs-btn-hover-bg: var(--color-accent-hover);
-    --bs-btn-hover-border-color: var(--color-accent-hover);
-    --bs-btn-active-color: var(--color-on-accent);
-    --bs-btn-active-bg: var(--color-accent-hover);
-    --bs-btn-active-border-color: var(--color-accent-hover);
-    --bs-btn-disabled-bg: var(--color-accent);
-    --bs-btn-disabled-border-color: var(--color-accent);
-    --bs-btn-focus-shadow-rgb: 35, 109, 201;
-}
-
-.btn-secondary {
-    --bs-btn-bg: var(--color-text-muted);
-    --bs-btn-border-color: var(--color-text-muted);
-    --bs-btn-hover-bg: var(--color-text);
-    --bs-btn-hover-border-color: var(--color-text);
-    --bs-btn-active-bg: var(--color-text);
-    --bs-btn-active-border-color: var(--color-text);
-    --bs-btn-disabled-bg: var(--color-text-muted);
-    --bs-btn-disabled-border-color: var(--color-text-muted);
-}
-
-.btn-outline-primary {
-    --bs-btn-color: var(--color-accent);
-    --bs-btn-border-color: var(--color-accent);
-    --bs-btn-hover-color: var(--color-on-accent);
-    --bs-btn-hover-bg: var(--color-accent);
-    --bs-btn-hover-border-color: var(--color-accent);
-    --bs-btn-active-color: var(--color-on-accent);
-    --bs-btn-active-bg: var(--color-accent-hover);
-    --bs-btn-active-border-color: var(--color-accent-hover);
-    --bs-btn-disabled-color: var(--color-accent);
-    --bs-btn-disabled-border-color: var(--color-accent);
-    --bs-btn-focus-shadow-rgb: 35, 109, 201;
-}
-
-.btn-outline-secondary {
-    --bs-btn-color: var(--color-text);
-    --bs-btn-border-color: var(--color-border-strong);
-    --bs-btn-hover-color: var(--color-text-strong);
-    --bs-btn-hover-bg: var(--color-surface-sunken);
-    --bs-btn-hover-border-color: var(--color-border-strong);
-    --bs-btn-active-color: var(--color-text-strong);
-    --bs-btn-active-bg: var(--color-surface-sunken);
-    --bs-btn-active-border-color: var(--color-border-strong);
-    --bs-btn-disabled-color: var(--color-text-muted);
-    --bs-btn-disabled-border-color: var(--color-border);
-    --bs-btn-focus-shadow-rgb: 35, 109, 201;
-}
-
-.btn-outline-danger {
-    --bs-btn-color: var(--color-danger);
-    --bs-btn-border-color: var(--color-danger);
-    --bs-btn-hover-color: var(--color-on-accent);
-    --bs-btn-hover-bg: var(--color-danger);
-    --bs-btn-hover-border-color: var(--color-danger);
-    --bs-btn-active-color: var(--color-on-accent);
-    --bs-btn-active-bg: var(--color-danger);
-    --bs-btn-active-border-color: var(--color-danger);
-    --bs-btn-focus-shadow-rgb: 180, 35, 24;
+@media (max-width: 600px) {
+    .modal-content {
+        max-width: 98vw;
+        margin: 4% auto;
+    }
 }
 
 @keyframes fadeIn {
@@ -409,7 +571,20 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* Status de conexão */
+/* Salvar e Testar conexão com a mesma largura; o status da conexão fica na linha de baixo */
+.settings-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--space-3);
+}
+
+.settings-actions .connection-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+/* ---------- Status de conexão ---------- */
 .connection-status {
     display: inline-flex;
     align-items: center;
@@ -431,7 +606,33 @@
     color: var(--color-danger);
 }
 
-/* Footer */
+/* Alertas do Bootstrap (mensagens do sistema) com as cores de estado */
+.alert {
+    --bs-alert-border-radius: var(--radius-md);
+}
+
+.alert-success {
+    --bs-alert-color: var(--color-success);
+    --bs-alert-bg: var(--color-success-soft);
+    --bs-alert-border-color: var(--color-success-border);
+    --bs-alert-link-color: var(--color-success);
+}
+
+.alert-warning {
+    --bs-alert-color: var(--color-warning);
+    --bs-alert-bg: var(--color-warning-soft);
+    --bs-alert-border-color: var(--color-warning-border);
+    --bs-alert-link-color: var(--color-warning);
+}
+
+.alert-danger {
+    --bs-alert-color: var(--color-danger);
+    --bs-alert-bg: var(--color-danger-soft);
+    --bs-alert-border-color: var(--color-danger-border);
+    --bs-alert-link-color: var(--color-danger);
+}
+
+/* ---------- Rodapé ---------- */
 .footer {
     background-color: var(--color-surface);
     border-top: 1px solid var(--color-border);
@@ -442,102 +643,4 @@
 .footer .container {
     text-align: center;
     color: var(--color-text-muted);
-}
-
-/* Títulos de cartão */
-.card-title {
-    color: var(--color-text-strong);
-    font-size: var(--font-size-xl) !important;
-    margin-bottom: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-}
-
-.form-label {
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text);
-    font-size: var(--font-size-base) !important;
-}
-
-.form-control {
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    padding: 0.5rem;
-    font-size: var(--font-size-base) !important;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.form-control:focus {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-focus);
-}
-
-/* Tabelas do Bootstrap */
-.table th {
-    background-color: var(--color-surface-muted);
-    font-weight: var(--font-weight-semibold);
-}
-
-.table td {
-    vertical-align: middle;
-}
-
-@media (max-width: 600px) {
-    .modal-content {
-        max-width: 98vw;
-        margin: 4% auto;
-    }
-}
-
-.btn.btn-primary {
-    background: var(--color-accent);
-    color: var(--color-on-accent);
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 0.5rem 1.2rem;
-    font-size: var(--font-size-base);
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.btn.btn-primary:hover {
-    background: var(--color-accent-hover);
-}
-
-@media (max-width: 900px) {
-    .modal-content {
-        padding: 1rem;
-    }
-}
-
-/* Modal de configurações (Bootstrap) */
-#settingsModal .modal-content {
-    z-index: 1070 !important;
-    position: relative;
-}
-
-/* Salvar e Testar conexão com a mesma largura; o status da conexão fica na linha de baixo */
-.settings-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-    gap: var(--space-3);
-}
-
-.settings-actions .btn {
-    justify-content: center;
-    padding: 0.6rem 1rem;
-    font-size: var(--font-size-md);
-    white-space: nowrap;
-}
-
-.settings-actions .connection-status {
-    grid-column: 1 / -1;
-    justify-self: start;
-}
-
-.modal-backdrop {
-    display: none !important;
-    background: none !important;
 }
