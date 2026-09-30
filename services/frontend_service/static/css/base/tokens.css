@@ -41,10 +41,20 @@
     --color-danger-soft: #fef2f2;
     --color-danger-border: #fca5a5;
 
-    /* Arestas dos grafos de conflito (legenda); a #96 alinha as cores do Cytoscape a estes tokens */
+    /* Grafos de conflito (Cytoscape) e gráficos (Chart.js): lidos também pelo JavaScript */
     --color-graph-conflict: #d62828;
     --color-graph-overlap: #c3cad2;
-    --color-graph-resolved: rgba(214, 40, 40, 0.45);
+    --color-graph-resolved: rgba(214, 40, 40, 0.35);
+
+    /* Paleta categórica validada para daltonismo (sempre nesta ordem; ver docs/design) */
+    --color-graph-series-1: #2a78d6;
+    --color-graph-series-2: #eb6834;
+    --color-graph-series-3: #1baf7a;
+    --color-graph-series-4: #eda100;
+    --color-graph-series-5: #e87ba4;
+    --color-graph-series-6: #008300;
+    --color-graph-series-7: #4a3aa7;
+    --color-graph-series-8: #e34948;
 
     /* Tipografia */
     --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

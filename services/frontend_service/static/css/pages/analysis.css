@@ -625,6 +625,22 @@
     border: 1px solid var(--color-border);
     flex-shrink: 0;
 }
+/* Amostra da legenda com a mesma forma do nó no grafo (a cor vem do JavaScript) */
+.cor-amostra.forma-round-rectangle {
+    border-radius: 3px;
+}
+.cor-amostra.forma-triangle {
+    border-radius: 0;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.cor-amostra.forma-diamond {
+    border-radius: 0;
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.cor-amostra.forma-hexagon {
+    border-radius: 0;
+    clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
 .nome-ap {
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
