@@ -114,7 +114,7 @@ class AccessPointController:
         
         except Exception as e:
             logger.error(f"Erro ao listar hosts: {str(e)}")
-            return jsonify({"error": f"Erro ao listar pontos de acesso: {str(e)}"}), 500
+            return jsonify({"error": f"Não foi possível listar os APs: {str(e)}"}), 500
 
     def get_host_details(self, host_id):
         """Obtém detalhes de um ponto de acesso"""
@@ -122,11 +122,11 @@ class AccessPointController:
             ap = AccessPoint.query.get(host_id)
             if ap:
                 return jsonify(ap.to_dict())
-            return jsonify({"error": "Ponto de acesso não encontrado"}), 404
+            return jsonify({"error": "AP não encontrado. Recarregue a página para atualizar a lista."}), 404
                 
         except Exception as e:
             logger.error(f"Erro ao buscar host {host_id}: {str(e)}")
-            return jsonify({"error": f"Erro ao buscar detalhes: {str(e)}"}), 500
+            return jsonify({"error": f"Não foi possível buscar os detalhes do AP: {str(e)}"}), 500
 
     def sync_zabbix_data(self):
         try:
@@ -154,10 +154,10 @@ class AccessPointController:
 
             db.session.commit()
             return jsonify({
-                "message": f"{len(processed_aps)} APs sincronizados",
+                "message": f"{len(processed_aps)} APs sincronizados.",
                 "access_points": [ap.to_dict() for ap in processed_aps]
             })
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Erro na sincronizacao: {str(e)}")
-            return jsonify({"error": f"Erro na sincronizacao: {str(e)}"}), 500
+            logger.error(f"Não foi possível sincronizar com o Zabbix: {str(e)}")
+            return jsonify({"error": f"Não foi possível sincronizar com o Zabbix: {str(e)}"}), 500

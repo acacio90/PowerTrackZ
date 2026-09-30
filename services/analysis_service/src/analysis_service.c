@@ -828,9 +828,9 @@ static cJSON *build_strategy_analysis_json(const AnalysisStrategy *strategy, con
 static cJSON *build_placeholder_analysis_json(const char *strategy, const Graph *graph, int thread_count) {
     cJSON *json = cJSON_CreateObject();
     cJSON_AddStringToObject(json, "strategy", strategy);
-    cJSON_AddStringToObject(json, "description", "Placeholder para preservar a chamada do frontend no servico em C");
+    cJSON_AddStringToObject(json, "description", "Estratégia reservada; ainda não implementada no serviço em C.");
     cJSON_AddBoolToObject(json, "implemented", false);
-    cJSON_AddStringToObject(json, "message", "Estrategia ainda nao portada para C");
+    cJSON_AddStringToObject(json, "message", "Estratégia ainda não implementada. Escolha outra estratégia.");
 
     cJSON *graph_metrics = cJSON_AddObjectToObject(json, "graph_metrics");
     cJSON_AddNumberToObject(graph_metrics, "nodes", graph->node_count);
@@ -1123,7 +1123,7 @@ static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
     memset(graph, 0, sizeof(*graph));
     cJSON *aps = cJSON_GetObjectItemCaseSensitive(payload, "aps");
     if (!cJSON_IsArray(aps) || cJSON_GetArraySize(aps) == 0) {
-        *error_message = dup_text("Lista de pontos de acesso vazia");
+        *error_message = dup_text("A lista de APs está vazia. Carregue os APs na página Sua infraestrutura.");
         return false;
     }
 
@@ -1152,7 +1152,7 @@ static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
     }
 
     if (graph->node_count == 0) {
-        *error_message = dup_text("Grafo vazio - nenhum ponto de acesso valido");
+        *error_message = dup_text("Nenhum AP válido para montar o grafo. Confira as coordenadas e as configurações dos APs.");
         return false;
     }
 
@@ -1309,7 +1309,7 @@ static void handle_strategies(int fd) {
         cJSON_AddItemToObject(detail, "parameters", build_strategy_parameters_json(strategy));
         cJSON_AddItemToArray(details, detail);
     }
-    cJSON_AddStringToObject(json, "message", "Estrategias disponiveis para analise de grafos");
+    cJSON_AddStringToObject(json, "message", "Estratégias disponíveis para a análise de grafos.");
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
@@ -1490,7 +1490,7 @@ static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *er
     memset(list, 0, sizeof(*list));
     cJSON *channels = cJSON_GetObjectItemCaseSensitive(payload, "channels");
     if (channels && !cJSON_IsNull(channels) && !cJSON_IsObject(channels)) {
-        snprintf(error, error_size, "Campo channels deve ser um objeto por faixa e largura de banda");
+        snprintf(error, error_size, "O campo channels deve ser um objeto por faixa e largura de banda.");
         return false;
     }
     bool has_selection = cJSON_IsObject(channels);
@@ -1500,7 +1500,7 @@ static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *er
         cJSON *band = NULL;
         cJSON_ArrayForEach(band, channels) {
             if (!cJSON_IsObject(band) || !cJSON_GetObjectItemCaseSensitive(valid, band->string)) {
-                snprintf(error, error_size, "Faixa invalida em channels: %s", band->string);
+                snprintf(error, error_size, "Faixa inválida em channels: %s.", band->string);
                 cJSON_Delete(valid);
                 return false;
             }
@@ -1508,7 +1508,7 @@ static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *er
             cJSON *width = NULL;
             cJSON_ArrayForEach(width, band) {
                 if (!cJSON_IsArray(width) || !cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(valid, band->string), width->string)) {
-                    snprintf(error, error_size, "Largura de banda invalida em %s: %s", band->string, width->string);
+                    snprintf(error, error_size, "Largura de banda inválida em %s: %s.", band->string, width->string);
                     cJSON_Delete(valid);
                     return false;
                 }
@@ -1518,10 +1518,10 @@ static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *er
                         snprintf(
                             error,
                             error_size,
-                            "Canal invalido em %s a %s: %s",
+                            "Canal inválido em %s a %s: %s.",
                             band->string,
                             width->string,
-                            cJSON_IsString(channel) ? channel->valuestring : "(nao textual)"
+                            cJSON_IsString(channel) ? channel->valuestring : "(não textual)"
                         );
                         cJSON_Delete(valid);
                         return false;
@@ -1531,7 +1531,7 @@ static bool build_requested_profiles(cJSON *payload, ProfileList *list, char *er
                 }
             }
             if (band_profiles == 0) {
-                snprintf(error, error_size, "Informe ao menos um canal para a faixa %s", band->string);
+                snprintf(error, error_size, "Selecione ao menos um canal para a faixa %s.", band->string);
                 cJSON_Delete(valid);
                 return false;
             }
@@ -1588,7 +1588,7 @@ static void handle_analyze_overview(int fd) {
     cJSON *aps = fetch_access_points();
     if (!aps || !cJSON_IsArray(aps)) {
         cJSON_Delete(aps);
-        send_json_error(fd, 500, "Erro ao buscar pontos de acesso");
+        send_json_error(fd, 500, "Não foi possível buscar os APs. Confira se o access_point_service está no ar.");
         return;
     }
 
@@ -1656,7 +1656,7 @@ static void handle_graph_metrics(int fd, cJSON *payload) {
     Graph graph;
     char *error_message = NULL;
     if (!build_graph(payload, &graph, &error_message)) {
-        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        send_json_error(fd, 400, error_message ? error_message : "Não foi possível montar o grafo. Confira os dados dos APs.");
         free(error_message);
         return;
     }
@@ -1699,7 +1699,7 @@ static void handle_collision_graph(int fd, cJSON *payload) {
     char *error_message = NULL;
     analysis_log(ANALYSIS_LOG_INFO, NULL, "POST /collision-graph iniciado");
     if (!build_graph(payload, &graph, &error_message)) {
-        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        send_json_error(fd, 400, error_message ? error_message : "Não foi possível montar o grafo. Confira os dados dos APs.");
         free(error_message);
         return;
     }
@@ -1719,7 +1719,7 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
     analysis_log(ANALYSIS_LOG_INFO, NULL, "POST /analyze-graph strategy=%s threads=%d", strategy, thread_count);
     const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
     if (!selected_strategy) {
-        send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
+        send_json_error(fd, 400, "Estratégia não encontrada. Use backtracking, greedy ou genetic.");
         return;
     }
     if (reject_invalid_parameters(fd, selected_strategy, payload)) {
@@ -1730,7 +1730,7 @@ static void handle_analyze_graph(int fd, cJSON *payload) {
         return;
     }
     if (!build_graph(payload, &graph, &error_message)) {
-        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        send_json_error(fd, 400, error_message ? error_message : "Não foi possível montar o grafo. Confira os dados dos APs.");
         free(error_message);
         free(profiles.items);
         return;
@@ -1753,7 +1753,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     const char *strategy = json_string(cJSON_GetObjectItemCaseSensitive(payload, "strategy"), "backtracking");
     const AnalysisStrategy *selected_strategy = find_analysis_strategy(strategy);
     if (!selected_strategy) {
-        send_json_error(fd, 400, "Estrategia nao encontrada. Estrategias disponiveis: backtracking, greedy, genetic");
+        send_json_error(fd, 400, "Estratégia não encontrada. Use backtracking, greedy ou genetic.");
         return;
     }
     if (reject_invalid_parameters(fd, selected_strategy, payload)) {
@@ -1775,7 +1775,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
     cJSON *started = cJSON_CreateObject();
     cJSON_AddStringToObject(started, "job_id", job->id);
     cJSON_AddStringToObject(started, "strategy", strategy);
-    cJSON_AddStringToObject(started, "message", "Montando grafo base e preparando atribuicao");
+    cJSON_AddStringToObject(started, "message", "Montando o grafo e preparando a atribuição.");
     if (!stream_event(fd, &stream_lock, "started", started)) {
         analysis_log(ANALYSIS_LOG_ERROR, job->id, "falha ao enviar evento started");
         free(profiles.items);
@@ -1790,7 +1790,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
         analysis_log(ANALYSIS_LOG_ERROR, job->id, "falha ao montar grafo: %s", error_message ? error_message : "erro desconhecido");
         cJSON *error_payload = cJSON_CreateObject();
         cJSON_AddBoolToObject(error_payload, "success", false);
-        cJSON_AddStringToObject(error_payload, "error", error_message ? error_message : "Erro ao montar grafo");
+        cJSON_AddStringToObject(error_payload, "error", error_message ? error_message : "Não foi possível montar o grafo. Confira os dados dos APs.");
         cJSON_AddNumberToObject(error_payload, "status_code", 400);
         stream_event(fd, &stream_lock, "error", error_payload);
         free(error_message);
@@ -1810,7 +1810,7 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
         analysis_log(ANALYSIS_LOG_INFO, job->id, "analise cancelada durante execucao");
         cJSON *cancelled = cJSON_CreateObject();
         cJSON_AddBoolToObject(cancelled, "success", false);
-        cJSON_AddStringToObject(cancelled, "error", "Analise cancelada pelo usuario");
+        cJSON_AddStringToObject(cancelled, "error", "Análise cancelada.");
         cJSON_AddStringToObject(cancelled, "job_id", job->id);
         stream_event(fd, &stream_lock, "cancelled", cancelled);
     } else {
@@ -1826,12 +1826,12 @@ static void handle_analyze_graph_stream(int fd, cJSON *payload) {
 static void handle_cancel_analysis(int fd, cJSON *payload) {
     const char *job_id = json_string(cJSON_GetObjectItemCaseSensitive(payload, "job_id"), NULL);
     if (!job_id || job_id[0] == '\0') {
-        send_json_error(fd, 400, "job_id obrigatorio");
+        send_json_error(fd, 400, "job_id é obrigatório.");
         return;
     }
     Job *job = find_job(job_id);
     if (!job) {
-        send_json_error(fd, 404, "Execucao nao encontrada ou ja finalizada");
+        send_json_error(fd, 404, "Execução não encontrada ou já finalizada.");
         return;
     }
     atomic_store(&job->cancelled, 1);
@@ -1843,7 +1843,7 @@ static void handle_cancel_analysis(int fd, cJSON *payload) {
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
     cJSON_AddStringToObject(json, "job_id", job_id);
-    cJSON_AddStringToObject(json, "message", "Cancelamento solicitado");
+    cJSON_AddStringToObject(json, "message", "Cancelamento solicitado.");
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     send_http(fd, 200, "OK", "application/json", text);
@@ -1859,7 +1859,7 @@ static void handle_compare_strategies(int fd, cJSON *payload) {
     }
     ProfileSet profile_set = {profiles.items, profiles.count};
     if (!build_graph(payload, &graph, &error_message)) {
-        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        send_json_error(fd, 400, error_message ? error_message : "Não foi possível montar o grafo. Confira os dados dos APs.");
         free(error_message);
         free(profiles.items);
         return;
@@ -2017,7 +2017,7 @@ static void free_request(Request *request) {
 
 static void route_request(int fd, Request *request) {
     if (!request) {
-        send_json_error(fd, 400, "Requisicao invalida");
+        send_json_error(fd, 400, "Requisição inválida.");
         return;
     }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/health") == 0) { handle_health(fd); return; }
@@ -2050,7 +2050,7 @@ static void route_request(int fd, Request *request) {
     } else if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/compare-strategies") == 0) {
         handle_compare_strategies(fd, payload);
     } else {
-        send_json_error(fd, 404, "Rota nao encontrada");
+        send_json_error(fd, 404, "Rota não encontrada.");
     }
 
     cJSON_Delete(payload);

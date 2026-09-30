@@ -23,7 +23,7 @@
                                     <i class="fas fa-cloud-arrow-down"></i> Carregar APs
                                 </button>
                                 <button class="btn btn-danger" id="btn-delete-selected" type="button">
-                                    <i class="fas fa-trash"></i> Excluir Selecionados
+                                    <i class="fas fa-trash"></i> Excluir selecionados
                                 </button>
                             </div>
                         </div>
@@ -37,9 +37,9 @@
                                         </th>
                                         <th>AP</th>
                                         <th>Coord.</th>
-                                        <th>Frq.</th>
-                                        <th>Banda</th>
-                                        <th>Cn</th>
+                                        <th>Faixa</th>
+                                        <th>Largura</th>
+                                        <th>Canal</th>
                                         <th aria-label="Editar"></th>
                                     </tr>
                                 </thead>
@@ -86,7 +86,7 @@
                     <div class="panel">
                         <h2 class="card-title">
                             <i class="fas fa-map-marked-alt"></i>
-                            Mapa de Pontos de Acesso
+                            Mapa dos pontos de acesso
                         </h2>
                         <div class="map-container">
                             <button class="map-add-button" id="btn-add-point" type="button" aria-label="Adicionar ponto de acesso">
@@ -108,7 +108,7 @@
         <div id="modal-add-point" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2><i class="fas fa-wifi"></i> Novo Ponto de Acesso</h2>
+                    <h2><i class="fas fa-wifi"></i> Novo ponto de acesso</h2>
                     <span class="close" id="close-modal">&times;</span>
                 </div>
 
@@ -129,7 +129,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="modal-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
+                            <label for="modal-frequency"><i class="fas fa-wave-square"></i> Faixa (GHz)</label>
                             <select id="modal-frequency" name="frequency" required class="form-control"></select>
                         </div>
 
@@ -147,7 +147,7 @@
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="cancel-modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Registrar
+                            <i class="fas fa-plus"></i> Adicionar
                         </button>
                     </div>
                 </form>
@@ -157,7 +157,7 @@
         <div id="modal-edit-point" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2><i class="fas fa-edit"></i> Editar Ponto de Acesso</h2>
+                    <h2><i class="fas fa-edit"></i> Editar ponto de acesso</h2>
                     <span class="close" id="close-edit-modal">&times;</span>
                 </div>
                 <form id="form-edit-point">
@@ -175,7 +175,7 @@
                             <input type="text" id="edit-longitude" name="longitude" required>
                         </div>
                         <div class="form-group">
-                            <label for="edit-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
+                            <label for="edit-frequency"><i class="fas fa-wave-square"></i> Faixa (GHz)</label>
                             <select id="edit-frequency" name="frequency" required class="form-control"></select>
                         </div>
                         <div class="form-group">
@@ -191,7 +191,7 @@
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" id="cancel-edit-modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Salvar Alterações
+                            <i class="fas fa-save"></i> Salvar alterações
                         </button>
                     </div>
                 </form>
@@ -225,7 +225,7 @@
 
                     <form id="form-load-generate" class="panel panel-muted panel-compact load-generate" hidden>
                         <div class="form-group">
-                            <label for="generate-node-count"><i class="fas fa-circle-nodes"></i> Quantidade de nós</label>
+                            <label for="generate-node-count"><i class="fas fa-circle-nodes"></i> Quantidade de APs</label>
                             <input type="number" id="generate-node-count" min="2" max="1000" value="12" required>
                         </div>
                         <div class="form-group">
@@ -256,9 +256,9 @@
                                     <tr>
                                         <th>AP</th>
                                         <th>ID</th>
-                                        <th>Frq.</th>
-                                        <th>Banda</th>
-                                        <th>Cn</th>
+                                        <th>Faixa</th>
+                                        <th>Largura</th>
+                                        <th>Canal</th>
                                         <th>Coord.</th>
                                     </tr>
                                 </thead>
@@ -354,7 +354,7 @@
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok || !result.success) {
-            throw new Error(result.error || `Erro ao remover ponto ${pointId}.`);
+            throw new Error(result.error || `Não foi possível excluir o AP ${pointId}. Recarregue a página e tente de novo.`);
         }
 
         const row = document.querySelector(`tr[data-point-id="${CSS.escape(pointId)}"]`);
@@ -367,7 +367,7 @@
         e.preventDefault();
         const id = document.getElementById('edit-id').value.trim();
         if (!id) {
-            alert('ID do ponto de acesso não encontrado. Não é possível atualizar.');
+            alert('Não foi possível identificar o AP. Feche o formulário e abra a edição de novo.');
             return;
         }
         const payload = {
@@ -388,16 +388,16 @@
             try {
                 result = await response.json();
             } catch (jsonErr) {
-                alert('Erro inesperado: resposta não é JSON.');
+                alert('O servidor respondeu em um formato inesperado. Tente salvar de novo.');
                 return;
             }
             if (response.ok && result.success) {
                 window.location.reload();
             } else {
-                alert(result.error || 'Erro ao atualizar ponto de acesso.');
+                alert(result.error || 'Não foi possível salvar as alterações do AP. Tente de novo.');
             }
         } catch (err) {
-            alert('Erro ao atualizar ponto de acesso: ' + err);
+            alert('Não foi possível salvar as alterações do AP. Confira a conexão e tente de novo.');
         }
     };
 
@@ -438,7 +438,7 @@
                         window.refreshAccessPointMap();
                     }
                 } catch (err) {
-                    alert(err.message || 'Erro ao remover pontos selecionados.');
+                    alert(err.message || 'Não foi possível excluir os APs selecionados. Tente de novo.');
                 }
             });
         }
@@ -480,7 +480,7 @@
                 if (response.ok) {
                     window.location.reload();
                 } else {
-                    alert(result.error || 'Erro ao cadastrar ponto.');
+                    alert(result.error || 'Não foi possível adicionar o AP. Confira os campos e tente de novo.');
                 }
             });
         }

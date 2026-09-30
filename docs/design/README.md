@@ -227,3 +227,44 @@ Fixed values that remain outside the tokens:
 - the color of each legend swatch and chart series, applied by JavaScript from the palette tokens.
 
 The style sheets do not use `!important`: the overrides of Leaflet (`.map-container .leaflet-*`) and of the inventory rows win through selector specificity.
+
+## Interface text
+
+The interface is written in Brazilian Portuguese, with full accentuation. Code comments and log messages may remain unaccented, following the code convention.
+
+### Conventions
+
+- Capital letter only on the first word of titles, labels and buttons ("Salvar alterações", "Metadados da execução"), except proper names and acronyms (AP, Zabbix, JSON).
+- Buttons state the action in the infinitive: "Executar análise", "Carregar APs", "Excluir selecionados".
+- No exclamation marks. States in progress end with an ellipsis ("Salvando…"); confirmations are short and use the participle ("Configuração salva.").
+- Numbers with a decimal comma and the unit separated by a space ("2,4 GHz", "60 s", "84,53 kWh").
+
+### Error messages
+
+Every error message says what happened and what to do, in that order:
+
+- "Não foi possível carregar o grafo. Recarregue a página." (the graph could not be loaded; reload the page)
+- "A execução ainda está em andamento. Cancele-a antes de excluir." (the run is still in progress; cancel it before deleting)
+- "Usuário ou senha inválidos. Confira as credenciais do Zabbix." (invalid user or password; check the Zabbix credentials)
+
+Field validation messages state the expected value ("Informe um inteiro entre 2 e 1000."). The services return messages in the same format, and the interface shows them as received; when a service does not respond, the interface shows "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo.".
+
+### Glossary
+
+| Term (pt-BR) | Use |
+|---|---|
+| AP | Access point. "AP" in running text and labels; "ponto de acesso" spelled out in titles and descriptions. |
+| Faixa | Band: 2.4, 5 or 6 GHz. In forms and tables, "Faixa" (not "Frequência"). |
+| Largura (de banda) | Bandwidth: 20, 40, 80 or 160 MHz. |
+| Canal | The AP's primary channel (or the pair, such as 7+11, at 40 MHz in 2.4 GHz). |
+| Configuração | Combination of band, bandwidth and channel of an AP. |
+| Perfil | Configuration available to the strategies; k is the number of profiles in a band. |
+| Conflito | Pair of APs with overlapping coverage and overlapping channels (interference greater than zero). Do not use "colisão". |
+| Sobreposição | Overlapping coverage without conflict. |
+| Interferência | Sum of w·s over the conflicting edges (spatial × spectral overlap). |
+| Estratégia | Method that proposes the configurations: Backtracking, Guloso (greedy) and Algoritmo genético (genetic algorithm). |
+| Análise | Running a strategy on the graph, on the Análise page. |
+| Execução | One run of the scalability test ("Execução #4"). |
+| Nó | Only for the nodes explored by the search; in the graph, vertices are "APs". |
+| Ponto de quebra | Break point: first network size at which a strategy no longer solves the problem within the time limit. |
+| Consumo / Potência | Energy in kWh over the period / power in W. |

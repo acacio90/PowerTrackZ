@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) {
-            throw new Error(data.error || `Falha na requisição (${response.status}).`);
+            throw new Error(data.error || `O servidor respondeu com erro (${response.status}). Tente de novo.`);
         }
         return data;
     }
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await requestJson('/api/analysis/strategies');
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
-            displayNames = { backtracking: 'Backtracking', greedy: 'Greedy', genetic: 'Genetic' };
+            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', genetic: 'Algoritmo genético' };
             const implemented = details.filter(detail => detail.implemented);
             strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
                 <label>
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="scal-kind">(${detail.exact ? 'exato' : 'sem garantia de ótimo'})</span>
                 </label>`).join('');
         } catch (error) {
-            strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)}</span>`;
+            strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)} Recarregue a página.</span>`;
         }
     }
 

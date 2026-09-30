@@ -376,12 +376,12 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
     def test_rejects_invalid_channel_selections(self):
         aps = [self.ap_at("a24-1", "2.4 GHz", "1")]
         invalid_cases = [
-            ({"2.4 GHz": {"60 MHz": ["1"]}}, "Largura de banda invalida"),
-            ({"2.4 GHz": {"20 MHz": ["14"]}}, "Canal invalido"),
-            ({"5 GHz": {"40 MHz": ["165"]}}, "Canal invalido"),
-            ({"3 GHz": {"20 MHz": ["1"]}}, "Faixa invalida"),
+            ({"2.4 GHz": {"60 MHz": ["1"]}}, "Largura de banda inválida"),
+            ({"2.4 GHz": {"20 MHz": ["14"]}}, "Canal inválido"),
+            ({"5 GHz": {"40 MHz": ["165"]}}, "Canal inválido"),
+            ({"3 GHz": {"20 MHz": ["1"]}}, "Faixa inválida"),
             ({"2.4 GHz": {"20 MHz": []}}, "ao menos um canal"),
-            (["1", "6"], "Campo channels"),
+            (["1", "6"], "campo channels"),
         ]
         for channels, message in invalid_cases:
             with self.subTest(channels=channels):

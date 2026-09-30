@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Análise de Pontos de Acesso{% endblock %}
+{% block title %}Análise - PowerTrackZ{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/analysis.css') }}">
@@ -12,11 +12,11 @@
             <div class="analysis-hero panel">
                 <span class="analysis-kicker">
                     <i class="fa-solid fa-chart-line"></i>
-                    Painel de Análise
+                    Painel de análise
                 </span>
-                <h1>Análise de Pontos de Acesso</h1>
+                <h1>Análise dos pontos de acesso</h1>
                 <p class="analysis-subtitle">
-                    Compare estratégias de otimização, visualize colisões e acompanhe as configurações propostas
+                    Compare estratégias de otimização, visualize os conflitos e acompanhe as configurações propostas
                     para cada AP sem dispersar a leitura do grafo.
                 </p>
 
@@ -30,22 +30,22 @@
                         </div>
                         <div class="strategy-button-wrapper">
                             <button class="btn btn-server-analysis" data-strategy="greedy">
-                                <i class="fa-solid fa-bolt"></i> Greedy
+                                <i class="fa-solid fa-bolt"></i> Guloso
                             </button>
                         </div>
                         <div class="strategy-button-wrapper">
                             <button class="btn btn-server-analysis" data-strategy="genetic">
-                                <i class="fa-solid fa-dna"></i> Genetic
+                                <i class="fa-solid fa-dna"></i> Algoritmo genético
                             </button>
                         </div>
                     </div>
                     <div id="analysis-parameters" class="analysis-parameters">
-                        <p class="analysis-parameter-meta">Selecione uma estrategia para ver os parametros.</p>
+                        <p class="analysis-parameter-meta">Selecione uma estratégia para ver os parâmetros.</p>
                     </div>
                     <div class="analysis-channels">
                         <span class="analysis-toolbar-label">Canais disponíveis por faixa</span>
                         <div id="analysis-channels">
-                            <p class="analysis-parameter-meta">Carregando canais...</p>
+                            <p class="analysis-parameter-meta">Carregando canais…</p>
                         </div>
                     </div>
                     <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
@@ -61,7 +61,7 @@
                             </label>
                         </div>
                         <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
-                            <i class="fa-solid fa-play"></i> Executar analise
+                            <i class="fa-solid fa-play"></i> Executar análise
                         </button>
                     </div>
                 </div>

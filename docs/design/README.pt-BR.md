@@ -227,3 +227,44 @@ Valores fixos que continuam fora dos tokens:
 - a cor de cada amostra da legenda e de cada série nos gráficos, aplicada pelo JavaScript a partir dos tokens da paleta.
 
 As folhas de estilo não usam `!important`: as sobrescritas do Leaflet (`.map-container .leaflet-*`) e das linhas do inventário vencem pela especificidade dos seletores.
+
+## Textos da interface
+
+A interface é escrita em português do Brasil, com acentuação completa. Comentários e mensagens de log no código podem continuar sem acento, conforme o padrão do código.
+
+### Convenções
+
+- Maiúscula só na primeira palavra de títulos, rótulos e botões ("Salvar alterações", "Metadados da execução"), exceto nomes próprios e siglas (AP, Zabbix, JSON).
+- Botões dizem a ação no infinitivo: "Executar análise", "Carregar APs", "Excluir selecionados".
+- Sem ponto de exclamação. Estados em andamento terminam com reticências ("Salvando…"); confirmações são curtas e no particípio ("Configuração salva.").
+- Números com vírgula decimal e unidade separada por espaço ("2,4 GHz", "60 s", "84,53 kWh").
+
+### Mensagens de erro
+
+Toda mensagem de erro diz o que aconteceu e o que fazer, nessa ordem:
+
+- "Não foi possível carregar o grafo. Recarregue a página."
+- "A execução ainda está em andamento. Cancele-a antes de excluir."
+- "Usuário ou senha inválidos. Confira as credenciais do Zabbix."
+
+As mensagens de validação de campo dizem o valor esperado ("Informe um inteiro entre 2 e 1000."). Os serviços devolvem mensagens no mesmo formato, e a interface as mostra como vieram; quando um serviço não responde, a interface mostra "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo.".
+
+### Glossário
+
+| Termo | Uso |
+|---|---|
+| AP | Ponto de acesso. "AP" no texto corrido e em rótulos; "ponto de acesso" por extenso em títulos e descrições. |
+| Faixa | 2,4, 5 ou 6 GHz. Nos formulários e tabelas, "Faixa" (e não "Frequência"). |
+| Largura (de banda) | 20, 40, 80 ou 160 MHz. |
+| Canal | Canal primário do AP (ou o par, como 7+11, a 40 MHz em 2,4 GHz). |
+| Configuração | Combinação de faixa, largura e canal de um AP. |
+| Perfil | Configuração disponível para as estratégias; k é o número de perfis de uma faixa. |
+| Conflito | Par de APs com coberturas sobrepostas e canais que se sobrepõem (interferência maior que zero). Não usar "colisão". |
+| Sobreposição | Coberturas sobrepostas sem conflito. |
+| Interferência | Soma de w·s nas arestas em conflito (sobreposição espacial × espectral). |
+| Estratégia | Método que propõe as configurações: Backtracking, Guloso e Algoritmo genético. |
+| Análise | Execução de uma estratégia sobre o grafo, na página Análise. |
+| Execução | Uma rodada do teste de escalabilidade ("Execução #4"). |
+| Nó | Só para os nós explorados pela busca; no grafo, os vértices são "APs". |
+| Ponto de quebra | Primeiro tamanho de rede em que uma estratégia deixa de resolver o problema no limite de tempo. |
+| Consumo / Potência | Energia em kWh no período / potência em W. |
