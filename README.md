@@ -1,49 +1,51 @@
-﻿# PowerTrackZ
+# PowerTrackZ
 
-PowerTrackZ e um sistema de monitoramento e analise de pontos de acesso WiFi, com foco em deteccao de interferencia e otimizacao de configuracoes.
+**English** | [Português](README.pt-BR.md)
 
-## Funcionalidades
+PowerTrackZ is a system for monitoring and analyzing Wi-Fi access points, focused on detecting interference and optimizing their configurations.
 
-- Cadastro, importacao e geracao de pontos de acesso
-- Integracao com Zabbix externo para carregar APs monitorados
-- Mapa interativo no frontend com Leaflet
-- Analise de colisao e otimizacao por algoritmos em C
-- Execucao via Docker Compose
+## Features
 
-## Arquitetura
+- Registration, import and generation of access points
+- Integration with an external Zabbix to load monitored APs
+- Interactive map in the frontend with Leaflet
+- Collision analysis and optimization by algorithms written in C
+- Runs with Docker Compose
+
+## Architecture
 
 ```text
 PowerTrackZ/
 ├── services/
-│   ├── frontend_service/       # Interface web e mapa
-│   ├── access_point_service/   # CRUD, importacao, geracao e Zabbix
-│   └── analysis_service/       # Algoritmos de analise
-├── scripts/                    # Automacao e manutencao
-├── docs/                       # Documentacao
+│   ├── frontend_service/       # Web interface and map
+│   ├── access_point_service/   # CRUD, import, generation and Zabbix
+│   └── analysis_service/       # Analysis algorithms
+├── scripts/                    # Automation and maintenance
+├── docs/                       # Documentation
 └── docker-compose.yml
 ```
 
-## Servicos
+## Services
 
-### Frontend Service (porta 3000)
-- Entrada principal em `http://localhost:3000`
-- Paginas web, assets e mapa interativo
-- Rotas `/api/*` usadas pela interface
+### Frontend Service (port 3000)
+- Main entry point at `http://localhost:3000`
+- Web pages, assets and interactive map
+- `/api/*` routes used by the interface
 
-### Access Point Service (porta 5004)
-- CRUD de pontos de acesso
-- Importacao e geracao de APs
-- Configuracao, teste e sincronizacao com Zabbix externo
-- Persistencia dos APs cadastrados
+### Access Point Service (port 5004)
+- Access point CRUD
+- AP import and generation
+- Configuration, testing and synchronization with the external Zabbix
+- Persistence of registered APs
 
-### Analysis Service (porta 5002)
-- Analise de colisao entre pontos de acesso
-- Estrategias de otimizacao
-- Respostas em streaming para a interface
+### Analysis Service (port 5002)
+- Collision analysis between access points
+- Optimization strategies
+- Streaming responses to the interface
 
-## Instalar e Rodar
+## Install and Run
 
-Copie o arquivo de variaveis de ambiente antes da primeira execucao; sem ele, os servicos nao recebem os enderecos uns dos outros.
+Copy the environment variables file before the first run; without it, the services do not receive each other's addresses.
 
 ```bash
 cp .env.example .env
@@ -51,7 +53,7 @@ docker compose build
 docker compose up -d --remove-orphans
 ```
 
-Acesse:
+Open:
 
 ```text
 http://localhost:3000
@@ -65,9 +67,10 @@ http://localhost:3000
 ./scripts/monitor.sh
 ```
 
-## Documentacao
+## Documentation
 
-- Arquitetura: `docs/architecture/README.md`
-- API: `docs/api/README.md`
-- Instalacao: `docs/guides/installation.md`
-- Contribuicao: `CONTRIBUTING.md`
+- Architecture: [docs/architecture/README.md](docs/architecture/README.md)
+- API: [docs/api/README.md](docs/api/README.md)
+- Installation: [docs/guides/installation.md](docs/guides/installation.md)
+- Usage: [docs/guides/usage.md](docs/guides/usage.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)

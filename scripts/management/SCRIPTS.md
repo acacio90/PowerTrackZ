@@ -1,173 +1,175 @@
-# Scripts de Gerenciamento - PowerTrackZ
+# Management Scripts - PowerTrackZ
 
-Este documento descreve os scripts disponíveis para gerenciar o projeto PowerTrackZ.
+**English** | [Português](SCRIPTS.pt-BR.md)
 
-## Scripts Disponíveis
+This document describes the scripts available to manage the PowerTrackZ project.
 
-### 1. `start.sh` - Iniciar o Projeto
+## Available Scripts
 
-Script principal para construir e iniciar todos os serviços do PowerTrackZ.
+### 1. `start.sh` - Start the Project
 
-**Uso:**
+Main script to build and start all PowerTrackZ services.
+
+**Usage:**
 ```bash
-./start.sh [OPÇÕES]
+./start.sh [OPTIONS]
 ```
 
-**Opções:**
-- `--restart` - Reinicia serviços sem rebuild
-- `--clean` - Limpa imagens antigas antes do build
-- `-h, --help` - Mostra esta ajuda
+**Options:**
+- `--restart` - Restarts the services without rebuilding
+- `--clean` - Removes old images before building
+- `-h, --help` - Shows the help
 
-**Exemplos:**
+**Examples:**
 ```bash
-./start.sh              # Build e start normal
-./start.sh --restart    # Reinicia serviços (sem rebuild)
-./start.sh --clean      # Build limpo (remove imagens antigas)
-./start.sh --clean --restart  # Reinicia com build limpo
+./start.sh              # Normal build and start
+./start.sh --restart    # Restarts the services (no rebuild)
+./start.sh --clean      # Clean build (removes old images)
+./start.sh --clean --restart  # Restarts with a clean build
 ```
 
-**O que faz:**
-1. Verifica se Docker e Docker Compose estão instalados
-2. Para containers existentes (se --restart for usado)
-3. Limpa imagens antigas (se --clean for usado)
-4. Constrói as imagens Docker (pula se --restart for usado)
-5. Inicia todos os serviços
-6. Verifica a saúde dos serviços
-7. Mostra informações de acesso
+**What it does:**
+1. Checks that Docker and Docker Compose are installed
+2. Stops existing containers (if --restart is used)
+3. Removes old images (if --clean is used)
+4. Builds the Docker images (skipped if --restart is used)
+5. Starts all services
+6. Checks the health of the services
+7. Shows the access information
 
-### 2. `stop.sh` - Parar o Projeto
+### 2. `stop.sh` - Stop the Project
 
-Script para parar todos os serviços do PowerTrackZ.
+Script to stop all PowerTrackZ services.
 
-**Uso:**
+**Usage:**
 ```bash
-./stop.sh [OPÇÕES]
+./stop.sh [OPTIONS]
 ```
 
-**Opções:**
-- `--clean` - Remove containers e volumes
-- `--clean-all` - Remove containers, volumes e imagens
-- `-h, --help` - Mostra esta ajuda
+**Options:**
+- `--clean` - Removes containers and volumes
+- `--clean-all` - Removes containers, volumes and images
+- `-h, --help` - Shows the help
 
-**Exemplos:**
+**Examples:**
 ```bash
-./stop.sh              # Para serviços normalmente
-./stop.sh --clean      # Para e remove containers/volumes
-./stop.sh --clean-all  # Para e remove tudo (containers, volumes, imagens)
+./stop.sh              # Stops the services normally
+./stop.sh --clean      # Stops and removes containers/volumes
+./stop.sh --clean-all  # Stops and removes everything (containers, volumes, images)
 ```
 
-### 3. `start-local.ps1` - Executar sem Docker Compose (Windows)
+### 3. `start-local.ps1` - Run without Docker Compose (Windows)
 
-Inicia os serviços Python em um ambiente virtual local e o `analysis_service` em um contêiner Docker avulso, cada um em sua própria janela do PowerShell.
+Starts the Python services in a local virtual environment and `analysis_service` in a standalone Docker container, each one in its own PowerShell window.
 
-**Uso:**
+**Usage:**
 ```powershell
-.\scripts\management\start-local.ps1 [-SkipInstall] [-VenvPath <caminho>]
+.\scripts\management\start-local.ps1 [-SkipInstall] [-VenvPath <path>]
 ```
 
-**Opções:**
-- `-SkipInstall`: não reinstala as dependências do ambiente virtual
-- `-VenvPath`: caminho do ambiente virtual (padrão: `.venv-local`)
+**Options:**
+- `-SkipInstall`: does not reinstall the virtual environment dependencies
+- `-VenvPath`: path of the virtual environment (default: `.venv-local`)
 
-Sem o Docker no `PATH`, o `analysis_service` não é iniciado. Para encerrar, use `Ctrl+C` em cada janela.
+Without Docker in the `PATH`, `analysis_service` is not started. To stop, press `Ctrl+C` in each window.
 
-## Fluxo de Trabalho Típico
+## Typical Workflow
 
-### Primeira Execução
+### First Run
 ```bash
-# 1. Clone o repositório
+# 1. Clone the repository
 git clone https://github.com/acacio90/PowerTrackZ.git
 cd PowerTrackZ
 
-# 2. Torne os scripts executáveis
+# 2. Make the scripts executable
 chmod +x scripts/management/*.sh
 
-# 3. Inicie o projeto
+# 3. Start the project
 ./scripts/management/start.sh
 ```
 
-### Desenvolvimento Diário
+### Daily Development
 ```bash
-# Para parar os serviços
+# Stop the services
 ./scripts/management/stop.sh
 
-# Para reiniciar os serviços (sem rebuild)
+# Restart the services (no rebuild)
 ./scripts/management/start.sh --restart
 
-# Para reiniciar com rebuild
+# Restart with a rebuild
 ./scripts/management/start.sh --clean
 
-# Para ver logs
+# Show the logs
 docker compose logs -f
 
-# Para ver status
+# Show the status
 docker compose ps
 ```
 
-### Limpeza Completa
+### Full Cleanup
 ```bash
-# Para parar e remover tudo
+# Stop and remove everything
 ./scripts/management/stop.sh --clean-all
 
-# Para iniciar com build limpo
+# Start with a clean build
 ./scripts/management/start.sh --clean
 ```
 
-## Serviços Disponíveis
+## Available Services
 
-Após executar `./start.sh`, os seguintes serviços estarão disponíveis:
+After running `./start.sh`, the following services are available:
 
-| Serviço | Porta | Descrição |
-|---------|-------|-----------|
-| Frontend Service | 3000 | Interface web principal |
-| Analysis Service | 5002 | Análise de dados e algoritmos |
-| Access Point Service | 5004 | Gerenciamento de APs |
+| Service | Port | Description |
+|---------|------|-------------|
+| Frontend Service | 3000 | Main web interface |
+| Analysis Service | 5002 | Data analysis and algorithms |
+| Access Point Service | 5004 | AP management |
 
-## Comandos Docker Úteis
+## Useful Docker Commands
 
 ```bash
-# Ver logs de todos os serviços
+# Show the logs of all services
 docker compose logs -f
 
-# Ver logs de um serviço específico
+# Show the logs of a specific service
 docker compose logs -f frontend_service
 docker compose logs -f analysis_service
 
-# Ver status dos containers
+# Show the container status
 docker compose ps
 
-# Executar comando em um container
+# Run a command in a container
 docker compose exec frontend_service bash
 
-# Ver uso de recursos
+# Show resource usage
 docker stats
 
-# Verificar conectividade dos serviços
+# Check service connectivity
 ./scripts/monitor.sh
 ```
 
 ## Troubleshooting
 
-### Problemas Comuns
+### Common Problems
 
-1. **Porta já em uso:**
+1. **Port already in use:**
    ```bash
-   # Verificar o que está usando a porta
-      sudo lsof -i :3000
-   
-   # Parar o processo
+   # Check what is using the port
+   sudo lsof -i :3000
+
+   # Stop the process
    sudo kill -9 <PID>
    ```
 
-2. **Erro de permissão:**
+2. **Permission error:**
    ```bash
-   # Tornar scripts executáveis
+   # Make the scripts executable
    chmod +x scripts/management/*.sh
    ```
 
-3. **Docker não encontrado:**
+3. **Docker not found:**
    ```bash
-   # Instalar Docker
+   # Install Docker
    sudo apt-get update
    sudo apt-get install docker.io docker-compose
    sudo systemctl start docker
@@ -175,96 +177,96 @@ docker stats
    sudo usermod -aG docker $USER
    ```
 
-4. **Erro de build das imagens:**
+4. **Image build error:**
    ```bash
-   # Limpar cache do Docker
+   # Clear the Docker cache
    docker builder prune -f
-   
-   # Rebuild limpo
+
+   # Clean rebuild
    ./scripts/management/start.sh --clean
    ```
 
-5. **Limpeza completa:**
+5. **Full cleanup:**
    ```bash
-   # Parar e remover tudo
+   # Stop and remove everything
    ./scripts/management/stop.sh --clean-all
-   
-   # Remover imagens não utilizadas
+
+   # Remove unused images
    docker system prune -a
    ```
 
-6. **Problemas de conectividade:**
+6. **Connectivity problems:**
    ```bash
-   # Verificar status dos serviços
+   # Check the status of the services
    ./scripts/monitor.sh
-   
-   # Verificar logs de erro
+
+   # Check the error logs
    docker compose logs --tail=50 | grep ERROR
    ```
 
-## Requisitos
+## Requirements
 
 - **Docker** 20.10+
 - **Docker Compose** 2.0+
-- **curl** (para verificações de saúde)
-- **bash** (shell padrão)
-- **git** (para clonagem do repositório)
+- **curl** (for health checks)
+- **bash** (default shell)
+- **git** (to clone the repository)
 
-## Estrutura dos Scripts
+## Script Structure
 
-Todos os scripts seguem o mesmo padrão:
-- **Cores para output colorido** (verde, vermelho, amarelo, azul)
-- **Funções de log** (success, error, warn, info)
-- **Verificação de dependências** (Docker, Docker Compose)
-- **Tratamento de argumentos** (--help, --restart, --clean)
-- **Banner do projeto** com informações
-- **Verificação de saúde** dos serviços
-- **Tratamento de erros** robusto
+All scripts follow the same pattern:
+- **Colored output** (green, red, yellow, blue)
+- **Log functions** (success, error, warn, info)
+- **Dependency check** (Docker, Docker Compose)
+- **Argument handling** (--help, --restart, --clean)
+- **Project banner** with information
+- **Service health check**
+- **Robust error handling**
 
-## Integração com Outros Scripts
+## Integration with Other Scripts
 
-Os scripts de gerenciamento trabalham em conjunto com:
+The management scripts work together with:
 
-- **`scripts/monitor.sh`** - Monitoramento em tempo real
-- **`scripts/maintenance/maintenance.sh`** - Manutenção e deploy
-- **`scripts/maintenance/maintenance.sh --update`** - Deploy completo
+- **`scripts/monitor.sh`** - Real-time monitoring
+- **`scripts/maintenance/maintenance.sh`** - Maintenance and deploy
+- **`scripts/maintenance/maintenance.sh --update`** - Full deploy
 
-## Exemplos de Uso Avançado
+## Advanced Usage Examples
 
-### Desenvolvimento
+### Development
 ```bash
-# Iniciar ambiente de desenvolvimento
+# Start the development environment
 ./scripts/management/start.sh
 
-# Monitorar em tempo real
+# Monitor in real time
 ./scripts/monitor.sh
 
-# Reiniciar após mudanças
+# Restart after changes
 ./scripts/management/start.sh --restart
 ```
 
-### Produção
+### Production
 ```bash
-# Deploy completo
+# Full deploy
 ./scripts/maintenance/maintenance.sh --update
 
-# Monitoramento contínuo
+# Continuous monitoring
 ./scripts/monitor.sh
 
-# Manutenção periódica
+# Periodic maintenance
 ./scripts/maintenance/maintenance.sh
 ```
 
 ### Debug
 ```bash
-# Ver logs detalhados
+# Show detailed logs
 docker compose logs -f --tail=100
 
-# Verificar conectividade
+# Check connectivity
 curl -f http://localhost:3000/health
 curl -f http://localhost:5002/health
 curl -f http://localhost:5004/health
 
-# Verificar recursos
+# Check resources
 docker stats --no-stream
-``` 
+```

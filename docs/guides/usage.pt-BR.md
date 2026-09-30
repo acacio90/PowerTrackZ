@@ -1,0 +1,69 @@
+# Guia de Uso
+
+[English](usage.md) | **Português**
+
+Este guia descreve o fluxo principal da interface: carregar pontos de acesso, salvá-los no banco e analisar as configurações de canal. A instalação está descrita em [installation.pt-BR.md](installation.pt-BR.md).
+
+## 1. Sua Infraestrutura
+
+A página **Sua infraestrutura** (menu **Infraestrutura**, `/infrastructure`) reúne a lista e o mapa dos APs salvos no banco. Os endereços antigos `/hosts` e `/register` redirecionam para ela.
+
+### Carregar APs
+
+O botão **Carregar APs** abre uma janela com três origens:
+
+- **Zabbix:** lista os APs monitorados pelo Zabbix configurado (ver seção 4). O Zabbix não informa coordenadas; APs já salvos mantêm as coordenadas do inventário.
+- **Importar JSON:** lê um arquivo com uma lista de APs ou um objeto com a chave `aps`, como o produzido pela opção abaixo.
+- **Gerar topologia:** cria APs aleatórios já posicionados. Os parâmetros são:
+  - *Quantidade de nós*: número de APs, entre 2 e 500;
+  - *Fator de clique*: número mínimo de vizinhos que cada AP tenta manter, menor que a quantidade de nós.
+
+Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coordenadas ficam destacados em vermelho. **Baixar JSON** grava a lista em um arquivo, útil para repetir um experimento com a mesma topologia. **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo são atualizados, e os demais são criados.
+
+### Editar o inventário
+
+- **Adicionar:** clique no mapa para marcar a posição e use o botão **+** para informar descrição, frequência, largura de banda e canal.
+- **Editar:** o ícone ao lado de cada AP abre seus dados; as coordenadas também podem ser ajustadas clicando no mapa com a janela aberta.
+- **Excluir:** marque os APs e clique em **Excluir Selecionados**.
+
+Na lista, APs sem coordenadas aparecem em vermelho. Somente APs com coordenadas participam da análise.
+
+## 2. Analisar
+
+A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de colisões entre os APs salvos e indica uma nova configuração para cada um.
+
+1. Clique na estratégia desejada. A página passa a exibir os parâmetros dessa estratégia:
+   - **Backtracking:** busca exata. Com poucos APs, devolve a configuração ótima; em redes grandes, para no limite de tempo e devolve a melhor configuração encontrada até ali. Parâmetros:
+     - *Threads*: número de threads que dividem a busca, limitado ao número de APs;
+     - *Limite de tempo (s)*: 60 s por padrão, até 3600 s. Marque *Sem limite* para deixar a busca terminar por completo.
+   - **Greedy:** heurística rápida, adequada a redes grandes, sem garantia de ótimo. Não possui parâmetros.
+   - **Genetic:** ainda não implementada; devolve a configuração atual.
+2. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
+3. Acompanhe o progresso no grafo da direita. A execução pode ser cancelada enquanto estiver em andamento.
+
+Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+
+## 3. Ler o Resultado
+
+- **Resumo:** acima dos grafos, aparece depois de cada análise:
+  - *Conflitos*: arestas em conflito (em vermelho) no grafo original e no otimizado, com a redução percentual;
+  - *APs alterados*: quantos APs tiveram canal, largura de banda ou frequência alterados;
+  - *Consumo*: estimativa de energia antes e depois, e a diferença, no número de dias informado;
+  - *Estratégia*: tempo de execução e se a solução é ótima.
+- **Grafos:** *Configuração original* e *Configuração proposta* ficam lado a lado em telas largas e empilhados em telas estreitas. Os APs são posicionados pelas suas coordenadas, na mesma posição nos dois grafos, e o zoom e o deslocamento feitos em um grafo são replicados no outro; **Reenquadrar** volta a exibir os grafos inteiros. A legenda de cores e arestas fica abaixo de cada grafo. Cada aresta liga dois APs cujas áreas de cobertura se sobrepõem:
+  - em **vermelho**, mais grossa, quando os dois APs estão em conflito na configuração exibida, com a interferência em porcentagem;
+  - em **cinza-claro** quando há apenas sobreposição, sem conflito, com a porcentagem de sobreposição. Em grafos com muitas arestas, esses rótulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
+
+  No grafo otimizado, os APs cuja configuração mudou ganham borda escura, e os conflitos do grafo original resolvidos pela estratégia aparecem tracejados e atenuados. A legenda informa quantos APs mudaram e quantos conflitos foram resolvidos. Desmarque *Destacar mudanças no grafo otimizado* para ocultar esses destaques.
+- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP.
+- **Consumo:** estimativa de energia (kWh) e custo (R$), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*.
+- **Metadados de Execução:**
+  - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimização;
+  - *Solução*: se a configuração é ótima, se a busca parou no limite de tempo ou se foi cancelada;
+  - *Conflitos Guloso / Final*: no backtracking, conflitos da solução inicial gulosa e da solução final;
+  - *Nós Explorados*: tamanho da busca realizada;
+  - *Parâmetros*: threads e limite de tempo usados.
+
+## 4. Configurar o Zabbix
+
+As configurações abrem pelo ícone de engrenagem na barra de navegação, em qualquer página, e recebem a URL da API do Zabbix, o usuário e a senha. Use **Testar Conexão** antes de **Salvar**. O endereço `/settings` leva à tela inicial com as configurações abertas. As credenciais ficam armazenadas no banco SQLite do `access_point_service`.

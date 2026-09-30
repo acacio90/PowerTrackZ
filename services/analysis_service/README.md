@@ -1,41 +1,43 @@
 # Analysis Service
 
-Serviço em C que monta o grafo de colisões entre pontos de acesso e indica a configuração de canal e largura de banda de cada um.
+**English** | [Português](README.pt-BR.md)
 
-## Estratégias
+C service that builds the collision graph between access points and suggests the channel and bandwidth configuration of each one.
 
-| Estratégia | Descrição |
+## Strategies
+
+| Strategy | Description |
 |---|---|
-| `backtracking` | Busca exata por *branch-and-bound*. Minimiza, nesta ordem, o número de conflitos, a interferência total e o inverso da largura de banda somada. |
-| `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor interferência local. É também a solução inicial da busca exata. |
-| `genetic` | Ainda não implementada (retorna um *placeholder*). |
+| `backtracking` | Exact *branch-and-bound* search. Minimizes, in this order, the number of conflicts, the total interference and the inverse of the summed bandwidth. |
+| `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest local interference. It is also the initial solution of the exact search. |
+| `genetic` | Not implemented yet (returns a *placeholder*). |
 
-## Parâmetros
+## Parameters
 
-Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles são enviados em `parameters` no corpo da requisição:
+Each strategy declares its parameters in `src/strategies/strategy.c`. They are sent in `parameters` in the request body:
 
-| Estratégia | Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+| Strategy | Parameter | Type | Default | Range | Description |
 |---|---|---|---|---|---|
-| `backtracking` | `thread_count` | inteiro | `1` | 1 a 256 | Número de *threads* da busca. |
-| `backtracking` | `time_limit_seconds` | número | `60` | 0 a 3600 | Tempo máximo da busca, em segundos. `0` desativa o limite. |
+| `backtracking` | `thread_count` | integer | `1` | 1 to 256 | Number of search *threads*. |
+| `backtracking` | `time_limit_seconds` | number | `60` | 0 to 3600 | Maximum search time, in seconds. `0` disables the limit. |
 
-As estratégias `greedy` e `genetic` não têm parâmetros configuráveis.
+The `greedy` and `genetic` strategies have no configurable parameters.
 
-`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo, padrão, limites, unidade e se o valor `0` desativa o recurso. A interface monta os campos a partir dessa descrição, de modo que um parâmetro novo precisa ser declarado apenas no serviço.
+`GET /strategies` describes these parameters in `strategy_details`, with name, label, type, default, limits, unit and whether the value `0` disables the feature. The interface builds its fields from this description, so a new parameter only needs to be declared in the service.
 
-Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma mensagem como `Parametro time_limit_seconds deve estar entre 0 e 3600`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo.
+Values outside the declared type or range are rejected with HTTP 400 and a message such as `Parametro time_limit_seconds deve estar entre 0 e 3600`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph.
 
-A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados e os conflitos da solução gulosa e da final.
+The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes and the conflicts of the greedy and final solutions.
 
-## Paralelismo
+## Parallelism
 
-A busca começa pela solução gulosa, que serve de limite para a poda. Os dois primeiros níveis livres da árvore são expandidos em tarefas, consumidas por *pthreads* a partir de uma fila compartilhada. A melhor solução é compartilhada entre as *threads* sob *mutex*, e cada *thread* mantém uma cópia local atualizada por um contador de versão, o que evita travar o *mutex* a cada nó.
+The search starts from the greedy solution, which serves as the bound for pruning. The first two free levels of the tree are expanded into tasks, consumed by *pthreads* from a shared queue. The best solution is shared between the *threads* under a *mutex*, and each *thread* keeps a local copy updated through a version counter, which avoids locking the *mutex* at every node.
 
-Em empate de custo, vence a tarefa de menor índice. Como as tarefas seguem a ordem da busca sequencial, o resultado é o mesmo para qualquer número de *threads*.
+On a cost tie, the task with the lowest index wins. Since the tasks follow the order of the sequential search, the result is the same for any number of *threads*.
 
-## Limitações
+## Limitations
 
-- O problema é NP-difícil. Em grafos grandes e densos, a busca exata não termina e para no limite de tempo, devolvendo a melhor solução encontrada (`optimal: false`).
-- O ganho com mais *threads* depende do número de tarefas e da eficácia da poda. Com poucos perfis por faixa, os dois primeiros níveis geram no máximo 36 tarefas em 2,4 GHz e 100 em 5 GHz.
-- O progresso enviado ao *frontend* é a fração de tarefas concluídas, e não uma estimativa do tempo restante.
-- Conflitos entre dois APs travados não entram no custo, pois não dependem da atribuição.
+- The problem is NP-hard. On large and dense graphs, the exact search does not finish and stops at the time limit, returning the best solution found (`optimal: false`).
+- The gain from more *threads* depends on the number of tasks and on how effective the pruning is. With few profiles per band, the first two levels produce at most 36 tasks in 2.4 GHz and 100 in 5 GHz.
+- The progress sent to the *frontend* is the fraction of completed tasks, not an estimate of the remaining time.
+- Conflicts between two locked APs are not counted in the cost, since they do not depend on the assignment.
