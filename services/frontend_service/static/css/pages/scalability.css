@@ -46,7 +46,8 @@
     color: var(--color-text);
 }
 
-.scal-form input[type="number"] {
+.scal-form input[type="number"],
+.scal-form select {
     width: 100%;
 }
 

@@ -74,7 +74,7 @@ GET /experiments/scalability/{id}/export?format=csv|json
 
 `POST /access_points/generate` recebe `node_count` (2 a 1000), `min_degree` (1 a `node_count` − 1; o nome anterior, `clique_factor`, continua aceito) e, opcionalmente, `seed` (inteiro de 0 a 4294967295), e devolve em `payload` os APs, as ligações e `metadata`, com a semente usada em `metadata.seed`. A mesma semente e os mesmos parâmetros geram a mesma topologia; sem `seed`, uma é sorteada.
 
-`POST /experiments/scalability` inicia o teste de escalabilidade em segundo plano e responde HTTP 202 com a execução criada. Recebe `max_nodes` (2 a 1000), `step`, `min_degree`, `seed` (opcional), `strategies` (estratégias implementadas; padrão: todas), `time_limit_seconds` (maior que 0 e até 3600) e `thread_count`; parâmetros inválidos retornam HTTP 400, e outra execução em andamento, HTTP 409. `GET /experiments/scalability/{id}` devolve a execução, com `status` (`running`, `completed`, `cancelled`, `failed` ou `interrupted`), `progress`, `version` (`commit`, `branch` e `tag`, lidos do repositório git montado em `/repo-git`), `parameters`, `strategies` (com `exact`), `breaks` (o tamanho de quebra de cada estratégia) e `points` (um ponto por tamanho e estratégia). A listagem omite `points`, e a exportação devolve o CSV ou o JSON como arquivo. O serviço chama o analysis_service pela `ANALYSIS_SERVICE_URL`.
+`POST /experiments/scalability` inicia o teste de escalabilidade em segundo plano e responde HTTP 202 com a execução criada. Recebe `max_nodes` (2 a 1000), `step`, `min_degree`, `seed` (opcional), `strategies` (estratégias implementadas; padrão: todas), `time_limit_seconds` (maior que 0 e até 3600), `thread_count` e `objective` (critério de otimização, com os mesmos valores das rotas de análise; padrão: `default`); parâmetros inválidos retornam HTTP 400, e outra execução em andamento, HTTP 409. `GET /experiments/scalability/{id}` devolve a execução, com `status` (`running`, `completed`, `cancelled`, `failed` ou `interrupted`), `progress`, `version` (`commit`, `branch` e `tag`, lidos do repositório git montado em `/repo-git`), `parameters`, `strategies` (com `exact`), `breaks` (o tamanho de quebra de cada estratégia) e `points` (um ponto por tamanho e estratégia). A listagem omite `points`, e a exportação devolve o CSV ou o JSON como arquivo; o CSV traz o objetivo usado na última coluna, `objective` (execuções anteriores a ele aparecem como `default`). O serviço chama o analysis_service pela `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador não existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
@@ -108,6 +108,14 @@ POST /graph-metrics
   ]
 }
 ```
+
+Na mesma resposta, `objectives` lista os critérios de otimização aceitos, e `default_objective`, o padrão:
+
+```json
+{"name": "energy_tiebreak", "label": "Energia no desempate", "description": "...", "order": ["conflicts", "interference", "power"]}
+```
+
+As rotas de análise recebem o critério no campo `objective` (`default`, `energy_tiebreak` ou `energy_first`; sem o campo, `default`) e o informam em `execution.objective`. Um objetivo desconhecido retorna HTTP 400.
 
 As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
 

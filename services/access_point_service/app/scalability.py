@@ -30,6 +30,7 @@ DEFAULT_PARAMETERS = {
     "min_degree": 3,
     "time_limit_seconds": 10,
     "thread_count": 1,
+    "objective": "default",
 }
 
 POINT_FIELDS = [
@@ -57,18 +58,26 @@ class AnalysisClient:
             raise RuntimeError(body.get("error") or f"analysis_service respondeu {response.status_code} em {path}")
         return body
 
-    def strategies(self):
+    def _catalog(self):
         response = requests.get(f"{self.base_url}/strategies", timeout=self.timeout)
         response.raise_for_status()
-        return response.json().get("strategy_details", [])
+        return response.json()
+
+    def strategies(self):
+        return self._catalog().get("strategy_details", [])
+
+    def objectives(self):
+        """Nomes dos criterios de otimizacao aceitos pelo analysis_service."""
+        return [objective["name"] for objective in self._catalog().get("objectives", [])] or ["default"]
 
     def graph_metrics(self, aps):
         return self._post("/graph-metrics", {"aps": aps}, self.timeout)
 
-    def analyze(self, aps, strategy, parameters, time_limit_seconds):
+    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default"):
         # Cada faixa tem o proprio limite de tempo; a margem cobre a montagem e a serializacao da resposta.
         timeout = max(self.timeout, time_limit_seconds * 4 + 60)
-        return self._post("/analyze-graph", {"aps": aps, "strategy": strategy, "parameters": parameters}, timeout)
+        payload = {"aps": aps, "strategy": strategy, "parameters": parameters, "objective": objective}
+        return self._post("/analyze-graph", payload, timeout)
 
 
 def _integer(data, name, minimum, maximum):
@@ -84,7 +93,7 @@ def _integer(data, name, minimum, maximum):
     return number
 
 
-def validate_parameters(data, strategy_details):
+def validate_parameters(data, strategy_details, objectives=("default",)):
     """Valida os parametros do teste e devolve-os completos, com a semente resolvida."""
     data = data or {}
     implemented = [detail["name"] for detail in strategy_details if detail.get("implemented")]
@@ -104,6 +113,10 @@ def validate_parameters(data, strategy_details):
     if unknown:
         raise ValueError(f"Estratégias inválidas ou não implementadas: {', '.join(map(str, unknown))}")
 
+    objective = data.get("objective") or DEFAULT_PARAMETERS["objective"]
+    if objective not in objectives:
+        raise ValueError(f"objective deve ser um dos objetivos do analysis_service: {', '.join(objectives)}")
+
     return {
         "max_nodes": max_nodes,
         "step": step,
@@ -112,6 +125,7 @@ def validate_parameters(data, strategy_details):
         "strategies": list(dict.fromkeys(strategies)),
         "time_limit_seconds": time_limit,
         "thread_count": thread_count,
+        "objective": objective,
         "channels": "padrao",
     }
 
@@ -211,7 +225,8 @@ def run_to_csv(run):
     data = run_to_dict(run)
     version = data["version"]
     parameters = data["parameters"]
-    header = ["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS
+    # Colunas novas entram no fim, para nao deslocar as existentes (leitura por posicao continua valida).
+    header = ["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS + ["objective"]
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(header)
@@ -219,7 +234,10 @@ def run_to_csv(run):
         writer.writerow([
             data["id"], version.get("commit"), version.get("tag"), parameters.get("seed"), parameters.get("min_degree"),
             parameters.get("time_limit_seconds"), parameters.get("thread_count"),
-        ] + [point.get(field) for field in POINT_FIELDS])
+        ] + [point.get(field) for field in POINT_FIELDS] + [
+            # Execucoes anteriores ao criterio configuravel usaram o objetivo padrao.
+            parameters.get("objective", "default"),
+        ])
     return output.getvalue()
 
 
@@ -246,10 +264,10 @@ class ScalabilityRunner:
 
     def start(self, data):
         details = self.client.strategies()
-        parameters = validate_parameters(data, details)
+        parameters = validate_parameters(data, details, self.client.objectives())
         with self._lock:
             if self._active_run is not None:
-                raise ScalabilityConflict("Ja existe um teste de escalabilidade em andamento")
+                raise ScalabilityConflict("Já existe um teste de escalabilidade em andamento. Aguarde o fim dele ou cancele-o.")
             strategies = [
                 {"name": detail["name"], "exact": bool(detail.get("exact")), "description": detail.get("description")}
                 for detail in details if detail["name"] in parameters["strategies"]
@@ -327,7 +345,7 @@ class ScalabilityRunner:
                     continue
                 self._save(run_id, current_step=f"{size} APs: {name}")
                 started = self.clock()
-                result = self.client.analyze(aps, name, analysis_parameters, time_limit)
+                result = self.client.analyze(aps, name, analysis_parameters, time_limit, parameters.get("objective", "default"))
                 point = build_point(size, metrics, name, strategy["exact"], result, self.clock() - started, time_limit)
                 points_of_size.append(point)
                 if point["broke"]:

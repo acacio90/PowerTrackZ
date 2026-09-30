@@ -21,6 +21,7 @@ static ProposedConfig *run_backtracking(
         .band_label = context ? context->band_label : NULL,
         .progress_offset = context ? context->progress_offset : 0.0,
         .progress_scale = context && context->progress_scale > 0.0 ? context->progress_scale : 1.0,
+        .objective = context ? context->objective : OBJECTIVE_DEFAULT,
     };
     return build_backtracking_proposals(graph, context ? context->job : NULL, &options, stats);
 }
@@ -30,7 +31,13 @@ static ProposedConfig *run_greedy(
     const AnalysisExecutionContext *context,
     AssignmentStats *stats
 ) {
-    return build_greedy_proposals(graph, context ? context->job : NULL, context ? context->profiles : NULL, stats);
+    return build_greedy_proposals(
+        graph,
+        context ? context->job : NULL,
+        context ? context->profiles : NULL,
+        context ? context->objective : OBJECTIVE_DEFAULT,
+        stats
+    );
 }
 
 static const StrategyParameter BACKTRACKING_PARAMETERS[] = {

@@ -74,7 +74,7 @@ GET /experiments/scalability/{id}/export?format=csv|json
 
 `POST /access_points/generate` takes `node_count` (2 to 1000), `min_degree` (1 to `node_count` − 1; the former name, `clique_factor`, is still accepted) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
 
-`POST /experiments/scalability` starts the scalability test in the background and answers HTTP 202 with the created run. It takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600) and `thread_count`; invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) and `points` (one point per size and strategy). The listing omits `points`, and the export returns the CSV or the JSON as a file. The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
+`POST /experiments/scalability` starts the scalability test in the background and answers HTTP 202 with the created run. It takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600), `thread_count` and `objective` (optimization criterion, with the same values as the analysis routes; default: `default`); invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) and `points` (one point per size and strategy). The listing omits `points`, and the export returns the CSV or the JSON as a file; the CSV reports the objective used in its last column, `objective` (runs made before it appear as `default`). The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
 
@@ -108,6 +108,14 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
   ]
 }
 ```
+
+In the same response, `objectives` lists the accepted optimization criteria, and `default_objective`, the default:
+
+```json
+{"name": "energy_tiebreak", "label": "Energia no desempate", "description": "...", "order": ["conflicts", "interference", "power"]}
+```
+
+The analysis routes receive the criterion in the `objective` field (`default`, `energy_tiebreak` or `energy_first`; without the field, `default`) and report it in `execution.objective`. An unknown objective returns HTTP 400.
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
 

@@ -44,8 +44,14 @@ The **Análise** page (**Análise** menu, `/analysis`) builds the conflict graph
    - **Guloso** (greedy): fast heuristic, suited to large networks, with no optimality guarantee. It has no parameters.
    - **Algoritmo genético** (genetic algorithm): not implemented yet; returns the current configuration.
 2. In **Canais disponíveis por faixa**, open each band to see its spectrum map: one line per bandwidth and, on each line, one bar per option, at the position and with the width it occupies on the frequency axis. Click the bars to choose the channels the strategies may use. At 40 MHz, each bar is a pair of primary and secondary, labeled by both channels (such as 7+11); at the other widths, the label is the primary channel, and at 80 and 160 MHz each bar is a channel block (such as 36–48 at 80 MHz). The bar's tooltip shows the channels, the primary sent and the range in MHz. Bars that overlap on the axis interfere with each other, and checked bars that overlap another checked bar of the same width turn orange. The **Padrão**, **Todos** and **Nenhum** shortcuts check ready-made sets, and the **Sem sobreposição** ones check a single width, with the largest set of channels that do not overlap (in 2.4 GHz, 1, 5, 9 and 13 at 20 MHz), clearing the others. The summary of each band shows the total number of profiles (k), and each width shows its share. The default profiles come checked; in 2.4 and 5 GHz at least one channel must remain checked, and the 6 GHz band starts empty, with its APs keeping their current configuration.
-3. Adjust the parameters and click **Executar análise**. Values outside the accepted range are flagged below the fields, and the analysis does not start.
-4. Follow the progress on the graph on the right, which shows the band being processed. The run can be cancelled while it is in progress.
+3. In **Critério de otimização** (optimization criterion), choose the order in which the strategies compare solutions:
+   - **Padrão** (default): fewer conflicts, then lower interference and, as a tiebreak, larger bandwidth;
+   - **Energia no desempate** (energy as tiebreak): fewer conflicts, then lower interference and, as a tiebreak, lower power;
+   - **Energia primeiro** (energy first): lower power, then fewer conflicts and lower interference; it accepts conflicts to save energy.
+
+   Power comes from the same consumption model shown in the results. Configurations with no value in the model (160 MHz) count as the highest modeled power of their band, and in 6 GHz, which has no values in the model, energy does not tell the profiles apart. Running the same network with different criteria shows how much energy is gained or lost in exchange for conflicts and interference.
+4. Adjust the parameters and click **Executar análise**. Values outside the accepted range are flagged below the fields, and the analysis does not start.
+5. Follow the progress on the graph on the right, which shows the band being processed. The run can be cancelled while it is in progress.
 
 APs in different bands do not interfere with each other: the analysis builds one graph per band, with no edges between bands, and solves each one separately.
 
@@ -69,6 +75,7 @@ The details of the strategies and of the parameters accepted by the API are in [
 - **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with the channels checked in **Canais disponíveis por faixa**; on save, the AP is locked to that configuration and the optimized analysis is run again.
 - **Consumption:** energy (kWh) and cost (R$, at R$ 0.72 per kWh) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field. The power of each AP is computed by analysis_service with the Dembélé et al. (2023) model, from its band and bandwidth; APs at 160 MHz or in 6 GHz, which have no value in the model, are left out of the sum.
 - **Metadados da execução** (execution metadata):
+  - *Critério de otimização*: the criterion used in the analysis;
   - *Arestas*: pairs of APs whose coverage overlaps in the same band, with or without conflict;
   - *Conflitos (antes / depois)*: pairs of APs in conflict (interference greater than zero) before and after the optimization;
   - *Densidade de conflitos (antes / depois)*: fraction of the possible pairs of APs that are in conflict;
@@ -86,7 +93,7 @@ The settings open from the gear icon in the navigation bar, on any page, and tak
 
 The **Teste de escalabilidade** page (card on the home screen, `/scalability`) measures up to what network size each strategy solves the problem. It generates a topology from the seed, with the maximum size, and analyzes prefixes of it of increasing size (the first 10 APs, the first 20, ...), so that each instance contains the previous one. Nothing is saved to the AP inventory, and the graphs are not drawn.
 
-1. Enter the **maximum size** (up to 1,000 APs), the **step**, the **minimum degree**, the **seed** (when left blank, one is drawn), the **time limit**, the **threads** and the **strategies**. The channels used are the default profiles.
+1. Enter the **maximum size** (up to 1,000 APs), the **step**, the **minimum degree**, the **seed** (when left blank, one is drawn), the **time limit**, the **threads**, the **optimization criterion** and the **strategies**. The channels used are the default profiles. The criterion appears in the parameters of each run in the history and in the `objective` column of the CSV.
 2. Click **Executar teste**. The progress shows the size and the strategy being analyzed, and the run can be cancelled. Only one run executes at a time, so the measured times do not mix.
 3. For each size, the exact strategies run first. A strategy **breaks** at the first size at which it no longer solves the problem: an exact method (backtracking), when it does not find the optimum within the time limit, which applies to each band; a method without an optimality guarantee (greedy), when it exceeds the time limit. After breaking, it is no longer run at the following sizes, and the test ends when every strategy has broken or the maximum size is reached.
 
