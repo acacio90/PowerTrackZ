@@ -11,12 +11,24 @@ typedef struct {
     const char *frequency;
 } ProposedConfig;
 
+// Perfis (canal, largura e frequencia) que a estrategia pode atribuir.
+typedef struct {
+    const ProposedConfig *items;
+    int count;
+} ProfileSet;
+
+// A analise roda uma vez por faixa: o progresso de cada execucao ocupa a fracao
+// [progress_offset, progress_offset + progress_scale] do total.
 typedef struct {
     Job *job;
     int thread_count;
     double time_limit_seconds;
     int stream_fd;
     pthread_mutex_t *stream_lock;
+    const ProfileSet *profiles;
+    const char *band_label;
+    double progress_offset;
+    double progress_scale;
 } AnalysisExecutionContext;
 
 typedef enum {

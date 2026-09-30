@@ -17,6 +17,10 @@ static ProposedConfig *run_backtracking(
         .time_limit_seconds = context ? context->time_limit_seconds : 0.0,
         .stream_fd = context ? context->stream_fd : -1,
         .stream_lock = context ? context->stream_lock : NULL,
+        .profiles = context ? context->profiles : NULL,
+        .band_label = context ? context->band_label : NULL,
+        .progress_offset = context ? context->progress_offset : 0.0,
+        .progress_scale = context && context->progress_scale > 0.0 ? context->progress_scale : 1.0,
     };
     return build_backtracking_proposals(graph, context ? context->job : NULL, &options, stats);
 }
@@ -26,7 +30,7 @@ static ProposedConfig *run_greedy(
     const AnalysisExecutionContext *context,
     AssignmentStats *stats
 ) {
-    return build_greedy_proposals(graph, context ? context->job : NULL, stats);
+    return build_greedy_proposals(graph, context ? context->job : NULL, context ? context->profiles : NULL, stats);
 }
 
 static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
@@ -44,7 +48,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
     {
         .name = "time_limit_seconds",
         .label = "Limite de tempo",
-        .description = "Tempo maximo da busca; ao atingi-lo, devolve a melhor configuracao encontrada",
+        .description = "Tempo maximo da busca em cada faixa; ao atingi-lo, devolve a melhor configuracao encontrada",
         .type = STRATEGY_PARAMETER_NUMBER,
         .default_value = 60,
         .min_value = 0,

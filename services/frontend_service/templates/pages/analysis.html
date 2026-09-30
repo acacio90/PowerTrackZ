@@ -89,6 +89,63 @@
         margin: 0;
     }
 
+    .analysis-channels {
+        margin: 0 0 1rem;
+    }
+
+    .analysis-channel-band {
+        margin-top: 0.5rem;
+        border: 1px solid #e2e7ec;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+        background: #fff;
+    }
+
+    .analysis-channel-band summary {
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #22313f;
+    }
+
+    .analysis-channel-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .analysis-channel-width {
+        flex: 0 0 4.5rem;
+        padding-top: 0.2rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #5d6c79;
+    }
+
+    .analysis-channel-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+
+    .analysis-channel-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 3.2rem;
+        padding: 0.15rem 0.4rem;
+        border: 1px solid #cbd5df;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        color: #22313f;
+        cursor: pointer;
+    }
+
+    .analysis-channel-chip input {
+        margin: 0;
+    }
+
     .analysis-parameter-error {
         margin: 0 0 1rem;
         font-size: 0.85rem;
@@ -397,6 +454,12 @@
                     </div>
                     <div id="analysis-parameters" class="analysis-parameters">
                         <p class="analysis-parameter-meta">Selecione uma estrategia para ver os parametros.</p>
+                    </div>
+                    <div class="analysis-channels">
+                        <span class="analysis-toolbar-label">Canais disponíveis por faixa</span>
+                        <div id="analysis-channels">
+                            <p class="analysis-parameter-meta">Carregando canais...</p>
+                        </div>
                     </div>
                     <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
                     <div class="analysis-run-row">

@@ -19,7 +19,7 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 | Strategy | Parameter | Type | Default | Range | Description |
 |---|---|---|---|---|---|
 | `backtracking` | `thread_count` | integer | `1` | 1 to 256 | Number of search *threads*. |
-| `backtracking` | `time_limit_seconds` | number | `60` | 0 to 3600 | Maximum search time, in seconds. `0` disables the limit. |
+| `backtracking` | `time_limit_seconds` | number | `60` | 0 to 3600 | Maximum search time in each band, in seconds. `0` disables the limit. |
 
 The `greedy` and `genetic` strategies have no configurable parameters.
 
@@ -35,12 +35,21 @@ The interference between two APs is the product of the spatial overlap of their 
 
 For bonded channels, the center frequency is that of the whole block, not that of the primary channel: 36 at 80 MHz occupies channels 36 to 48, centered on channel 42 (5210 MHz); 44 at 40 MHz occupies 44 and 48, centered on 46 (5230 MHz). In 2.4 GHz, the secondary of a 40 MHz channel is 4 channels above the primary when it fits in the band (primaries 1 to 9) and 4 channels below otherwise; so 1 at 40 MHz is centered on channel 3 (2422 MHz) and 11 at 40 MHz on channel 9 (2452 MHz).
 
+## Per-Band Graph and Available Channels
+
+APs in different bands do not interfere (s = 0), so the graph has no edges between bands: it is the union of the 2.4, 5 and 6 GHz graphs. The analysis routes solve each band separately, in sequence, each with its own time limit. APs in an unknown band are left out of the search and keep their configuration.
+
+The `channels` field of the request sets the profiles (the k of each graph) in the same format as `profiles` in `GET /channel-plan`, for example `{"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}`. Each combination is validated against `valid`, and a band that is given needs at least one channel; otherwise, the response is HTTP 400. Bands that are not given use the default profiles.
+
+The response has one entry per band in `execution.bands`, with `frequency`, `nodes`, `edges`, `density`, `profile_count`, `comparison` and `search`. The `execution.search` and `execution.comparison` fields consolidate the bands: conflicts, interference, bandwidth and explored nodes are added up, and the solution is only optimal if every band's is.
+
 ## Channel Plan
 
 `GET /channel-plan` reports the channels offered by the interface, grouped by frequency and bandwidth:
 
 - `valid`: every channel allowed in Brazil. In 2.4 GHz, channels 1 to 13, at 20 and 40 MHz (any channel can be the primary of a 40 MHz channel). In 5 GHz (36 to 64, 100 to 144 and 149 to 165) and in 6 GHz (1 to 233), the 40, 80 and 160 MHz channels bond aligned blocks of 2, 4 and 8 channels, and a channel only appears at a width when the whole block exists. The segments are in `CHANNEL_SEGMENTS`, in `src/analysis_service.c`.
-- `profiles`: the profiles the strategies can propose, read from `CONFIG_PROFILES`, in `src/strategies/backtracking.c`.
+- `profiles`: the default profiles of the strategies, used for the bands the request does not give in `channels`, read from `CONFIG_PROFILES`, in `src/strategies/backtracking.c`.
+- `options`: the options for choosing the search profiles, one per distinct position in the spectrum, with the channels it occupies (`channels`) and the primary sent in the request's `channels` (`channel`). In 5 and 6 GHz, each bonded block is one option (at 80 MHz in 5 GHz, 36–48, 52–64, 100–112, 116–128, 132–144 and 149–161); in 2.4 GHz, each 20 MHz channel and each 40 MHz pair, from 1+5 to 9+13. The primary is the default profile's when it falls in the block (the 7+11 pair sends 11) and otherwise the block's first channel.
 
 ## Parallelism
 
