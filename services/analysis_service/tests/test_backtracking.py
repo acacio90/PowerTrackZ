@@ -492,6 +492,9 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertTrue(backtracking["time_limit_seconds"]["zero_disables"])
         self.assertEqual(details["greedy"]["parameters"], [])
         self.assertFalse(details["genetic"]["implemented"])
+        self.assertTrue(details["backtracking"]["exact"])
+        self.assertFalse(details["greedy"]["exact"])
+        self.assertFalse(details["genetic"]["exact"])
 
     def test_rejects_parameters_outside_the_declared_range(self):
         aps = self.random_aps(4, seed=1)

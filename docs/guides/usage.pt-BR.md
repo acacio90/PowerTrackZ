@@ -79,3 +79,15 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 ## 4. Configurar o Zabbix
 
 As configurações abrem pelo ícone de engrenagem na barra de navegação, em qualquer página, e recebem a URL da API do Zabbix, o usuário e a senha. Use **Testar Conexão** antes de **Salvar**. O endereço `/settings` leva à tela inicial com as configurações abertas. As credenciais ficam armazenadas no banco SQLite do `access_point_service`.
+
+## 5. Teste de Escalabilidade
+
+A página **Teste de escalabilidade** (card na tela inicial, `/scalability`) mede até que tamanho de rede cada estratégia resolve o problema. Ela gera uma topologia pela semente, com o tamanho máximo, e analisa prefixos dela de tamanho crescente (os primeiros 10 APs, os primeiros 20, ...), de modo que cada instância contém a anterior. Nada é salvo no inventário de APs, e os grafos não são desenhados.
+
+1. Informe o **tamanho máximo** (até 1.000 APs), o **passo**, o **grau mínimo**, a **semente** (em branco, uma é sorteada), o **limite de tempo**, as **threads** e as **estratégias**. Os canais usados são os perfis padrão.
+2. Clique em **Executar teste**. O progresso mostra o tamanho e a estratégia em análise, e a execução pode ser cancelada. Só uma execução roda por vez, para que os tempos medidos não se misturem.
+3. Para cada tamanho, as estratégias exatas rodam primeiro. Uma estratégia **quebra** no primeiro tamanho em que deixa de resolver o problema: um método exato (o backtracking), quando não encontra o ótimo dentro do limite de tempo, que vale para cada faixa; um método sem garantia de ótimo (o guloso), quando excede o limite de tempo. Depois de quebrar, ela não é mais executada nos tamanhos seguintes, e o teste termina quando todas quebram ou o tamanho máximo é atingido.
+
+O resultado mostra o ponto de quebra de cada estratégia e dois gráficos em função do número de APs: o tempo de execução, em escala logarítmica, com a linha do limite de tempo, e os conflitos após a otimização. O ponto de quebra aparece como um X. A **Tabela dos pontos medidos** traz, para cada tamanho e estratégia, as arestas, a densidade, o tempo, os conflitos, a distância até o ótimo (enquanto o método exato o encontra), a interferência, a potência, os nós explorados e o motivo da parada.
+
+Cada execução fica no **Histórico de execuções** com a data, os parâmetros e a versão do PowerTrackZ (commit, branch e, quando houver, a tag), o que permite repetir o teste em outra versão e comparar os resultados. **Ver** abre os gráficos de uma execução, **CSV** e **JSON** baixam os pontos medidos, e **Excluir** remove a execução. Uma execução interrompida pela reinicialização do serviço fica registrada como **Interrompida**.

@@ -10,6 +10,7 @@ O PowerTrackZ é um sistema de monitoramento e análise de pontos de acesso Wi-F
 - Integração com um Zabbix externo para carregar os APs monitorados
 - Mapa interativo no frontend com Leaflet
 - Análise de colisão e otimização por algoritmos em C
+- Teste de escalabilidade das estratégias, com gráficos e histórico por versão
 - Execução via Docker Compose
 
 ## Arquitetura
