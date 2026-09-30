@@ -39,11 +39,14 @@ The **Análise** page (**Análise** menu, `/analysis`) builds the collision grap
 1. Click the desired strategy. The page then shows the parameters of that strategy:
    - **Backtracking:** exact search. With few APs, it returns the optimal configuration; in large networks, it stops at the time limit and returns the best configuration found so far. Parameters:
      - *Threads*: number of threads that split the search, limited to the number of APs;
-     - *Limite de tempo (s)*: time limit, 60 s by default, up to 3600 s. Check *Sem limite* to let the search run to completion.
+     - *Limite de tempo (s)*: time limit, 60 s by default, up to 3600 s, applied to each band. Check *Sem limite* to let the search run to completion.
    - **Greedy:** fast heuristic, suited to large networks, with no optimality guarantee. It has no parameters.
    - **Genetic:** not implemented yet; returns the current configuration.
-2. Adjust the parameters and click **Executar análise**. Values outside the accepted range are flagged below the fields, and the analysis does not start.
-3. Follow the progress on the graph on the right. The run can be cancelled while it is in progress.
+2. In **Canais disponíveis por faixa**, check the channels the strategies may use in each band and bandwidth; the summary of each band shows the total number of profiles (k). The default profiles come checked; in 2.4 and 5 GHz at least one channel must remain checked, and the 6 GHz band starts empty, with its APs keeping their current configuration.
+3. Adjust the parameters and click **Executar análise**. Values outside the accepted range are flagged below the fields, and the analysis does not start.
+4. Follow the progress on the graph on the right, which shows the band being processed. The run can be cancelled while it is in progress.
+
+APs in different bands do not interfere with each other: the analysis builds one graph per band, with no edges between bands, and solves each one separately.
 
 The details of the strategies and of the parameters accepted by the API are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
 
@@ -59,14 +62,15 @@ The details of the strategies and of the parameters accepted by the API are in [
   - in **light gray** when there is only overlap, without conflict, with the overlap percentage. In graphs with many edges, these labels are hidden; use *Mostrar pesos das arestas sem conflito* to show them.
 
   In the optimized graph, APs whose configuration changed get a dark border, and the conflicts of the original graph resolved by the strategy are shown dashed and faded. The legend shows how many APs changed and how many conflicts were resolved. Uncheck *Destacar mudanças no grafo otimizado* to hide these highlights.
-- **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with only the profiles the strategies can propose; on save, the AP is locked to that configuration and the optimized analysis is run again.
+- **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with the channels checked in **Canais disponíveis por faixa**; on save, the AP is locked to that configuration and the optimized analysis is run again.
 - **Consumption:** energy (kWh) and cost (R$) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field.
 - **Metadados de Execução** (execution metadata):
   - *Arestas Antes / Depois*: pairs of APs in conflict before and after the optimization;
   - *Solução*: whether the configuration is optimal, whether the search stopped at the time limit or whether it was cancelled;
   - *Conflitos Guloso / Final*: in backtracking, conflicts of the initial greedy solution and of the final solution;
   - *Nós Explorados*: size of the search performed;
-  - *Parâmetros*: threads and time limit used.
+  - *Parâmetros*: threads and time limit used;
+  - *Faixa*: one line per band, with APs, edges, number of profiles (k), conflicts and whether the band's solution is optimal. The other metadata add up the bands.
 
 ## 4. Configuring Zabbix
 

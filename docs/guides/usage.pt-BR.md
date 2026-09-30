@@ -37,11 +37,14 @@ A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de colisõ
 1. Clique na estratégia desejada. A página passa a exibir os parâmetros dessa estratégia:
    - **Backtracking:** busca exata. Com poucos APs, devolve a configuração ótima; em redes grandes, para no limite de tempo e devolve a melhor configuração encontrada até ali. Parâmetros:
      - *Threads*: número de threads que dividem a busca, limitado ao número de APs;
-     - *Limite de tempo (s)*: 60 s por padrão, até 3600 s. Marque *Sem limite* para deixar a busca terminar por completo.
+     - *Limite de tempo (s)*: 60 s por padrão, até 3600 s, aplicado a cada faixa. Marque *Sem limite* para deixar a busca terminar por completo.
    - **Greedy:** heurística rápida, adequada a redes grandes, sem garantia de ótimo. Não possui parâmetros.
    - **Genetic:** ainda não implementada; devolve a configuração atual.
-2. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
-3. Acompanhe o progresso no grafo da direita. A execução pode ser cancelada enquanto estiver em andamento.
+2. Em **Canais disponíveis por faixa**, marque os canais que as estratégias podem usar em cada faixa e largura de banda; o resumo de cada faixa mostra o total de perfis (k). Os perfis padrão já vêm marcados; em 2,4 e 5 GHz é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
+3. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
+4. Acompanhe o progresso no grafo da direita, que indica a faixa em processamento. A execução pode ser cancelada enquanto estiver em andamento.
+
+APs de faixas diferentes não interferem entre si: a análise monta um grafo para cada faixa, sem arestas entre faixas, e resolve cada um separadamente.
 
 Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
 
@@ -57,14 +60,15 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
   - em **cinza-claro** quando há apenas sobreposição, sem conflito, com a porcentagem de sobreposição. Em grafos com muitas arestas, esses rótulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
 
   No grafo otimizado, os APs cuja configuração mudou ganham borda escura, e os conflitos do grafo original resolvidos pela estratégia aparecem tracejados e atenuados. A legenda informa quantos APs mudaram e quantos conflitos foram resolvidos. Desmarque *Destacar mudanças no grafo otimizado* para ocultar esses destaques.
-- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com apenas os perfis que as estratégias podem propor; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
+- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados em **Canais disponíveis por faixa**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
 - **Consumo:** estimativa de energia (kWh) e custo (R$), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*.
 - **Metadados de Execução:**
   - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimização;
   - *Solução*: se a configuração é ótima, se a busca parou no limite de tempo ou se foi cancelada;
   - *Conflitos Guloso / Final*: no backtracking, conflitos da solução inicial gulosa e da solução final;
   - *Nós Explorados*: tamanho da busca realizada;
-  - *Parâmetros*: threads e limite de tempo usados.
+  - *Parâmetros*: threads e limite de tempo usados;
+  - *Faixa*: uma linha por faixa, com APs, arestas, número de perfis (k), conflitos e se a solução da faixa é ótima. Os demais metadados somam as faixas.
 
 ## 4. Configurar o Zabbix
 

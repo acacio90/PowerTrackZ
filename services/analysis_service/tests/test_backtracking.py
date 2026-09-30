@@ -170,6 +170,94 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
             with self.subTest(left=left, right=right):
                 self.assertAlmostEqual(self.spectral_factor(left, right), expected)
 
+    def ap_at(self, ap_id, frequency, channel, bandwidth="20 MHz", offset=0.0):
+        return {
+            "id": ap_id,
+            "label": ap_id,
+            "x": -23.5505 + offset,
+            "y": -46.6333,
+            "raio": 30,
+            "channel": channel,
+            "bandwidth": bandwidth,
+            "frequency": frequency,
+            "locked": False,
+        }
+
+    def test_aps_in_different_bands_are_not_linked(self):
+        aps = [self.ap_at("a24", "2.4 GHz", "1"), self.ap_at("a5", "5 GHz", "36")]
+        self.assertEqual(self.post_json("/collision-graph", {"aps": aps})["links"], [])
+
+    def test_analysis_reports_results_per_band(self):
+        aps = [
+            self.ap_at("a24-1", "2.4 GHz", "1"),
+            self.ap_at("a24-2", "2.4 GHz", "1", offset=0.00001),
+            self.ap_at("a24-3", "2.4 GHz", "1", offset=0.00002),
+            self.ap_at("a5-1", "5 GHz", "36"),
+            self.ap_at("a5-2", "5 GHz", "36", offset=0.00001),
+        ]
+        result = self.post_json("/analyze-graph", {"aps": aps, "strategy": "greedy"})
+        execution = result["execution"]
+        bands = {band["frequency"]: band for band in execution["bands"]}
+
+        self.assertEqual(list(bands), ["2.4 GHz", "5 GHz"])
+        self.assertEqual(bands["2.4 GHz"]["nodes"], 3)
+        self.assertEqual(bands["2.4 GHz"]["edges"], 3)
+        self.assertEqual(bands["5 GHz"]["nodes"], 2)
+        self.assertEqual(bands["5 GHz"]["edges"], 1)
+        self.assertEqual(execution["graph_snapshot"]["edges"], 4)
+        for field in ("conflicts", "greedy_conflicts", "nodes_explored"):
+            self.assertEqual(
+                execution["search"][field],
+                sum(band["search"][field] for band in execution["bands"]),
+            )
+        for node in result["graph_data"]["nodes"]:
+            self.assertEqual(node["proposed_frequency"], node["frequency"])
+
+    def test_uses_only_the_requested_channels_of_each_band(self):
+        aps = [
+            self.ap_at("a24-1", "2.4 GHz", "6"),
+            self.ap_at("a24-2", "2.4 GHz", "6", offset=0.00001),
+            self.ap_at("a5-1", "5 GHz", "149"),
+        ]
+        cases = [
+            ({"2.4 GHz": {"20 MHz": ["1"]}}, {"1"}, 1),
+            ({"2.4 GHz": {"20 MHz": ["1", "6"]}}, {"1", "6"}, 0),
+        ]
+        for channels, expected_channels, expected_conflicts in cases:
+            with self.subTest(channels=channels):
+                result = self.post_json(
+                    "/analyze-graph",
+                    {"aps": aps, "strategy": "backtracking", "channels": channels, "parameters": {"time_limit_seconds": 0}},
+                )
+                nodes = {node["id"]: node for node in result["graph_data"]["nodes"]}
+                bands = {band["frequency"]: band for band in result["execution"]["bands"]}
+
+                self.assertEqual({nodes[ap_id]["proposed_channel"] for ap_id in ("a24-1", "a24-2")}, expected_channels)
+                self.assertEqual({nodes[ap_id]["proposed_bandwidth"] for ap_id in ("a24-1", "a24-2")}, {"20 MHz"})
+                self.assertEqual(bands["2.4 GHz"]["search"]["conflicts"], expected_conflicts)
+                self.assertEqual(bands["2.4 GHz"]["profile_count"], len(expected_channels))
+                # A faixa nao informada usa os perfis padrao (10 em 5 GHz).
+                self.assertEqual(bands["5 GHz"]["profile_count"], 10)
+
+    def test_rejects_invalid_channel_selections(self):
+        aps = [self.ap_at("a24-1", "2.4 GHz", "1")]
+        invalid_cases = [
+            ({"2.4 GHz": {"60 MHz": ["1"]}}, "Largura de banda invalida"),
+            ({"2.4 GHz": {"20 MHz": ["14"]}}, "Canal invalido"),
+            ({"5 GHz": {"40 MHz": ["165"]}}, "Canal invalido"),
+            ({"3 GHz": {"20 MHz": ["1"]}}, "Faixa invalida"),
+            ({"2.4 GHz": {"20 MHz": []}}, "ao menos um canal"),
+            (["1", "6"], "Campo channels"),
+        ]
+        for channels, message in invalid_cases:
+            with self.subTest(channels=channels):
+                with self.assertRaises(urllib.error.HTTPError) as context:
+                    self.post_json("/analyze-graph", {"aps": aps, "strategy": "greedy", "channels": channels})
+                with context.exception as error:
+                    self.assertEqual(error.code, 400)
+                    body = json.loads(error.read().decode("utf-8"))
+                self.assertIn(message, body["error"])
+
     def test_channel_plan_lists_valid_channels_per_band_and_bandwidth(self):
         valid = self.get_json("/channel-plan")["valid"]
 

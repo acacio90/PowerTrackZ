@@ -19,7 +19,7 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 | Estratégia | Parâmetro | Tipo | Padrão | Intervalo | Descrição |
 |---|---|---|---|---|---|
 | `backtracking` | `thread_count` | inteiro | `1` | 1 a 256 | Número de *threads* da busca. |
-| `backtracking` | `time_limit_seconds` | número | `60` | 0 a 3600 | Tempo máximo da busca, em segundos. `0` desativa o limite. |
+| `backtracking` | `time_limit_seconds` | número | `60` | 0 a 3600 | Tempo máximo da busca em cada faixa, em segundos. `0` desativa o limite. |
 
 As estratégias `greedy` e `genetic` não têm parâmetros configuráveis.
 
@@ -35,12 +35,20 @@ A interferência entre dois APs é o produto da sobreposição espacial das cobe
 
 Em canais agregados, a frequência central é a do bloco inteiro, e não a do canal primário: 36 a 80 MHz ocupa os canais 36 a 48, com centro no canal 42 (5210 MHz); 44 a 40 MHz ocupa 44 e 48, com centro no 46 (5230 MHz). Em 2,4 GHz, o secundário de um canal de 40 MHz fica 4 canais acima do primário quando cabe na faixa (primários 1 a 9) e 4 canais abaixo nos demais; assim, 1 a 40 MHz tem centro no canal 3 (2422 MHz) e 11 a 40 MHz, no canal 9 (2452 MHz).
 
+## Grafo por Faixa e Canais Disponíveis
+
+APs de faixas diferentes não interferem (s = 0), então o grafo não tem arestas entre faixas: ele é a união dos grafos de 2,4, 5 e 6 GHz. As rotas de análise resolvem cada faixa separadamente, em sequência, cada uma com o próprio limite de tempo. APs de faixa desconhecida ficam fora da busca e mantêm a configuração.
+
+O campo `channels` da requisição define os perfis (o k de cada grafo) no mesmo formato de `profiles` em `GET /channel-plan`, por exemplo `{"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}`. Cada combinação é validada contra `valid`, e uma faixa informada precisa de ao menos um canal; caso contrário, a resposta é HTTP 400. As faixas não informadas usam os perfis padrão.
+
+A resposta traz em `execution.bands` uma entrada por faixa, com `frequency`, `nodes`, `edges`, `density`, `profile_count`, `comparison` e `search`. Os campos `execution.search` e `execution.comparison` consolidam as faixas: conflitos, interferência, largura de banda e nós explorados são somados, e a solução só é ótima se todas as faixas forem.
+
 ## Plano de Canais
 
 `GET /channel-plan` informa os canais oferecidos pela interface, agrupados por frequência e largura de banda:
 
 - `valid`: todos os canais permitidos no Brasil. Em 2,4 GHz, os canais 1 a 13, a 20 e 40 MHz (qualquer canal pode ser o primário de um canal de 40 MHz). Em 5 GHz (36 a 64, 100 a 144 e 149 a 165) e em 6 GHz (1 a 233), os canais de 40, 80 e 160 MHz agregam blocos alinhados de 2, 4 e 8 canais, e um canal só aparece numa largura quando o bloco inteiro existe. Os trechos ficam em `CHANNEL_SEGMENTS`, em `src/analysis_service.c`.
-- `profiles`: os perfis que as estratégias podem propor, lidos de `CONFIG_PROFILES`, em `src/strategies/backtracking.c`.
+- `profiles`: os perfis padrão das estratégias, usados nas faixas que a requisição não informa em `channels`, lidos de `CONFIG_PROFILES`, em `src/strategies/backtracking.c`.
 
 ## Paralelismo
 

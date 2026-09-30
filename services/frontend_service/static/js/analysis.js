@@ -1,4 +1,7 @@
 window.addEventListener('DOMContentLoaded', function() {
+    // Canais escolhidos para as estrategias em cada faixa; nulo enquanto o plano de canais nao carrega.
+    let seletorCanais = null;
+
     window.selectedStrategy = null;
 
     const style = document.createElement('style');
@@ -675,6 +678,21 @@ window.addEventListener('DOMContentLoaded', function() {
         return items.join('');
     }
 
+    // Uma linha por faixa: cada faixa e um grafo resolvido separadamente, com o proprio conjunto de canais (k).
+    function renderBandsMetadata(strategy, bands) {
+        return (bands || []).map(band => {
+            const search = band.search || {};
+            const conflicts = strategy === 'backtracking'
+                ? `conflitos ${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}`
+                : `conflitos ${search.conflicts ?? '-'}`;
+            return `
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts} | ${describeSearchOutcome(strategy, search)}</span>
+                </div>`;
+        }).join('');
+    }
+
     function renderExecutionMetadata(execution) {
         const container = document.getElementById('analysis-execution-container');
         if (!container) {
@@ -724,7 +742,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
-                </div>${renderSearchMetadata(execution.strategy, execution.search)}
+                </div>${renderSearchMetadata(execution.strategy, execution.search)}${renderBandsMetadata(execution.strategy, execution.bands)}
             </div>
         `;
     }
@@ -907,7 +925,8 @@ window.addEventListener('DOMContentLoaded', function() {
                 locked: Boolean(ap.locked)
             })),
             strategy: window.selectedStrategy,
-            parameters: resolvedParameters
+            parameters: resolvedParameters,
+            channels: seletorCanais ? seletorCanais.selecao() : undefined
         };
     }
 
@@ -1480,7 +1499,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
 
-                    // Na proposta, so os perfis que as estrategias podem propor.
+                    // Na proposta, so os canais escolhidos para as estrategias (ou os perfis padrao, sem o seletor).
                     tdProposta.innerHTML = `
                         <div class="analysis-inline-edit">
                             <select class="input-edit" data-field="channel" aria-label="Canal"></select>
@@ -1493,7 +1512,8 @@ window.addEventListener('DOMContentLoaded', function() {
                         bandwidth: tdProposta.querySelector('[data-field="bandwidth"]'),
                         frequency: tdProposta.querySelector('[data-field="frequency"]')
                     };
-                    window.ChannelPlan.vincular(selects, plano.profiles, proposta, { manterAtual: true });
+                    const opcoes = seletorCanais ? seletorCanais.selecao() : plano.profiles;
+                    window.ChannelPlan.vincular(selects, opcoes, proposta, { manterAtual: true });
                     button.classList.add('is-saving');
                     button.innerHTML = '<i class="fa-solid fa-floppy-disk"></i><span>Salvar</span>';
                     return;
@@ -1748,7 +1768,7 @@ window.addEventListener('DOMContentLoaded', function() {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
                             description,
-                            step: stepText,
+                            step: progress.band ? `Faixa ${String(progress.band).replace('.', ',')}: ${stepText}` : stepText,
                             percentage: progress.percentage
                         });
                     } else if (event.type === 'result') {
@@ -1787,8 +1807,9 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         const { values, error: parameterError } = collectStrategyParameters();
-        if (parameterError) {
-            showParameterError(parameterError);
+        const channelError = seletorCanais ? seletorCanais.validar() : null;
+        if (parameterError || channelError) {
+            showParameterError(parameterError || channelError);
             return;
         }
         hideParameterError();
@@ -1917,6 +1938,18 @@ window.addEventListener('DOMContentLoaded', function() {
 
     window.addEventListener('pagehide', cancelarAnaliseSilenciosamenteAoSair);
     window.addEventListener('beforeunload', cancelarAnaliseSilenciosamenteAoSair);
+
+    const channelsContainer = document.getElementById('analysis-channels');
+    if (channelsContainer && window.ChannelPlan) {
+        window.ChannelPlan.carregar()
+            .then(plano => {
+                seletorCanais = window.ChannelPlan.criarSeletor(channelsContainer, plano);
+            })
+            .catch(err => {
+                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Nao foi possivel carregar os canais; a analise usara os perfis padrao.</p>';
+                console.warn(err);
+            });
+    }
 
     fetchStrategiesFromServer();
     fetchAnalysisCapabilities();

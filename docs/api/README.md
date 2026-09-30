@@ -102,4 +102,6 @@ The analysis routes receive these values in `parameters`. Values outside the dec
 }
 ```
 
-`valid` lists every channel allowed in Brazil and is used when registering and editing APs. `profiles` lists only the configurations the strategies can propose and is used when editing the proposed configuration.
+`valid` lists every channel allowed in Brazil and is used when registering and editing APs. `profiles` lists the default profiles the strategies can propose.
+
+The analysis routes accept the `channels` field, in the `profiles` format, with the channels the strategies may use in each band; bands that are not given use the default. Each band is solved in its own graph, and the response reports the per-band results in `execution.bands`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).

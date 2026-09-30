@@ -90,8 +90,89 @@
         selects.bandwidth.onchange = () => atualizarCanais(selects.channel.value, false);
     }
 
+    function rotuloFaixa(frequencia) {
+        return String(frequencia).replace('.', ',');
+    }
+
+    // Caixas de selecao dos canais que as estrategias podem usar em cada faixa (o k de cada grafo), a partir
+    // dos canais permitidos e com os perfis padrao ja marcados. Faixas sem perfis padrao (6 GHz) comecam
+    // recolhidas e vazias; sem canais marcados, seus APs mantem a configuracao atual.
+    function criarSeletor(container, plano) {
+        const faixas = ordenar(Object.keys(plano.valid || {}));
+        const padrao = plano.profiles || {};
+        container.innerHTML = '';
+
+        faixas.forEach(frequencia => {
+            const detalhes = document.createElement('details');
+            detalhes.className = 'analysis-channel-band';
+            detalhes.open = Object.keys(padrao[frequencia] || {}).length > 0;
+            const resumo = document.createElement('summary');
+            detalhes.appendChild(resumo);
+
+            ordenar(Object.keys(plano.valid[frequencia])).forEach(largura => {
+                const linha = document.createElement('div');
+                linha.className = 'analysis-channel-row';
+                const rotulo = document.createElement('span');
+                rotulo.className = 'analysis-channel-width';
+                rotulo.textContent = largura;
+                const canais = document.createElement('div');
+                canais.className = 'analysis-channel-options';
+                const marcados = (padrao[frequencia] || {})[largura] || [];
+
+                ordenar(plano.valid[frequencia][largura]).forEach(canal => {
+                    const opcao = document.createElement('label');
+                    opcao.className = 'analysis-channel-chip';
+                    const caixa = document.createElement('input');
+                    caixa.type = 'checkbox';
+                    caixa.value = canal;
+                    caixa.dataset.frequency = frequencia;
+                    caixa.dataset.bandwidth = largura;
+                    caixa.checked = marcados.includes(canal);
+                    caixa.addEventListener('change', () => atualizarResumo(detalhes, frequencia));
+                    opcao.appendChild(caixa);
+                    opcao.appendChild(document.createTextNode(canal));
+                    canais.appendChild(opcao);
+                });
+
+                linha.appendChild(rotulo);
+                linha.appendChild(canais);
+                detalhes.appendChild(linha);
+            });
+
+            container.appendChild(detalhes);
+            atualizarResumo(detalhes, frequencia);
+        });
+
+        function atualizarResumo(detalhes, frequencia) {
+            const total = detalhes.querySelectorAll('input:checked').length;
+            detalhes.querySelector('summary').textContent = `${rotuloFaixa(frequencia)}: k = ${total} perfi${total === 1 ? 'l' : 's'}`;
+        }
+
+        // {frequencia: {largura: [canais]}} com as faixas que tem ao menos um canal marcado.
+        function selecao() {
+            const escolhidos = {};
+            container.querySelectorAll('input:checked').forEach(caixa => {
+                const larguras = escolhidos[caixa.dataset.frequency] = escolhidos[caixa.dataset.frequency] || {};
+                (larguras[caixa.dataset.bandwidth] = larguras[caixa.dataset.bandwidth] || []).push(caixa.value);
+            });
+            return escolhidos;
+        }
+
+        // Faixas com perfis padrao precisam de ao menos um canal; sem ele, a analise usaria o padrao sem aviso.
+        function validar() {
+            const escolhidos = selecao();
+            const faltando = faixas.filter(frequencia => Object.keys(padrao[frequencia] || {}).length > 0 && !escolhidos[frequencia]);
+            return faltando.length
+                ? `Selecione ao menos um canal em ${faltando.map(rotuloFaixa).join(' e ')}.`
+                : null;
+        }
+
+        return { selecao, validar };
+    }
+
     window.ChannelPlan = {
         carregar: carregarPlano,
-        vincular
+        vincular,
+        criarSeletor
     };
 })();

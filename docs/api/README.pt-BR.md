@@ -102,4 +102,6 @@ As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo
 }
 ```
 
-`valid` lista todos os canais permitidos no Brasil e é usado no cadastro e na edição de APs. `profiles` lista apenas as configurações que as estratégias podem propor e é usado na edição da configuração proposta.
+`valid` lista todos os canais permitidos no Brasil e é usado no cadastro e na edição de APs. `profiles` lista os perfis padrão que as estratégias podem propor.
+
+As rotas de análise aceitam o campo `channels`, no formato de `profiles`, com os canais que as estratégias podem usar em cada faixa; as faixas não informadas usam o padrão. Cada faixa é resolvida num grafo próprio, e a resposta traz os resultados por faixa em `execution.bands`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
