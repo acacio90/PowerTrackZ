@@ -229,6 +229,31 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
             comparison["power_after_w"],
         )
 
+    def test_comparison_counts_conflicts_and_not_every_overlap(self):
+        # Tres APs sobrepostos (3 arestas), mas so o par no canal 1 esta em conflito antes da otimizacao.
+        aps = [
+            self.ap_at("a", "2.4 GHz", "1"),
+            self.ap_at("b", "2.4 GHz", "1", offset=0.00001),
+            self.ap_at("c", "2.4 GHz", "11", offset=0.00002),
+        ]
+        result = self.post_json(
+            "/analyze-graph",
+            {"aps": aps, "strategy": "backtracking", "parameters": {"time_limit_seconds": 0},
+             "channels": {"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}},
+        )
+        execution = result["execution"]
+        comparison = execution["comparison"]
+
+        self.assertEqual(execution["graph_snapshot"]["edges"], 3)
+        self.assertEqual(comparison["conflicts_before"], 1)
+        self.assertEqual(comparison["conflicts_after"], 0)
+        self.assertEqual(comparison["conflicts_after"], execution["search"]["conflicts"])
+        self.assertAlmostEqual(comparison["conflict_density_before"], 1 / 3)
+        self.assertEqual(comparison["conflict_density_after"], 0)
+        self.assertEqual(execution["bands"][0]["comparison"]["conflicts_before"], 1)
+        for field in ("edges_before", "edges_after", "density_before", "density_after"):
+            self.assertNotIn(field, comparison)
+
     def test_aps_in_different_bands_are_not_linked(self):
         aps = [self.ap_at("a24", "2.4 GHz", "1"), self.ap_at("a5", "5 GHz", "36")]
         self.assertEqual(self.post_json("/collision-graph", {"aps": aps})["links"], [])

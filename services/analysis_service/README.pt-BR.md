@@ -52,7 +52,7 @@ APs de faixas diferentes não interferem (s = 0), então o grafo não tem aresta
 
 O campo `channels` da requisição define os perfis (o k de cada grafo) no mesmo formato de `profiles` em `GET /channel-plan`, por exemplo `{"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}`. Cada combinação é validada contra `valid`, e uma faixa informada precisa de ao menos um canal; caso contrário, a resposta é HTTP 400. As faixas não informadas usam os perfis padrão.
 
-A resposta traz em `execution.bands` uma entrada por faixa, com `frequency`, `nodes`, `edges`, `density`, `profile_count`, `comparison` e `search`. Os campos `execution.search` e `execution.comparison` consolidam as faixas: conflitos, interferência, largura de banda e nós explorados são somados, e a solução só é ótima se todas as faixas forem.
+A resposta traz em `execution.bands` uma entrada por faixa, com `frequency`, `nodes`, `edges`, `density`, `profile_count`, `comparison` e `search`. Os campos `execution.search` e `execution.comparison` consolidam as faixas: conflitos, interferência, largura de banda e nós explorados são somados, e a solução só é ótima se todas as faixas forem. Em `comparison`, `conflicts_before` e `conflicts_after` contam as arestas em conflito (w·s > 0) na configuração atual e na proposta, e `conflict_density_before` e `conflict_density_after` dão a fração dos pares possíveis de APs em conflito; `edges`, por sua vez, conta todas as sobreposições de cobertura, com ou sem conflito.
 
 ## Plano de Canais
 

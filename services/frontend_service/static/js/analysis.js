@@ -732,12 +732,12 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Arestas Antes / Depois</span>
-                    <span class="analysis-execution-value">${comparison.edges_before != null ? comparison.edges_before : '-'} / ${comparison.edges_after != null ? comparison.edges_after : '-'}</span>
+                    <span class="analysis-execution-label">Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.conflicts_before != null ? comparison.conflicts_before : '-'} / ${comparison.conflicts_after != null ? comparison.conflicts_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Densidade Antes / Depois</span>
-                    <span class="analysis-execution-value">${comparison.density_before != null ? comparison.density_before : '-'} / ${comparison.density_after != null ? comparison.density_after : '-'}</span>
+                    <span class="analysis-execution-label">Densidade de Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-value">${comparison.conflict_density_before != null ? comparison.conflict_density_before : '-'} / ${comparison.conflict_density_after != null ? comparison.conflict_density_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parametros</span>
