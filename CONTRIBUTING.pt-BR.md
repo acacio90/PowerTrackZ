@@ -41,6 +41,18 @@ Cada versão tem um *milestone* com as *issues* que a compõem. Quando todas est
 2. marque a versão com uma *tag* (`vX.Y.Z`) no commit resultante da `main`;
 3. publique um *release* no GitHub a partir da *tag*.
 
+## Correção de Versões Publicadas (*hotfix*)
+
+Um erro encontrado em uma versão já publicada é corrigido em uma versão PATCH (por exemplo, a v1.3.1 corrige a v1.3.0). Ela só pode conter correções que não alterem o comportamento esperado nem a compatibilidade: um cálculo errado, um erro na interface ou uma dependência com falha de segurança. Funcionalidades novas e mudanças na interface pública ficam para a próxima versão MINOR ou MAJOR.
+
+Como a `develop` pode conter trabalho ainda não publicado, a correção parte da `main`:
+
+1. **Issue.** Abra a *issue* no *milestone* da versão de correção (por exemplo, `v1.3.1`), criando o *milestone* se preciso.
+2. **Branch.** Crie o *branch* a partir da `main`: `gh issue develop <número> --base main --checkout`.
+3. **Pull request.** Abra para a `main` (`gh pr create --base main`), com corpo `Closes #<issue>`, e mescle por *squash*. Como a `main` é a branch padrão, a *issue* é fechada automaticamente; antes disso, marque os critérios de aceite cumpridos.
+4. **Versão.** Marque a *tag* (`vX.Y.Z`) no commit resultante da `main` e publique o *release*.
+5. **Volta para a `develop`.** Abra um *pull request* da `main` para a `develop` e mescle-o por *merge commit*, para que a correção não se perca na próxima versão e as duas branches não divirjam. Se houver conflito com o trabalho em andamento, resolva-o nesse *pull request*.
+
 ## Ambiente de Desenvolvimento
 
 ```bash

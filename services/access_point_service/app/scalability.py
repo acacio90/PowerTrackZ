@@ -95,14 +95,14 @@ def validate_parameters(data, strategy_details):
 
     time_limit = data.get("time_limit_seconds", DEFAULT_PARAMETERS["time_limit_seconds"])
     if isinstance(time_limit, bool) or not isinstance(time_limit, (int, float)) or not 0 < time_limit <= 3600:
-        raise ValueError("time_limit_seconds deve ser um numero maior que 0 e ate 3600")
+        raise ValueError("time_limit_seconds deve ser um número maior que 0 e até 3600")
 
     strategies = data.get("strategies") or implemented
     if not isinstance(strategies, list) or not strategies:
-        raise ValueError("strategies deve ser uma lista de estrategias implementadas")
+        raise ValueError("strategies deve ser uma lista de estratégias implementadas")
     unknown = [name for name in strategies if name not in implemented]
     if unknown:
-        raise ValueError(f"Estrategias invalidas ou nao implementadas: {', '.join(map(str, unknown))}")
+        raise ValueError(f"Estratégias inválidas ou não implementadas: {', '.join(map(str, unknown))}")
 
     return {
         "max_nodes": max_nodes,
@@ -228,7 +228,7 @@ def mark_interrupted_runs():
     for run in ScalabilityRun.query.filter_by(status="running").all():
         run.status = "interrupted"
         run.finished_at = datetime.utcnow()
-        run.error = "Execucao interrompida pela reinicializacao do servico"
+        run.error = "Execução interrompida pela reinicialização do serviço. Execute o teste de novo."
     db.session.commit()
 
 

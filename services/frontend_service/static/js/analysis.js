@@ -4,359 +4,6 @@ window.addEventListener('DOMContentLoaded', function() {
 
     window.selectedStrategy = null;
 
-    const style = document.createElement('style');
-    style.textContent = `
-        .page-container {
-            display: flex;
-            flex-direction: column;
-        }
-        .content-container {
-            position: relative;
-            flex: 1;
-            margin-top: 20px;
-            display: flex;
-            flex-direction: column;
-            border: none;
-        }
-        .analysis-summary {
-            margin-bottom: 1rem;
-        }
-        .analysis-summary-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 0.75rem;
-        }
-        .analysis-summary-unit {
-            text-transform: none;
-            letter-spacing: normal;
-        }
-        .analysis-change {
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .analysis-change.is-better {
-            color: #15803d;
-        }
-        .analysis-change.is-worse {
-            color: #b42318;
-        }
-        .analysis-change.is-neutral {
-            color: #607080;
-        }
-        .analysis-summary-bands {
-            margin-top: 0.75rem;
-            overflow-x: auto;
-        }
-        .analysis-summary-bands table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-        .analysis-summary-bands caption {
-            caption-side: top;
-            padding: 0 0 0.35rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #607080;
-        }
-        .analysis-summary-bands th,
-        .analysis-summary-bands td {
-            padding: 0.4rem 0.6rem;
-            border-bottom: 1px solid #e2e7ec;
-            text-align: left;
-            white-space: nowrap;
-        }
-        .analysis-summary-bands thead th {
-            font-size: 0.75rem;
-            color: #607080;
-        }
-        .analysis-summary[hidden] {
-            display: none;
-        }
-        .analysis-summary-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            padding: 0.85rem 1rem;
-            border: 1px solid #d9e2ec;
-            border-radius: 12px;
-            background: #f8fafc;
-            min-width: 0;
-        }
-        .analysis-summary-label {
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #607080;
-        }
-        .analysis-summary-value {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #18222d;
-            overflow-wrap: anywhere;
-        }
-        .analysis-summary-detail {
-            font-size: 0.85rem;
-            color: #526272;
-        }
-        .grafos-toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.75rem;
-            font-size: 0.85rem;
-            color: #4b5a67;
-        }
-        .grafos-toolbar label {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin: 0;
-        }
-        .grafos-toolbar input {
-            width: 64px;
-            padding: 0.2rem 0.4rem;
-            border: 1px solid #c9d3dd;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .grafos-comparacao {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1.25rem;
-        }
-        .grafo-painel {
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            min-width: 0;
-        }
-        .grafo-painel-header {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-        .grafo-painel-titulo {
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 700;
-            color: #18222d;
-        }
-        .grafo-container {
-            width: 100%;
-            height: clamp(360px, 60vh, 560px);
-            position: relative;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            padding: 10px;
-            background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .cy {
-            width: 100%;
-            height: 100%;
-        }
-        .legenda {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem 1rem;
-            margin: 0;
-        }
-        .legenda:empty {
-            display: none;
-        }
-        .legenda-item {
-            display: flex;
-            align-items: center;
-        }
-        .legenda .legenda-arestas {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem 1rem;
-            flex-basis: 100%;
-            margin: 0 0 0.15rem;
-            padding: 0 0 0.35rem;
-        }
-        .cor-amostra {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            margin-right: 6px;
-            border: 1px solid #ddd;
-            flex-shrink: 0;
-        }
-        .nome-ap {
-            font-size: 0.8rem;
-            color: #5b6875;
-        }
-        #tabela-alteracoes-container {
-            position: relative;
-            z-index: 1;
-            margin-top: 48px;
-        }
-        .info-gasto {
-            color: #1a237e;
-            font-size: 0.85rem;
-        }
-        @media (max-width: 1100px) {
-            .grafos-comparacao {
-                grid-template-columns: 1fr;
-            }
-        }
-        .btn-server-analysis.is-selected {
-            color: #fff !important;
-            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.18);
-        }
-        .btn-server-analysis[data-strategy='backtracking'].is-selected {
-            background-color: #0d6efd;
-            border-color: #0d6efd;
-        }
-        .btn-server-analysis[data-strategy='greedy'].is-selected {
-            background-color: #6c757d;
-            border-color: #6c757d;
-        }
-        .btn-server-analysis[data-strategy='genetic'].is-selected {
-            background-color: #198754;
-            border-color: #198754;
-        }
-        .analysis-loading-overlay {
-            position: absolute;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(3px);
-            z-index: 20;
-        }
-        .analysis-loading-overlay.is-visible {
-            display: flex;
-        }
-        .analysis-loading-card {
-            width: min(420px, 100%);
-            padding: 1.25rem 1.35rem;
-            border: 1px solid rgba(13, 110, 253, 0.15);
-            border-radius: 16px;
-            background: #fff;
-            box-shadow: 0 18px 36px rgba(24, 34, 45, 0.12);
-        }
-        .analysis-loading-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.9rem;
-        }
-        .analysis-loading-spinner {
-            width: 1.1rem;
-            height: 1.1rem;
-            border: 2px solid rgba(13, 110, 253, 0.18);
-            border-top-color: #0d6efd;
-            border-radius: 999px;
-            animation: analysis-spin 0.9s linear infinite;
-            flex-shrink: 0;
-        }
-        .analysis-loading-title {
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 700;
-            color: #18222d;
-        }
-        .analysis-loading-description {
-            margin: 0 0 1rem;
-            color: #526272;
-            font-size: 0.92rem;
-            line-height: 1.45;
-        }
-        .analysis-loading-bar {
-            width: 100%;
-            height: 0.7rem;
-            overflow: hidden;
-            border-radius: 999px;
-            background: #e9eef4;
-        }
-        .analysis-loading-fill {
-            height: 100%;
-            width: 0%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #0d6efd 0%, #4dabf7 100%);
-            transition: width 0.2s ease;
-        }
-        .analysis-loading-fill.is-indeterminate {
-            width: 38%;
-            animation: analysis-loading-slide 1.2s ease-in-out infinite;
-        }
-        .analysis-loading-meta {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-top: 0.8rem;
-            font-size: 0.84rem;
-            color: #526272;
-        }
-        .analysis-loading-cancel {
-            margin-top: 1rem;
-            width: 100%;
-        }
-        .analysis-execution-card {
-            margin-top: 1rem;
-            padding: 1rem 1.1rem;
-            border: 1px solid #d9e2ec;
-            border-radius: 14px;
-            background: #fff;
-            box-shadow: 0 8px 20px rgba(24, 34, 45, 0.06);
-        }
-        .analysis-execution-card[hidden] {
-            display: none;
-        }
-        .analysis-execution-title {
-            margin: 0 0 0.75rem;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #18222d;
-        }
-        .analysis-execution-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.7rem 1rem;
-        }
-        .analysis-execution-item {
-            min-width: 0;
-        }
-        .analysis-execution-label {
-            display: block;
-            margin-bottom: 0.2rem;
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: #607080;
-        }
-        .analysis-execution-value {
-            display: block;
-            color: #22313f;
-            font-size: 0.92rem;
-            word-break: break-word;
-        }
-        @keyframes analysis-spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        @keyframes analysis-loading-slide {
-            0% { transform: translateX(-120%); }
-            50% { transform: translateX(120%); }
-            100% { transform: translateX(-120%); }
-        }
-    `;
-    document.head.appendChild(style);
-
     let apsOriginais = [];
     let apsOtimizado = [];
     let analysisRequestToken = 0;
@@ -399,7 +46,7 @@ window.addEventListener('DOMContentLoaded', function() {
         <label for="input-dias">Dias da estimativa de consumo
             <input id="input-dias" type="number" min="1" value="15">
         </label>
-        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-outline-secondary" title="Reenquadrar os dois grafos">
+        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-secondary" title="Reenquadrar os dois grafos">
             <i class="fa-solid fa-expand"></i> Reenquadrar
         </button>
     `;
@@ -409,11 +56,10 @@ window.addEventListener('DOMContentLoaded', function() {
     grafosComparacao.appendChild(criarContainerGrafo('cy2', 'Configuração proposta'));
     const executionContainer = document.createElement('div');
     executionContainer.id = 'analysis-execution-container';
-    executionContainer.className = 'analysis-execution-card';
+    executionContainer.className = 'panel analysis-execution-card';
     executionContainer.hidden = true;
     const tabelaContainer = document.createElement('div');
     tabelaContainer.id = 'tabela-alteracoes-container';
-    tabelaContainer.style.margin = '30px 0 0 0';
 
     if (existingGraphContainer) {
         existingGraphContainer.appendChild(summaryContainer);
@@ -435,7 +81,7 @@ window.addEventListener('DOMContentLoaded', function() {
         header.innerHTML = `<h3 class="grafo-painel-titulo">${titulo}</h3><span class="info-gasto"></span>`;
 
         const container = document.createElement('div');
-        container.className = 'grafo-container';
+        container.className = 'panel panel-flush grafo-container';
 
         const cyDiv = document.createElement('div');
         cyDiv.id = id;
@@ -447,10 +93,10 @@ window.addEventListener('DOMContentLoaded', function() {
         const loadingOverlay = document.createElement('div');
         loadingOverlay.className = 'analysis-loading-overlay';
         loadingOverlay.innerHTML = `
-            <div class="analysis-loading-card">
+            <div class="panel panel-floating analysis-loading-card">
                 <div class="analysis-loading-header">
                     <div class="analysis-loading-spinner"></div>
-                    <p class="analysis-loading-title">Processando analise</p>
+                    <p class="analysis-loading-title">Processando a análise</p>
                 </div>
                 <p class="analysis-loading-description">Preparando dados do grafo.</p>
                 <div class="analysis-loading-bar">
@@ -460,7 +106,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-loading-step">Aguardando resposta do servidor</span>
                     <span class="analysis-loading-percent">Progresso do algoritmo: --</span>
                 </div>
-                <button type="button" class="analysis-loading-cancel btn btn-outline-danger">Cancelar</button>
+                <button type="button" class="btn btn-secondary analysis-loading-cancel">Cancelar</button>
             </div>
         `;
 
@@ -487,9 +133,9 @@ window.addEventListener('DOMContentLoaded', function() {
     function getStrategyDisplayName(strategy) {
         return {
             backtracking: 'Backtracking',
-            greedy: 'Greedy',
-            genetic: 'Genetic (AG)'
-        }[strategy] || 'Selecione uma estrategia';
+            greedy: 'Guloso',
+            genetic: 'Algoritmo genético'
+        }[strategy] || strategy || 'Nenhuma estratégia';
     }
 
     function setAnalysisButtonsDisabled(disabled) {
@@ -567,11 +213,11 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const detail = strategyDetails[strategyName];
         if (!detail) {
-            container.innerHTML = '<p class="analysis-parameter-meta">Parametros indisponiveis para esta estrategia.</p>';
+            container.innerHTML = '<p class="analysis-parameter-meta">Os parâmetros desta estratégia não estão disponíveis. Recarregue a página.</p>';
             return;
         }
         if (!detail.parameters || detail.parameters.length === 0) {
-            container.innerHTML = '<p class="analysis-parameter-meta">Esta estrategia nao possui parametros configuraveis.</p>';
+            container.innerHTML = '<p class="analysis-parameter-meta">Esta estratégia não tem parâmetros configuráveis.</p>';
             return;
         }
 
@@ -614,10 +260,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
             const value = Number(raw);
             if (!Number.isFinite(value)) {
-                return { error: `${parameter.label}: informe um numero.` };
+                return { error: `${parameter.label}: informe um número.` };
             }
             if (parameter.type === 'integer' && !Number.isInteger(value)) {
-                return { error: `${parameter.label}: informe um numero inteiro.` };
+                return { error: `${parameter.label}: informe um número inteiro.` };
             }
             if (value < parameter.min || value > parameter.max) {
                 return { error: `${parameter.label}: informe um valor entre ${parameter.min} e ${parameter.max}.` };
@@ -635,7 +281,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const cy2 = document.getElementById('cy2');
         if (cy2) {
-            cy2.innerHTML = `<p style="color:#526272; text-align:center; padding-top:3rem;">${message}</p>`;
+            cy2.innerHTML = `<p class="cy-message">${message}</p>`;
         }
 
         const legenda = getLegendaDiv('cy2');
@@ -701,19 +347,19 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const items = [`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Solucao</span>
+                    <span class="analysis-execution-label">Solução</span>
                     <span class="analysis-execution-value">${describeSearchOutcome(strategy, search)}</span>
                 </div>`];
 
         if (strategy === 'backtracking') {
             items.push(`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Conflitos Guloso / Final</span>
+                    <span class="analysis-execution-label">Conflitos (guloso / final)</span>
                     <span class="analysis-execution-value">${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}</span>
                 </div>`);
             items.push(`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Nos Explorados</span>
+                    <span class="analysis-execution-label">Nós explorados</span>
                     <span class="analysis-execution-value">${search.nodes_explored != null ? Number(search.nodes_explored).toLocaleString('pt-BR') : '-'}</span>
                 </div>`);
         }
@@ -752,18 +398,18 @@ window.addEventListener('DOMContentLoaded', function() {
         const comparison = execution.comparison || {};
         container.hidden = false;
         container.innerHTML = `
-            <h3 class="analysis-execution-title">Metadados de Execucao</h3>
+            <h3 class="analysis-execution-title">Metadados da execução</h3>
             <div class="analysis-execution-grid">
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Estrategia</span>
-                    <span class="analysis-execution-value">${execution.strategy || '-'}</span>
+                    <span class="analysis-execution-label">Estratégia</span>
+                    <span class="analysis-execution-value">${execution.strategy ? escapeHtml(getStrategyDisplayName(execution.strategy)) : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Tempo</span>
                     <span class="analysis-execution-value">${execution.duration_ms != null ? `${execution.duration_ms} ms` : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Nos</span>
+                    <span class="analysis-execution-label">APs</span>
                     <span class="analysis-execution-value">${graphSnapshot.nodes ?? '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
@@ -775,15 +421,15 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-label">Conflitos (antes / depois)</span>
                     <span class="analysis-execution-value">${comparison.conflicts_before != null ? comparison.conflicts_before : '-'} / ${comparison.conflicts_after != null ? comparison.conflicts_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Densidade de Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-label">Densidade de conflitos (antes / depois)</span>
                     <span class="analysis-execution-value">${comparison.conflict_density_before != null ? comparison.conflict_density_before : '-'} / ${comparison.conflict_density_after != null ? comparison.conflict_density_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Parametros</span>
+                    <span class="analysis-execution-label">Parâmetros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
                 </div>${renderSearchMetadata(execution.strategy, execution.search)}${renderBandsMetadata(execution.strategy, execution.bands)}
             </div>
@@ -863,27 +509,27 @@ window.addEventListener('DOMContentLoaded', function() {
         container.hidden = false;
         container.innerHTML = `
             <div class="analysis-summary-cards">
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Conflitos</span>
                     <span class="analysis-summary-value">${comparison.conflicts_before} → ${comparison.conflicts_after}</span>
                     <span class="analysis-summary-detail">${formatChange(comparison.conflicts_before, comparison.conflicts_after)}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label" title="Soma de w·s nas arestas em conflito">Interferência total</span>
                     <span class="analysis-summary-value">${formatNumber(comparison.interference_before)} → ${formatNumber(comparison.interference_after)}</span>
                     <span class="analysis-summary-detail">${formatChange(comparison.interference_before, comparison.interference_after)}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">APs alterados</span>
                     <span class="analysis-summary-value">${changed} de ${nodes}</span>
                     <span class="analysis-summary-detail">${nodes ? `${Math.round((changed / nodes) * 100)}% dos APs` : '-'}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Consumo em ${pluralizeDays(days)} <span class="analysis-summary-unit">(kWh)</span></span>
                     <span class="analysis-summary-value">${energyBefore != null && energyAfter != null ? `${formatNumber(energyBefore, 2)} → ${formatNumber(energyAfter, 2)}` : '-'}</span>
                     <span class="analysis-summary-detail">${formatChange(energyBefore, energyAfter, ' kWh')}${unmodeled}</span>
                 </div>
-                <div class="analysis-summary-item">
+                <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">${escapeHtml(getStrategyDisplayName(execution.strategy))}</span>
                     <span class="analysis-summary-value">${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}</span>
                     <span class="analysis-summary-detail">${escapeHtml(solution)}</span>
@@ -891,7 +537,7 @@ window.addEventListener('DOMContentLoaded', function() {
             </div>
             ${bands.length ? `
             <div class="analysis-summary-bands">
-                <table>
+                <table class="app-table app-table-compact">
                     <caption>Resultados por faixa</caption>
                     <thead>
                         <tr>
@@ -918,7 +564,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const {
             visible = true,
-            title = 'Processando analise',
+            title = 'Processando a análise',
             description = 'Preparando dados do grafo.',
             step = 'Aguardando resposta do servidor',
             percentage = null
@@ -1051,9 +697,9 @@ window.addEventListener('DOMContentLoaded', function() {
 
         if (threadAvailabilityInfo) {
             if (Number.isFinite(availableAnalysisThreads) && availableAnalysisThreads > 0) {
-                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit} de ${availableAnalysisThreads} disponiveis`;
+                threadAvailabilityInfo.textContent = `Threads úteis para este grafo: ${usefulThreadLimit} de ${availableAnalysisThreads} disponíveis`;
             } else {
-                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit}`;
+                threadAvailabilityInfo.textContent = `Threads úteis para este grafo: ${usefulThreadLimit}`;
             }
         }
     }
@@ -1073,7 +719,82 @@ window.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    // Cores das configuracoes nos grafos: paleta categorica dos tokens (--color-graph-series-1..8), atribuida em
+    // ordem fixa as configuracoes ordenadas por faixa, largura e canal, e combinada com a forma do no. Nas 8
+    // primeiras, laranja e vermelho, que se confundem com outras cores para daltonicos, ganham forma propria; da
+    // 9a em diante as cores se repetem em outra forma, sem pares confundiveis na mesma forma (docs/design).
+    const GRAPH_SHAPES = ['ellipse', 'round-rectangle', 'triangle', 'diamond', 'hexagon'];
+    const CONFIG_STYLE_SEQUENCE = [
+        [0, 0], [1, 1], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 2],
+        [0, 1], [2, 1], [6, 1],
+        [0, 2], [2, 2], [3, 2], [5, 2], [6, 2],
+        [0, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3],
+        [0, 4], [2, 4], [3, 4], [5, 4], [6, 4], [7, 4]
+    ];
+    let configStyles = new Map();
+
+    function cssToken(name, fallback) {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value || fallback;
+    }
+
+    function configKey(channel, bandwidth, frequency) {
+        return [channel || 'N/A', bandwidth || 'N/A', frequency || 'N/A'].join('|');
+    }
+
+    function firstNumber(text) {
+        const match = String(text || '').match(/\d+(?:[.,]\d+)?/);
+        return match ? Number(match[0].replace(',', '.')) : Number.POSITIVE_INFINITY;
+    }
+
+    function compareConfigs(a, b) {
+        return firstNumber(a.frequency) - firstNumber(b.frequency)
+            || firstNumber(a.bandwidth) - firstNumber(b.bandwidth)
+            || firstNumber(a.channel) - firstNumber(b.channel)
+            || a.key.localeCompare(b.key);
+    }
+
+    // Recalcula o estilo de cada configuracao a partir das configuracoes dos dois grafos, para que a mesma
+    // configuracao tenha a mesma cor e forma no original, no proposto e nas legendas; redesenha o original.
+    function atualizarEstilosConfiguracoes() {
+        const configs = new Map();
+        const add = (channel, bandwidth, frequency) => {
+            const key = configKey(channel, bandwidth, frequency);
+            if (!configs.has(key)) {
+                configs.set(key, { key, channel, bandwidth, frequency });
+            }
+        };
+        (originalGraphData?.nodes || []).forEach(node => add(node.channel, node.bandwidth, node.frequency));
+        (optimizedGraphData?.nodes || []).forEach(node => add(node.proposed_channel, node.proposed_bandwidth, node.proposed_frequency));
+
+        const palette = Array.from({ length: 8 }, (_, index) => cssToken(`--color-graph-series-${index + 1}`, '#607080'));
+        configStyles = new Map(Array.from(configs.values()).sort(compareConfigs).map((config, index) => {
+            const [color, shape] = CONFIG_STYLE_SEQUENCE[index % CONFIG_STYLE_SEQUENCE.length];
+            return [config.key, { color: palette[color], shape: GRAPH_SHAPES[shape], order: index }];
+        }));
+
+        const cy1 = graphInstances.cy1;
+        if (cy1 && originalGraphData) {
+            cy1.nodes().forEach(element => {
+                const node = originalGraphData.nodes.find(item => String(item.id) === element.id());
+                if (node) {
+                    const style = estiloConfiguracao(node.channel, node.bandwidth, node.frequency);
+                    element.data({ cor: style.color, forma: style.shape });
+                }
+            });
+            renderizarLegenda(getLegendaDiv('cy1'), originalGraphData.nodes, false);
+        }
+    }
+
+    function estiloConfiguracao(channel, bandwidth, frequency) {
+        return configStyles.get(configKey(channel, bandwidth, frequency))
+            || { color: cssToken('--color-text-muted', '#607080'), shape: GRAPH_SHAPES[0], order: Number.POSITIVE_INFINITY };
+    }
+
     function renderizarLegenda(legendaDiv, nodes, usarConfiguracaoProposta) {
+        if (!legendaDiv) {
+            return;
+        }
         legendaDiv.innerHTML = '';
 
         const legendGroups = new Map();
@@ -1082,14 +803,14 @@ window.addEventListener('DOMContentLoaded', function() {
             const channel = usarConfiguracaoProposta ? node.proposed_channel : node.channel;
             const bandwidth = usarConfiguracaoProposta ? node.proposed_bandwidth : node.bandwidth;
             const frequency = usarConfiguracaoProposta ? node.proposed_frequency : node.frequency;
-            const color = usarConfiguracaoProposta
-                ? (node.proposed_cor || node.cor || '#cccccc')
-                : (node.cor || '#cccccc');
-            const legendKey = [color, channel || '', bandwidth || '', frequency || ''].join('|');
+            const legendKey = configKey(channel, bandwidth, frequency);
 
             if (!legendGroups.has(legendKey)) {
+                const style = estiloConfiguracao(channel, bandwidth, frequency);
                 legendGroups.set(legendKey, {
-                    color,
+                    color: style.color,
+                    shape: style.shape,
+                    order: style.order,
                     channel: channel || 'N/A',
                     bandwidth: bandwidth || 'N/A',
                     frequency: frequency || 'N/A',
@@ -1103,32 +824,30 @@ window.addEventListener('DOMContentLoaded', function() {
         const edgeLegend = document.createElement('div');
         edgeLegend.className = 'legenda-arestas';
         edgeLegend.innerHTML = `
-            <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferencia %)</div></div>
-            <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposicao sem conflito (%)</div></div>
+            <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferência, %)</div></div>
+            <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposição sem conflito (%)</div></div>
         `;
         if (usarConfiguracaoProposta && showChangeHighlights) {
             const changedCount = nodes.filter(nodeConfigChanged).length;
             const resolvedCount = graphInstances.cy2 ? graphInstances.cy2.edges('[?resolved]').length : 0;
             edgeLegend.innerHTML += `
                 <div class="legenda-item"><span class="linha-amostra linha-resolvida"></span><div class="nome-ap">Conflito resolvido (${resolvedCount})</div></div>
-                <div class="legenda-item"><span class="cor-amostra no-alterado"></span><div class="nome-ap">AP com configuracao alterada (${changedCount})</div></div>
+                <div class="legenda-item"><span class="cor-amostra no-alterado"></span><div class="nome-ap">AP com configuração alterada (${changedCount})</div></div>
             `;
         }
         legendaDiv.appendChild(edgeLegend);
 
-        Array.from(legendGroups.values()).forEach(item => {
+        Array.from(legendGroups.values()).sort((a, b) => a.order - b.order).forEach(item => {
             const legendaItem = document.createElement('div');
             legendaItem.className = 'legenda-item';
             legendaItem.innerHTML = `
-                <div class="cor-amostra" style="background-color: ${item.color}"></div>
+                <div class="cor-amostra forma-${item.shape}" style="background-color: ${item.color}"></div>
                 <div class="nome-ap">${item.count} AP(s) · canal ${item.channel} · ${item.bandwidth} · ${item.frequency}</div>
             `;
             legendaDiv.appendChild(legendaItem);
         });
     }
 
-    const EDGE_CONFLICT_COLOR = '#d62828';
-    const EDGE_OVERLAP_COLOR = '#c3cad2';
     const OVERLAP_LABEL_EDGE_LIMIT = 40;
 
     // Rotulos das arestas sem conflito: visiveis por padrao apenas em grafos pequenos,
@@ -1145,8 +864,6 @@ window.addEventListener('DOMContentLoaded', function() {
             toggle.checked = showOverlapLabels;
         }
     }
-
-    const CHANGED_NODE_BORDER_COLOR = '#1f2933';
 
     function edgeKey(source, target) {
         return [String(source), String(target)].sort().join('\u0000');
@@ -1278,17 +995,26 @@ window.addEventListener('DOMContentLoaded', function() {
         const optimizedEdgeKeys = new Set();
 
         graphData.nodes.forEach(node => {
+            const style = usarConfiguracaoProposta
+                ? estiloConfiguracao(node.proposed_channel, node.proposed_bandwidth, node.proposed_frequency)
+                : estiloConfiguracao(node.channel, node.bandwidth, node.frequency);
             elements.push({
                 data: {
                     id: node.id,
                     label: node.label || node.id,
-                    cor: usarConfiguracaoProposta
-                        ? (node.proposed_cor || node.cor || '#cccccc')
-                        : (node.cor || '#cccccc'),
+                    cor: style.color,
+                    forma: style.shape,
                     changed: usarConfiguracaoProposta && nodeConfigChanged(node)
                 }
             });
         });
+
+        const conflictColor = cssToken('--color-graph-conflict', '#d62828');
+        const overlapColor = cssToken('--color-graph-overlap', '#c3cad2');
+        const resolvedColor = cssToken('--color-graph-resolved', 'rgba(214, 40, 40, 0.35)');
+        const changedBorderColor = cssToken('--color-text-strong', '#18222d');
+        const edgeLabelColor = cssToken('--color-text-muted', '#607080');
+        const edgeLabelBackground = cssToken('--color-surface', '#fff');
 
         graphData.links.forEach(link => {
             const collision = Number(link.collision_peso ?? link.peso) || 0;
@@ -1329,6 +1055,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     selector: 'node',
                     style: {
                         'background-color': 'data(cor)',
+                        'shape': 'data(forma)',
                         'label': 'data(label)'
                     }
                 },
@@ -1338,7 +1065,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         'border-width': function() {
                             return showChangeHighlights ? 4 : 0;
                         },
-                        'border-color': CHANGED_NODE_BORDER_COLOR,
+                        'border-color': changedBorderColor,
                         'font-weight': function() {
                             return showChangeHighlights ? 'bold' : 'normal';
                         }
@@ -1348,13 +1075,13 @@ window.addEventListener('DOMContentLoaded', function() {
                     selector: 'edge',
                     style: {
                         'width': 1,
-                        'line-color': EDGE_OVERLAP_COLOR,
+                        'line-color': overlapColor,
                         'label': function(ele) {
                             return showOverlapLabels ? `${ele.data('collision').toFixed(1)}%` : '';
                         },
                         'font-size': 9,
-                        'color': '#7a8591',
-                        'text-background-color': '#fff',
+                        'color': edgeLabelColor,
+                        'text-background-color': edgeLabelBackground,
                         'text-background-opacity': 0.8,
                         'text-background-padding': 2,
                         'z-index': 1
@@ -1372,13 +1099,10 @@ window.addEventListener('DOMContentLoaded', function() {
                             return showChangeHighlights ? 2 : 1;
                         },
                         'line-color': function() {
-                            return showChangeHighlights ? EDGE_CONFLICT_COLOR : EDGE_OVERLAP_COLOR;
+                            return showChangeHighlights ? resolvedColor : overlapColor;
                         },
                         'line-style': function() {
                             return showChangeHighlights ? 'dashed' : 'solid';
-                        },
-                        'opacity': function() {
-                            return showChangeHighlights ? 0.35 : 1;
                         },
                         'label': function(ele) {
                             if (showChangeHighlights || ele.data('synthetic') || !showOverlapLabels) {
@@ -1395,13 +1119,13 @@ window.addEventListener('DOMContentLoaded', function() {
                         'width': function(ele) {
                             return Math.min(8, Math.max(2.5, ele.data('interference') * 0.06));
                         },
-                        'line-color': EDGE_CONFLICT_COLOR,
+                        'line-color': conflictColor,
                         'label': function(ele) {
                             return `${ele.data('interference').toFixed(1)}%`;
                         },
                         'font-size': 10,
                         'font-weight': 'bold',
-                        'color': EDGE_CONFLICT_COLOR,
+                        'color': conflictColor,
                         'z-index': 10
                     }
                 }
@@ -1511,7 +1235,7 @@ window.addEventListener('DOMContentLoaded', function() {
     function exibirTabelaAlteracoes(nodes, estrategia = null) {
         const container = document.getElementById('tabela-alteracoes-container');
         container.innerHTML = '';
-        container.className = 'app-table-card analysis-changes';
+        container.className = 'panel analysis-changes';
 
         const tabela = document.createElement('table');
         tabela.className = 'app-table analysis-table';
@@ -1525,9 +1249,9 @@ window.addEventListener('DOMContentLoaded', function() {
             <thead>
                 <tr>
                     <th>Nome do AP</th>
-                    <th>Configuracao Original</th>
-                    <th>Configuracao Proposta</th>
-                    <th>Acoes</th>
+                    <th>Configuração original</th>
+                    <th>Configuração proposta</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -1553,7 +1277,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 <td class="analysis-ap-name">${node.label || node.id}</td>
                 <td>${renderConfigPills(original, false)}</td>
                 <td class="td-proposta">${renderConfigPills(proposta, mudou)}</td>
-                <td><button class="analysis-edit-button btn-editar" type="button"><i class="fa-solid fa-pen"></i><span>Editar</span></button></td>
+                <td><button class="btn btn-secondary btn-sm analysis-edit-button btn-editar" type="button"><i class="fa-solid fa-pen"></i><span>Editar</span></button></td>
             `;
             tbody.appendChild(tr);
 
@@ -1575,7 +1299,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         <div class="analysis-inline-edit">
                             <select class="input-edit" data-field="channel" aria-label="Canal"></select>
                             <select class="input-edit" data-field="bandwidth" aria-label="Largura de banda"></select>
-                            <select class="input-edit" data-field="frequency" aria-label="Frequencia"></select>
+                            <select class="input-edit" data-field="frequency" aria-label="Faixa"></select>
                         </div>
                     `;
                     const selects = {
@@ -1603,7 +1327,7 @@ window.addEventListener('DOMContentLoaded', function() {
         const nomeEstrategia = getStrategyDisplayName(estrategiaNome);
 
         titulo.className = 'app-table-title analysis-changes-title';
-        titulo.textContent = `Alteracoes de Configuracao Propostas pelo ${nomeEstrategia}`;
+        titulo.textContent = `Configurações propostas (${nomeEstrategia})`;
         container.appendChild(titulo);
 
         const tableShell = document.createElement('div');
@@ -1618,9 +1342,9 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderConfigPills(config, highlight = false) {
-        const pillClass = highlight ? 'analysis-config-pill is-new' : 'analysis-config-pill';
+        const pillClass = highlight ? 'tag tag-accent' : 'tag';
         const changeIcon = highlight
-            ? '<span class="analysis-change-icon" title="Configuracao alterada">&#8635;</span>'
+            ? '<span class="analysis-change-icon" title="Configuração alterada">&#8635;</span>'
             : '';
 
         return `
@@ -1642,12 +1366,13 @@ window.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(graphData => {
                 originalGraphData = graphData;
+                atualizarEstilosConfiguracoes();
                 renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
                 atualizarInfoConsumo('cy1', graphData);
             })
             .catch(error => {
-                document.getElementById('cy1').innerHTML = '<p style="color:red">Erro ao carregar o grafo.</p>';
+                document.getElementById('cy1').innerHTML = '<p class="cy-error">Não foi possível carregar o grafo. Recarregue a página.</p>';
                 console.error('Erro ao carregar grafo original:', error);
             });
     }
@@ -1688,7 +1413,7 @@ window.addEventListener('DOMContentLoaded', function() {
         currentAnalysisJobId = null;
         setGraphLoading('cy2', { visible: false });
         setAnalysisButtonsDisabled(false);
-        setEmptyOptimizedState('Execucao cancelada. Selecione uma estrategia para iniciar novamente.');
+        setEmptyOptimizedState('Análise cancelada. Clique em Executar análise para iniciar de novo.');
     }
 
     function cancelarAnaliseSilenciosamenteAoSair() {
@@ -1721,11 +1446,12 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!data.success) {
-            throw new Error(data.error || 'Falha na analise');
+            throw new Error(data.error || 'A análise falhou. Tente executar de novo.');
         }
 
         const graphData = data.graph_data || { nodes: [], links: [] };
         optimizedGraphData = graphData;
+        atualizarEstilosConfiguracoes();
         renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData);
@@ -1735,7 +1461,7 @@ window.addEventListener('DOMContentLoaded', function() {
         setGraphLoading('cy2', {
             visible: true,
             title: `Executando ${getStrategyDisplayName(data.strategy_used)}`,
-            description: 'Analise concluida com sucesso.',
+            description: 'Análise concluída.',
             step: 'Processamento finalizado',
             percentage: 100
         });
@@ -1764,7 +1490,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Falha ao iniciar a analise');
+            throw new Error(errorData.error || 'Não foi possível iniciar a análise. Tente executar de novo.');
         }
 
         if (!response.body || typeof TextDecoder === 'undefined') {
@@ -1810,14 +1536,14 @@ window.addEventListener('DOMContentLoaded', function() {
                         setGraphLoading('cy2', {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
-                            description: 'Aplicando a estrategia escolhida para atribuir configuracoes com menor interferencia.',
+                            description: 'Aplicando a estratégia escolhida para atribuir as configurações de menor interferência.',
                             step: event.payload.message || 'Iniciando processamento',
                             percentage: null
                         });
                     } else if (event.type === 'progress') {
                         const progress = event.payload || {};
                         const stage = progress.stage || 'assignment';
-                        let description = 'Processando estrategia.';
+                        let description = 'Processando a estratégia.';
                         let stepText = 'Executando';
 
                         if (stage === 'assignment') {
@@ -1827,12 +1553,12 @@ window.addEventListener('DOMContentLoaded', function() {
                             const bestConflicts = Number.isFinite(progress.best_conflicts) && progress.best_conflicts >= 0
                                 ? ` | Melhor conflito: ${progress.best_conflicts}`
                                 : '';
-                            description = 'Atribuindo configuracoes aos APs para minimizar interferencia real.';
+                            description = 'Atribuindo configurações aos APs para minimizar a interferência.';
                             stepText = completeAssignmentFound
-                                ? `Atribuicao completa encontrada, validando alternativas${bestConflicts}`
-                                : `${assignedNodes}/${totalNodes} nos com configuracao atribuida${bestConflicts}`;
+                                ? `Atribuição completa encontrada, conferindo alternativas${bestConflicts}`
+                                : `${assignedNodes}/${totalNodes} APs com configuração atribuída${bestConflicts}`;
                         } else {
-                            description = 'Montando dados para a atribuicao de configuracoes.';
+                            description = 'Montando os dados para a atribuição de configurações.';
                             stepText = 'Preparando busca';
                         }
                         setGraphLoading('cy2', {
@@ -1845,9 +1571,9 @@ window.addEventListener('DOMContentLoaded', function() {
                     } else if (event.type === 'result') {
                         finalResult = event.payload;
                     } else if (event.type === 'cancelled') {
-                        throw new Error((event.payload && event.payload.error) || 'Analise cancelada pelo usuario');
+                        throw new Error((event.payload && event.payload.error) || 'Análise cancelada.');
                     } else if (event.type === 'error') {
-                        throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+                        throw new Error((event.payload && event.payload.error) || 'A análise falhou. Tente executar de novo.');
                     }
                 }
 
@@ -1861,12 +1587,12 @@ window.addEventListener('DOMContentLoaded', function() {
             if (event.type === 'result') {
                 finalResult = event.payload;
             } else if (event.type === 'error') {
-                throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+                throw new Error((event.payload && event.payload.error) || 'A análise falhou. Tente executar de novo.');
             }
         }
 
         if (!finalResult) {
-            throw new Error('Resposta de analise incompleta.');
+            throw new Error('A resposta da análise veio incompleta. Tente executar de novo.');
         }
 
         aplicarResultadoAnalise(finalResult, requestToken);
@@ -1893,7 +1619,7 @@ window.addEventListener('DOMContentLoaded', function() {
         setGraphLoading('cy2', {
             visible: true,
             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
-            description: 'Preparando a analise otimizada do grafo.',
+            description: 'Preparando a análise do grafo.',
             step: 'Enviando dados para o servidor',
             percentage: null
         });
@@ -1914,8 +1640,8 @@ window.addEventListener('DOMContentLoaded', function() {
             if (error && error.name === 'AbortError') {
                 return;
             }
-            const message = error && error.message ? error.message : 'Erro ao carregar a analise.';
-            document.getElementById('cy2').innerHTML = `<p style="color:red">${escapeHtml(message)}</p>`;
+            const message = error && error.message ? error.message : 'Não foi possível carregar a análise. Tente executar de novo.';
+            document.getElementById('cy2').innerHTML = `<p class="cy-error">${escapeHtml(message)}</p>`;
             console.error('Erro ao carregar analise otimizada:', error);
         }
     }
@@ -1928,7 +1654,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
             const data = await res.json();
             if (data && data.success && data.strategies && strategyInfo) {
-                strategyInfo.textContent = 'Estrategias: ' + Object.keys(data.strategies).join(', ');
+                strategyInfo.textContent = 'Estratégias: ' + Object.keys(data.strategies).map(getStrategyDisplayName).join(', ');
             }
             if (data && Array.isArray(data.strategy_details)) {
                 strategyDetails = data.strategy_details.reduce(
@@ -2017,7 +1743,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 seletorCanais = window.ChannelPlan.criarSeletor(channelsContainer, plano);
             })
             .catch(err => {
-                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Nao foi possivel carregar os canais; a analise usara os perfis padrao.</p>';
+                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Não foi possível carregar os canais. A análise usará os perfis padrão; recarregue a página para escolher os canais.</p>';
                 console.warn(err);
             });
     }
@@ -2028,6 +1754,6 @@ window.addEventListener('DOMContentLoaded', function() {
 
     carregarAPs(() => {
         criarGrafoOriginal();
-        setEmptyOptimizedState('Selecione uma estrategia, ajuste os parametros e clique em Executar analise.');
+        setEmptyOptimizedState('Selecione uma estratégia, ajuste os parâmetros e clique em Executar análise.');
     });
 });

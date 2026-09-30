@@ -2,47 +2,51 @@
 
 {% block title %}Início - PowerTrackZ{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/home.css') }}">
+{% endblock %}
+
 {% block content %}
 {# Header #}
 <header class="home-header">
     <div class="container">
         <h1 class="home-title">PowerTrackZ</h1>
-        <p class="home-subtitle">Sistema de Monitoramento de Pontos de Acesso</p>
+        <p class="home-subtitle">Sistema de monitoramento de pontos de acesso</p>
     </div>
 </header>
 
 {# Cards de funcionalidades #}
 <div class="features-grid">
-    <div class="feature-card">
+    <div class="feature-card panel">
         <div class="card-body">
             <div class="feature-icon">
                 <i class="fas fa-network-wired"></i>
             </div>
             <h2 class="card-title">Sua infraestrutura</h2>
             <p class="card-text">Carregue os pontos de acesso do Zabbix, de um JSON ou de uma topologia gerada, confira-os no mapa e edite-os.</p>
-            <a href="{{ url_for('routes.infrastructure') }}" class="btn btn-infrastructure">Abrir infraestrutura</a>
+            <a href="{{ url_for('routes.infrastructure') }}" class="btn btn-primary">Abrir infraestrutura</a>
         </div>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card panel">
         <div class="card-body">
             <div class="feature-icon">
                 <i class="fas fa-chart-line"></i>
             </div>
             <h2 class="card-title">Análise</h2>
             <p class="card-text">Monte o grafo de conflitos entre os pontos de acesso e compare as estratégias de alocação de canais.</p>
-            <a href="{{ url_for('routes.analysis') }}" class="btn btn-analysis">Abrir análise</a>
+            <a href="{{ url_for('routes.analysis') }}" class="btn btn-primary">Abrir análise</a>
         </div>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card panel">
         <div class="card-body">
             <div class="feature-icon">
                 <i class="fas fa-gauge-high"></i>
             </div>
             <h2 class="card-title">Teste de escalabilidade</h2>
             <p class="card-text">Aumente o número de APs de uma mesma topologia até o ponto em que cada estratégia deixa de resolver o problema e compare as execuções entre versões.</p>
-            <a href="{{ url_for('routes.scalability') }}" class="btn btn-scalability">Abrir teste</a>
+            <a href="{{ url_for('routes.scalability') }}" class="btn btn-primary">Abrir teste</a>
         </div>
     </div>
 </div>

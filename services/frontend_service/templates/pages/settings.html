@@ -8,7 +8,7 @@
                     <i class="fas fa-cog me-2"></i>
                     Configurações do Zabbix
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
 
             <!-- Corpo -->
@@ -16,7 +16,7 @@
                 <form id="zabbix-config-form">
                     <!-- URL da API -->
                     <div class="form-group">
-                        <label for="url" class="form-label">API URL</label>
+                        <label for="url" class="form-label">URL da API</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-link"></i></span>
                             <input type="url" class="form-control" id="url" name="url" placeholder="https://seu-zabbix.com/api_jsonrpc.php" required>
@@ -38,23 +38,23 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
                             <input type="password" class="form-control" id="password" name="password" placeholder="Sua senha do Zabbix" required>
-                            <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                            <button class="btn btn-secondary" type="button" id="toggle-password" aria-label="Mostrar ou ocultar a senha">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
 
                     <!-- Botões -->
-                    <div class="d-flex align-items-center gap-3 mt-4">
+                    <div class="settings-actions mt-4">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>Salvar
                         </button>
                         <button type="button" class="btn btn-secondary" id="test-connection-button">
-                            <i class="fas fa-plug me-2"></i>Testar Conexão
+                            <i class="fas fa-plug me-2"></i>Testar conexão
                         </button>
                         <div id="connection-status" class="connection-status">
                             <i class="fas fa-circle-notch fa-spin"></i>
-                            <span>Aguardando...</span>
+                            <span>Aguardando…</span>
                         </div>
                     </div>
                 </form>
@@ -96,13 +96,13 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showAlert("Configuração salva com sucesso!", "success");
+                showAlert("Configuração salva.", "success");
                 bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
             } else {
-                showAlert("Erro ao salvar: " + (data.error || data.message || "Erro desconhecido"), "danger");
+                showAlert(data.error || data.message || "Não foi possível salvar a configuração. Confira os campos e tente de novo.", "danger");
             }
         })
-        .catch(error => showAlert("Erro ao salvar configuração", "danger"));
+        .catch(error => showAlert("Não foi possível salvar a configuração. Confira a conexão com o servidor e tente de novo.", "danger"));
     });
 
     // Testa conexão
@@ -114,12 +114,12 @@ document.addEventListener("DOMContentLoaded", function () {
         };
 
         if (!formData.url || !formData.user || !formData.password) {
-            statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Preencha todos os campos!</span>';
+            statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Preencha a URL, o usuário e a senha.</span>';
             statusDiv.className = 'connection-status error';
             return;
         }
 
-        statusDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i><span>Testando...</span>';
+        statusDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i><span>Testando…</span>';
         statusDiv.className = 'connection-status loading';
 
         fetch('/zabbix/test-connection', {
@@ -130,19 +130,19 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>Conexão estabelecida!</span>';
+                statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>Conexão estabelecida.</span>';
                 statusDiv.className = 'connection-status success';
-                showAlert("Conexão testada com sucesso!", "success");
+                showAlert("Conexão com o Zabbix estabelecida.", "success");
             } else {
-                statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Falha na conexão!</span>';
+                statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Falha na conexão.</span>';
                 statusDiv.className = 'connection-status error';
-                showAlert("Falha: " + (data.error || data.message || "Erro desconhecido"), "danger");
+                showAlert(data.error || data.message || "Não foi possível conectar ao Zabbix. Confira a URL, o usuário e a senha.", "danger");
             }
         })
         .catch(error => {
-            statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Erro na conexão!</span>';
+            statusDiv.innerHTML = '<i class="fas fa-times-circle"></i><span>Falha na conexão.</span>';
             statusDiv.className = 'connection-status error';
-            showAlert("Erro ao testar conexão", "danger");
+            showAlert("Não foi possível testar a conexão. Confira se o servidor está no ar e tente de novo.", "danger");
         });
     });
 });

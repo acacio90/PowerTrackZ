@@ -3,8 +3,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API = '/api/experiments/scalability';
     // Cor e marcador seguem a estrategia (pela ordem de registro no analysis_service), nunca a posicao no grafico.
-    // Paleta categorica validada; o marcador proprio de cada serie e a codificacao secundaria exigida pela validacao.
-    const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+    // Paleta categorica validada, lida dos tokens (--color-graph-series-1..8); o marcador proprio de cada serie e a
+    // codificacao secundaria exigida pela validacao.
+    const cssToken = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    const SERIES_COLORS = Array.from({ length: 8 }, (_, index) => cssToken(`--color-graph-series-${index + 1}`, '#607080'));
+    const CHART_TEXT = cssToken('--color-text', '#304556');
+    const CHART_TEXT_MUTED = cssToken('--color-text-muted', '#607080');
+    const CHART_TEXT_STRONG = cssToken('--color-text-strong', '#18222d');
+    const CHART_GRID = cssToken('--color-surface-sunken', '#eef2f5');
     const SERIES_MARKERS = ['circle', 'rectRot', 'triangle', 'rect', 'star', 'rectRounded', 'circle', 'triangle'];
     const STATUS_LABELS = {
         running: 'Em execução',
@@ -97,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) {
-            throw new Error(data.error || `Falha na requisição (${response.status}).`);
+            throw new Error(data.error || `O servidor respondeu com erro (${response.status}). Tente de novo.`);
         }
         return data;
     }
@@ -107,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await requestJson('/api/analysis/strategies');
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
-            displayNames = { backtracking: 'Backtracking', greedy: 'Greedy', genetic: 'Genetic' };
+            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', genetic: 'Algoritmo genético' };
             const implemented = details.filter(detail => detail.implemented);
             strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
                 <label>
@@ -116,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="scal-kind">(${detail.exact ? 'exato' : 'sem garantia de ótimo'})</span>
                 </label>`).join('');
         } catch (error) {
-            strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)}</span>`;
+            strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)} Recarregue a página.</span>`;
         }
     }
 
@@ -240,19 +246,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Número de APs', color: '#4b5a67' },
-                        grid: { color: '#eef1f4' },
-                        ticks: { color: '#607080' },
+                        title: { display: true, text: 'Número de APs', color: CHART_TEXT },
+                        grid: { color: CHART_GRID },
+                        ticks: { color: CHART_TEXT_MUTED },
                     },
                     y: {
                         ...yScale,
                         // No eixo log, grade so nas potencias de 10, que sao as marcas rotuladas.
-                        grid: { color: context => (yScale.type === 'logarithmic' && !logTick(context.tick?.value) ? 'transparent' : '#eef1f4') },
-                        ticks: { ...(yScale.ticks || {}), color: '#607080' },
+                        grid: { color: context => (yScale.type === 'logarithmic' && !logTick(context.tick?.value) ? 'transparent' : CHART_GRID) },
+                        ticks: { ...(yScale.ticks || {}), color: CHART_TEXT_MUTED },
                     },
                 },
                 plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, color: '#22313f' } },
+                    legend: { position: 'bottom', labels: { usePointStyle: true, color: CHART_TEXT_STRONG } },
                     tooltip: {
                         callbacks: {
                             title: items => `${items[0].parsed.x} APs`,
@@ -274,9 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <span><strong>Data:</strong> ${escapeHtml(created)}</span>
             <span><strong>Versão:</strong> ${escapeHtml(describeVersion(run.version))}</span>
             <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters))}</span>
-            <span class="scal-row-actions"><a href="${API}/${run.id}/export?format=csv">CSV</a><a href="${API}/${run.id}/export?format=json">JSON</a></span>`;
+            <span class="scal-row-actions"><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a></span>`;
         document.getElementById('scal-result-breaks').innerHTML = (run.strategies || []).map(strategy => `
-            <span class="scal-break">
+            <span class="tag tag-outline scal-break">
                 <span class="scal-swatch" style="background:${strategyStyle(strategy.name).color}"></span>
                 <strong>${escapeHtml(strategyName(strategy.name))}</strong> ${escapeHtml(describeBreak(run, strategy))}
             </span>`).join('');
@@ -288,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             timeDatasets.push({
                 label: 'Limite de tempo',
                 data: [{ x: Math.min(...sizes), y: limit }, { x: Math.max(...sizes), y: limit }],
-                borderColor: '#8a96a3',
+                borderColor: CHART_TEXT_MUTED,
                 borderDash: [6, 4],
                 borderWidth: 1.5,
                 pointRadius: 0,
@@ -297,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderChart('time', 'scal-chart-time', timeDatasets, {
             type: 'logarithmic',
-            title: { display: true, text: 'Tempo (escala log)', color: '#4b5a67' },
+            title: { display: true, text: 'Tempo (escala log)', color: CHART_TEXT },
             ticks: { callback: logTick, autoSkip: false },
         }, context => {
             const point = context.raw.point;
@@ -306,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, point => point.conflicts), {
             beginAtZero: true,
-            title: { display: true, text: 'Conflitos', color: '#4b5a67' },
+            title: { display: true, text: 'Conflitos', color: CHART_TEXT },
         }, context => {
             const point = context.raw.point;
             const gap = point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';
@@ -343,15 +349,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${run.id}</td>
                     <td>${escapeHtml(run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-')}</td>
                     <td title="${escapeHtml(describeVersion(run.version))}">${escapeHtml(describeVersion(run.version, false))}</td>
-                    <td>${escapeHtml(describeParameters(run.parameters))}</td>
+                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters))}</td>
                     <td class="scal-status">${escapeHtml(STATUS_LABELS[run.status] || run.status)}</td>
                     <td>${(run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
-                    <td class="scal-row-actions">
-                        <button type="button" data-action="view">Ver</button>
-                        <a href="${API}/${run.id}/export?format=csv">CSV</a>
-                        <a href="${API}/${run.id}/export?format=json">JSON</a>
-                        ${run.status === 'running' ? '' : '<button type="button" data-action="delete">Excluir</button>'}
-                    </td>
+                    <td><div class="scal-row-actions">
+                        <button type="button" class="btn btn-ghost btn-sm" data-action="view">Ver</button>
+                        <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a>
+                        <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a>
+                        ${run.status === 'running' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-action="delete">Excluir</button>'}
+                    </div></td>
                 </tr>`).join('');
             highlightSelected();
             const running = runs.find(run => run.status === 'running');

@@ -52,7 +52,7 @@ def make_api_request(endpoint, method='GET', data=None):
         return response.text, response.status_code
     except Exception as e:
         logger.error(f"Erro na requisicao para {endpoint}: {str(e)}")
-        return {"error": str(e)}, 500
+        return {"error": "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo."}, 500
 
 
 @routes.route('/health')
@@ -135,7 +135,7 @@ def scalability_run_export_api(run_id):
         return Response(response.content, status=response.status_code, content_type=response.headers.get('Content-Type'), headers=headers)
     except Exception as e:
         logger.error(f"Erro ao exportar o teste de escalabilidade {run_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo."}), 500
 
 
 @routes.route('/settings')
@@ -258,7 +258,7 @@ def analysis_analyze_graph_stream_api():
         )
     except Exception as e:
         logger.error(f"Erro na requisicao stream para /analysis/analyze-graph-stream: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo."}), 500
 
 
 @routes.route('/api/analysis/backtracking-stream', methods=['POST'])
@@ -288,7 +288,7 @@ def analysis_backtracking_stream_api():
         )
     except Exception as e:
         logger.error(f"Erro na requisicao stream para /analysis/backtracking-stream: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo."}), 500
 
 
 @routes.route('/api/analysis/cancel-analysis', methods=['POST'])

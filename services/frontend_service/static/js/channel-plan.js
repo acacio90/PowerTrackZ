@@ -9,7 +9,7 @@
             planoPromise = fetch('/api/analysis/channel-plan')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Nao foi possivel carregar o plano de canais.');
+                        throw new Error('Não foi possível carregar o plano de canais.');
                     }
                     return response.json();
                 })
@@ -171,7 +171,7 @@
             const barrasDaFaixa = [];
 
             const detalhes = document.createElement('details');
-            detalhes.className = 'spectrum-band';
+            detalhes.className = 'panel panel-compact spectrum-band';
             const resumo = document.createElement('summary');
             detalhes.appendChild(resumo);
 
@@ -198,7 +198,7 @@
                 }
                 const botao = document.createElement('button');
                 botao.type = 'button';
-                botao.className = 'spectrum-action';
+                botao.className = 'chip spectrum-action';
                 botao.textContent = rotulo;
                 botao.title = dica;
                 botao.addEventListener('click', () => {
