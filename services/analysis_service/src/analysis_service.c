@@ -1304,6 +1304,7 @@ static void handle_strategies(int fd) {
         cJSON_AddStringToObject(detail, "name", strategy->name);
         cJSON_AddStringToObject(detail, "description", strategy->description);
         cJSON_AddStringToObject(detail, "mode", strategy->mode);
+        cJSON_AddBoolToObject(detail, "exact", strategy->exact);
         cJSON_AddBoolToObject(detail, "implemented", strategy->run != NULL);
         cJSON_AddItemToObject(detail, "parameters", build_strategy_parameters_json(strategy));
         cJSON_AddItemToArray(details, detail);

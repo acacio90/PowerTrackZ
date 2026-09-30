@@ -76,6 +76,8 @@ typedef struct {
     const char *name;
     const char *description;
     const char *mode;
+    // Metodo exato: quando termina dentro do limite de tempo, a solucao e comprovadamente otima.
+    bool exact;
     const StrategyParameter *parameters;
     size_t parameter_count;
     AnalysisStrategyRun run;

@@ -20,6 +20,7 @@ def resolve_service_url(endpoint):
         "/zabbix": ("access_points", ""),
         "/analysis": ("analysis", "/analysis"),
         "/access_points": ("access_points", ""),
+        "/experiments": ("access_points", ""),
     }
 
     for prefix, (service_name, strip_prefix) in routes.items():
@@ -94,6 +95,47 @@ def analysis():
     except Exception:
         points = []
     return render_template('pages/analysis.html', points=points)
+
+
+@routes.route('/scalability')
+def scalability():
+    return render_template('pages/scalability.html')
+
+
+@routes.route('/api/experiments/scalability', methods=['GET', 'POST'])
+def scalability_runs_api():
+    data = (request.get_json(silent=True) or {}) if request.method == 'POST' else None
+    response_data, status_code = make_api_request('/experiments/scalability', request.method, data)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/experiments/scalability/<int:run_id>', methods=['GET', 'DELETE'])
+def scalability_run_api(run_id):
+    response_data, status_code = make_api_request(f'/experiments/scalability/{run_id}', request.method)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/experiments/scalability/<int:run_id>/cancel', methods=['POST'])
+def scalability_run_cancel_api(run_id):
+    response_data, status_code = make_api_request(f'/experiments/scalability/{run_id}/cancel', 'POST', {})
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/experiments/scalability/<int:run_id>/export', methods=['GET'])
+def scalability_run_export_api(run_id):
+    # Repassa o arquivo como veio do servico, com o nome e o tipo definidos por ele.
+    try:
+        response = requests.get(
+            f"{resolve_service_url(f'/experiments/scalability/{run_id}/export')}",
+            params={'format': request.args.get('format', 'json')},
+            timeout=HTTP_TIMEOUT,
+            verify=HTTP_VERIFY_SSL,
+        )
+        headers = {'Content-Disposition': response.headers.get('Content-Disposition', 'attachment')}
+        return Response(response.content, status=response.status_code, content_type=response.headers.get('Content-Type'), headers=headers)
+    except Exception as e:
+        logger.error(f"Erro ao exportar o teste de escalabilidade {run_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 @routes.route('/settings')

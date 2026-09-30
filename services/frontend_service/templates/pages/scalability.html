@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% block title %}Teste de escalabilidade - PowerTrackZ{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scal-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 3rem;
+    }
+
+    .scal-card {
+        margin-bottom: 1.25rem;
+        padding: 1.25rem 1.5rem;
+        border: 1px solid #e2e7ec;
+        border-radius: 14px;
+        background: #fff;
+    }
+
+    .scal-card h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #18222d;
+    }
+
+    .scal-card h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #18222d;
+    }
+
+    .scal-lead {
+        margin: 0;
+        font-size: 0.92rem;
+        color: #526272;
+    }
+
+    .scal-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem 1rem;
+        margin-top: 1rem;
+    }
+
+    .scal-form label,
+    .scal-field-label {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #4b5a67;
+    }
+
+    .scal-form input[type="number"] {
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid #cbd5df;
+        border-radius: 8px;
+    }
+
+    .scal-strategies {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem 1.25rem;
+    }
+
+    .scal-strategies label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+        font-weight: 400;
+        font-size: 0.88rem;
+        color: #22313f;
+    }
+
+    .scal-kind {
+        font-size: 0.75rem;
+        color: #607080;
+    }
+
+    .scal-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .scal-note {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #607080;
+    }
+
+    .scal-error {
+        margin: 0.75rem 0 0;
+        font-size: 0.85rem;
+        color: #b42318;
+    }
+
+    .scal-progress-bar {
+        height: 10px;
+        margin: 0.5rem 0;
+        border-radius: 999px;
+        background: #e8edf2;
+        overflow: hidden;
+    }
+
+    .scal-progress-bar span {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: #2a78d6;
+        transition: width 0.3s ease;
+    }
+
+    .scal-progress-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #4b5a67;
+    }
+
+    .scal-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 1.25rem;
+        margin-bottom: 0.9rem;
+        font-size: 0.85rem;
+        color: #4b5a67;
+    }
+
+    .scal-meta strong {
+        color: #18222d;
+    }
+
+    .scal-breaks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .scal-break {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid #e2e7ec;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        color: #22313f;
+    }
+
+    .scal-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+    }
+
+    .scal-charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1rem;
+    }
+
+    .scal-chart h3 {
+        margin: 0 0 0.25rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #18222d;
+    }
+
+    .scal-chart p {
+        margin: 0 0 0.5rem;
+        font-size: 0.78rem;
+        color: #607080;
+    }
+
+    .scal-chart-box {
+        position: relative;
+        height: 300px;
+    }
+
+    .scal-table-wrap {
+        overflow-x: auto;
+    }
+
+    .scal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.83rem;
+    }
+
+    .scal-table th,
+    .scal-table td {
+        padding: 0.45rem 0.6rem;
+        border-bottom: 1px solid #e2e7ec;
+        text-align: left;
+        white-space: nowrap;
+        color: #22313f;
+    }
+
+    .scal-table thead th {
+        font-size: 0.75rem;
+        color: #607080;
+    }
+
+    .scal-table tr.is-selected td {
+        background: #f1f6fd;
+    }
+
+    .scal-table tr.is-broken td {
+        font-weight: 600;
+    }
+
+    .scal-details summary {
+        margin: 1rem 0 0.5rem;
+        cursor: pointer;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #22313f;
+    }
+
+    .scal-row-actions {
+        display: flex;
+        gap: 0.35rem;
+    }
+
+    .scal-row-actions a,
+    .scal-row-actions button {
+        padding: 0.15rem 0.55rem;
+        border: 1px solid #cbd5df;
+        border-radius: 999px;
+        background: #fff;
+        font-size: 0.78rem;
+        color: #22313f;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .scal-status {
+        font-weight: 600;
+    }
+
+    .scal-empty {
+        margin: 0;
+        font-size: 0.88rem;
+        color: #607080;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="scal-page">
+    <div class="scal-card">
+        <h1><i class="fas fa-gauge-high"></i> Teste de escalabilidade</h1>
+        <p class="scal-lead">
+            Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
+            até o ponto de quebra de cada estratégia: nos métodos exatos, o primeiro tamanho em que o ótimo não é encontrado
+            no limite de tempo; nos demais, o primeiro em que o limite de tempo é excedido. Nada é salvo no inventário de APs.
+        </p>
+
+        <form id="scal-form" class="scal-form" novalidate>
+            <div>
+                <label for="scal-max-nodes">Tamanho máximo (APs)</label>
+                <input type="number" id="scal-max-nodes" min="2" max="1000" value="200" required>
+            </div>
+            <div>
+                <label for="scal-step">Passo (APs)</label>
+                <input type="number" id="scal-step" min="1" max="1000" value="10" required>
+            </div>
+            <div>
+                <label for="scal-min-degree">Grau mínimo</label>
+                <input type="number" id="scal-min-degree" min="1" max="20" value="3" required>
+            </div>
+            <div>
+                <label for="scal-seed">Semente (opcional)</label>
+                <input type="number" id="scal-seed" min="0" max="4294967295" step="1" placeholder="Aleatória">
+            </div>
+            <div>
+                <label for="scal-time-limit">Limite de tempo (s)</label>
+                <input type="number" id="scal-time-limit" min="0.1" max="3600" step="0.1" value="10" required>
+            </div>
+            <div>
+                <label for="scal-threads">Threads</label>
+                <input type="number" id="scal-threads" min="1" max="256" value="1" required>
+            </div>
+            <div class="scal-strategies" id="scal-strategies">
+                <span class="scal-field-label">Estratégias:</span>
+                <span class="scal-note">Carregando estratégias...</span>
+            </div>
+            <div class="scal-actions">
+                <p class="scal-note">
+                    Os canais usados são os perfis padrão. Uma execução por vez, para que os tempos não se misturem; nos métodos exatos,
+                    o limite vale para cada faixa.
+                </p>
+                <button type="submit" class="btn btn-primary" id="scal-start">
+                    <i class="fa-solid fa-play"></i> Executar teste
+                </button>
+            </div>
+        </form>
+        <p class="scal-error" id="scal-error" hidden></p>
+    </div>
+
+    <div class="scal-card" id="scal-progress" hidden>
+        <h2>Em execução</h2>
+        <div class="scal-progress-bar"><span id="scal-progress-fill"></span></div>
+        <div class="scal-progress-row">
+            <span id="scal-progress-text"></span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="scal-cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <div class="scal-card" id="scal-result" hidden>
+        <h2 id="scal-result-title"></h2>
+        <div class="scal-meta" id="scal-result-meta"></div>
+        <div class="scal-breaks" id="scal-result-breaks"></div>
+        <div class="scal-charts">
+            <div class="scal-chart">
+                <h3>Tempo de execução por número de APs</h3>
+                <p>Escala logarítmica. A linha tracejada é o limite de tempo; o marcador em X, o ponto de quebra.</p>
+                <div class="scal-chart-box"><canvas id="scal-chart-time" aria-label="Tempo de execução por número de APs" role="img"></canvas></div>
+            </div>
+            <div class="scal-chart">
+                <h3>Conflitos após a otimização por número de APs</h3>
+                <p>Até o ponto de quebra do método exato, os conflitos dele são o ótimo.</p>
+                <div class="scal-chart-box"><canvas id="scal-chart-conflicts" aria-label="Conflitos por número de APs" role="img"></canvas></div>
+            </div>
+        </div>
+        <details class="scal-details">
+            <summary>Tabela dos pontos medidos</summary>
+            <div class="scal-table-wrap">
+                <table class="scal-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">APs</th>
+                            <th scope="col">Arestas</th>
+                            <th scope="col">Densidade</th>
+                            <th scope="col">Estratégia</th>
+                            <th scope="col">Tempo (s)</th>
+                            <th scope="col">Conflitos</th>
+                            <th scope="col">Distância ao ótimo</th>
+                            <th scope="col">Interferência</th>
+                            <th scope="col">Potência (W)</th>
+                            <th scope="col">Nós explorados</th>
+                            <th scope="col">Parada</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scal-points"></tbody>
+                </table>
+            </div>
+        </details>
+    </div>
+
+    <div class="scal-card">
+        <h2>Histórico de execuções</h2>
+        <div class="scal-table-wrap">
+            <table class="scal-table">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Data</th>
+                        <th scope="col">Versão</th>
+                        <th scope="col">Parâmetros</th>
+                        <th scope="col">Situação</th>
+                        <th scope="col">Pontos de quebra</th>
+                        <th scope="col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="scal-history"></tbody>
+            </table>
+        </div>
+        <p class="scal-empty" id="scal-history-empty" hidden>Nenhuma execução registrada.</p>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/scalability.js') }}"></script>
+{% endblock %}

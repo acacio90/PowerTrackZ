@@ -81,3 +81,15 @@ The details of the strategies and of the parameters accepted by the API are in [
 ## 4. Configuring Zabbix
 
 The settings open from the gear icon in the navigation bar, on any page, and take the Zabbix API URL, the user and the password. Use **Testar Conexão** before **Salvar**. The `/settings` address leads to the home screen with the settings open. The credentials are stored in the SQLite database of `access_point_service`.
+
+## 5. Scalability Test
+
+The **Teste de escalabilidade** page (card on the home screen, `/scalability`) measures up to what network size each strategy solves the problem. It generates a topology from the seed, with the maximum size, and analyzes prefixes of it of increasing size (the first 10 APs, the first 20, ...), so that each instance contains the previous one. Nothing is saved to the AP inventory, and the graphs are not drawn.
+
+1. Enter the **maximum size** (up to 1,000 APs), the **step**, the **minimum degree**, the **seed** (when left blank, one is drawn), the **time limit**, the **threads** and the **strategies**. The channels used are the default profiles.
+2. Click **Executar teste**. The progress shows the size and the strategy being analyzed, and the run can be cancelled. Only one run executes at a time, so the measured times do not mix.
+3. For each size, the exact strategies run first. A strategy **breaks** at the first size at which it no longer solves the problem: an exact method (backtracking), when it does not find the optimum within the time limit, which applies to each band; a method without an optimality guarantee (greedy), when it exceeds the time limit. After breaking, it is no longer run at the following sizes, and the test ends when every strategy has broken or the maximum size is reached.
+
+The result shows the break point of each strategy and two charts as a function of the number of APs: the execution time, on a logarithmic scale, with the time-limit line, and the conflicts after the optimization. The break point is shown as an X. The **Tabela dos pontos medidos** lists, for each size and strategy, the edges, the density, the time, the conflicts, the distance to the optimum (while the exact method finds it), the interference, the power, the explored nodes and the stop reason.
+
+Each run is kept in the **Histórico de execuções** with its date, parameters and PowerTrackZ version (commit, branch and, when there is one, the tag), which allows repeating the test in another version and comparing the results. **Ver** opens a run's charts, **CSV** and **JSON** download the measured points, and **Excluir** removes the run. A run interrupted by a service restart is recorded as **Interrompida**.

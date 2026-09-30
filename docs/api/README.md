@@ -26,6 +26,13 @@ POST /api/access_points/generate
 GET /api/access_points/{id}
 PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
+GET /scalability
+GET /api/experiments/scalability
+POST /api/experiments/scalability
+GET /api/experiments/scalability/{id}
+DELETE /api/experiments/scalability/{id}
+POST /api/experiments/scalability/{id}/cancel
+GET /api/experiments/scalability/{id}/export?format=csv|json
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
 GET /api/analysis/channel-plan
@@ -57,9 +64,17 @@ GET /zabbix/groups
 GET /zabbix/config
 POST /zabbix/save-config
 POST /zabbix/test-connection
+GET /experiments/scalability
+POST /experiments/scalability
+GET /experiments/scalability/{id}
+DELETE /experiments/scalability/{id}
+POST /experiments/scalability/{id}/cancel
+GET /experiments/scalability/{id}/export?format=csv|json
 ```
 
 `POST /access_points/generate` takes `node_count` (2 to 1000), `min_degree` (1 to `node_count` − 1; the former name, `clique_factor`, is still accepted) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
+
+`POST /experiments/scalability` starts the scalability test in the background and answers HTTP 202 with the created run. It takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600) and `thread_count`; invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) and `points` (one point per size and strategy). The listing omits `points`, and the export returns the CSV or the JSON as a file. The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
 
@@ -81,7 +96,7 @@ POST /collision-graph
 POST /graph-metrics
 ```
 
-Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy:
+Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy and whether it is an exact method (`exact`):
 
 ```json
 {

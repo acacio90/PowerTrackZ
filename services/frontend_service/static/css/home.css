@@ -26,7 +26,7 @@
 /* Grid de features */
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 420px));
+    grid-template-columns: repeat(3, minmax(0, 360px));
     justify-content: center;
     gap: 2rem;
     padding: 0 2rem;
@@ -108,6 +108,16 @@
 
 .btn-analysis:hover {
     background-color: #38a169;
+    color: #fff;
+}
+
+.btn-scalability {
+    background-color: #805ad5;
+    color: #fff;
+}
+
+.btn-scalability:hover {
+    background-color: #6b46c1;
     color: #fff;
 }
 
