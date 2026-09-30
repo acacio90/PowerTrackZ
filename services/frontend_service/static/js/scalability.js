@@ -3,8 +3,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API = '/api/experiments/scalability';
     // Cor e marcador seguem a estrategia (pela ordem de registro no analysis_service), nunca a posicao no grafico.
-    // Paleta categorica validada; o marcador proprio de cada serie e a codificacao secundaria exigida pela validacao.
-    const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+    // Paleta categorica validada, lida dos tokens (--color-graph-series-1..8); o marcador proprio de cada serie e a
+    // codificacao secundaria exigida pela validacao.
+    const cssToken = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    const SERIES_COLORS = Array.from({ length: 8 }, (_, index) => cssToken(`--color-graph-series-${index + 1}`, '#607080'));
+    const CHART_TEXT = cssToken('--color-text', '#304556');
+    const CHART_TEXT_MUTED = cssToken('--color-text-muted', '#607080');
+    const CHART_TEXT_STRONG = cssToken('--color-text-strong', '#18222d');
+    const CHART_GRID = cssToken('--color-surface-sunken', '#eef2f5');
     const SERIES_MARKERS = ['circle', 'rectRot', 'triangle', 'rect', 'star', 'rectRounded', 'circle', 'triangle'];
     const STATUS_LABELS = {
         running: 'Em execução',
@@ -240,19 +246,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Número de APs', color: '#4b5a67' },
-                        grid: { color: '#eef1f4' },
-                        ticks: { color: '#607080' },
+                        title: { display: true, text: 'Número de APs', color: CHART_TEXT },
+                        grid: { color: CHART_GRID },
+                        ticks: { color: CHART_TEXT_MUTED },
                     },
                     y: {
                         ...yScale,
                         // No eixo log, grade so nas potencias de 10, que sao as marcas rotuladas.
-                        grid: { color: context => (yScale.type === 'logarithmic' && !logTick(context.tick?.value) ? 'transparent' : '#eef1f4') },
-                        ticks: { ...(yScale.ticks || {}), color: '#607080' },
+                        grid: { color: context => (yScale.type === 'logarithmic' && !logTick(context.tick?.value) ? 'transparent' : CHART_GRID) },
+                        ticks: { ...(yScale.ticks || {}), color: CHART_TEXT_MUTED },
                     },
                 },
                 plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, color: '#22313f' } },
+                    legend: { position: 'bottom', labels: { usePointStyle: true, color: CHART_TEXT_STRONG } },
                     tooltip: {
                         callbacks: {
                             title: items => `${items[0].parsed.x} APs`,
@@ -288,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             timeDatasets.push({
                 label: 'Limite de tempo',
                 data: [{ x: Math.min(...sizes), y: limit }, { x: Math.max(...sizes), y: limit }],
-                borderColor: '#8a96a3',
+                borderColor: CHART_TEXT_MUTED,
                 borderDash: [6, 4],
                 borderWidth: 1.5,
                 pointRadius: 0,
@@ -297,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderChart('time', 'scal-chart-time', timeDatasets, {
             type: 'logarithmic',
-            title: { display: true, text: 'Tempo (escala log)', color: '#4b5a67' },
+            title: { display: true, text: 'Tempo (escala log)', color: CHART_TEXT },
             ticks: { callback: logTick, autoSkip: false },
         }, context => {
             const point = context.raw.point;
@@ -306,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, point => point.conflicts), {
             beginAtZero: true,
-            title: { display: true, text: 'Conflitos', color: '#4b5a67' },
+            title: { display: true, text: 'Conflitos', color: CHART_TEXT },
         }, context => {
             const point = context.raw.point;
             const gap = point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';

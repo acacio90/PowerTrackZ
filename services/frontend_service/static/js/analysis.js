@@ -719,7 +719,82 @@ window.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    // Cores das configuracoes nos grafos: paleta categorica dos tokens (--color-graph-series-1..8), atribuida em
+    // ordem fixa as configuracoes ordenadas por faixa, largura e canal, e combinada com a forma do no. Nas 8
+    // primeiras, laranja e vermelho, que se confundem com outras cores para daltonicos, ganham forma propria; da
+    // 9a em diante as cores se repetem em outra forma, sem pares confundiveis na mesma forma (docs/design).
+    const GRAPH_SHAPES = ['ellipse', 'round-rectangle', 'triangle', 'diamond', 'hexagon'];
+    const CONFIG_STYLE_SEQUENCE = [
+        [0, 0], [1, 1], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 2],
+        [0, 1], [2, 1], [6, 1],
+        [0, 2], [2, 2], [3, 2], [5, 2], [6, 2],
+        [0, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3],
+        [0, 4], [2, 4], [3, 4], [5, 4], [6, 4], [7, 4]
+    ];
+    let configStyles = new Map();
+
+    function cssToken(name, fallback) {
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value || fallback;
+    }
+
+    function configKey(channel, bandwidth, frequency) {
+        return [channel || 'N/A', bandwidth || 'N/A', frequency || 'N/A'].join('|');
+    }
+
+    function firstNumber(text) {
+        const match = String(text || '').match(/\d+(?:[.,]\d+)?/);
+        return match ? Number(match[0].replace(',', '.')) : Number.POSITIVE_INFINITY;
+    }
+
+    function compareConfigs(a, b) {
+        return firstNumber(a.frequency) - firstNumber(b.frequency)
+            || firstNumber(a.bandwidth) - firstNumber(b.bandwidth)
+            || firstNumber(a.channel) - firstNumber(b.channel)
+            || a.key.localeCompare(b.key);
+    }
+
+    // Recalcula o estilo de cada configuracao a partir das configuracoes dos dois grafos, para que a mesma
+    // configuracao tenha a mesma cor e forma no original, no proposto e nas legendas; redesenha o original.
+    function atualizarEstilosConfiguracoes() {
+        const configs = new Map();
+        const add = (channel, bandwidth, frequency) => {
+            const key = configKey(channel, bandwidth, frequency);
+            if (!configs.has(key)) {
+                configs.set(key, { key, channel, bandwidth, frequency });
+            }
+        };
+        (originalGraphData?.nodes || []).forEach(node => add(node.channel, node.bandwidth, node.frequency));
+        (optimizedGraphData?.nodes || []).forEach(node => add(node.proposed_channel, node.proposed_bandwidth, node.proposed_frequency));
+
+        const palette = Array.from({ length: 8 }, (_, index) => cssToken(`--color-graph-series-${index + 1}`, '#607080'));
+        configStyles = new Map(Array.from(configs.values()).sort(compareConfigs).map((config, index) => {
+            const [color, shape] = CONFIG_STYLE_SEQUENCE[index % CONFIG_STYLE_SEQUENCE.length];
+            return [config.key, { color: palette[color], shape: GRAPH_SHAPES[shape], order: index }];
+        }));
+
+        const cy1 = graphInstances.cy1;
+        if (cy1 && originalGraphData) {
+            cy1.nodes().forEach(element => {
+                const node = originalGraphData.nodes.find(item => String(item.id) === element.id());
+                if (node) {
+                    const style = estiloConfiguracao(node.channel, node.bandwidth, node.frequency);
+                    element.data({ cor: style.color, forma: style.shape });
+                }
+            });
+            renderizarLegenda(getLegendaDiv('cy1'), originalGraphData.nodes, false);
+        }
+    }
+
+    function estiloConfiguracao(channel, bandwidth, frequency) {
+        return configStyles.get(configKey(channel, bandwidth, frequency))
+            || { color: cssToken('--color-text-muted', '#607080'), shape: GRAPH_SHAPES[0], order: Number.POSITIVE_INFINITY };
+    }
+
     function renderizarLegenda(legendaDiv, nodes, usarConfiguracaoProposta) {
+        if (!legendaDiv) {
+            return;
+        }
         legendaDiv.innerHTML = '';
 
         const legendGroups = new Map();
@@ -728,14 +803,14 @@ window.addEventListener('DOMContentLoaded', function() {
             const channel = usarConfiguracaoProposta ? node.proposed_channel : node.channel;
             const bandwidth = usarConfiguracaoProposta ? node.proposed_bandwidth : node.bandwidth;
             const frequency = usarConfiguracaoProposta ? node.proposed_frequency : node.frequency;
-            const color = usarConfiguracaoProposta
-                ? (node.proposed_cor || node.cor || '#cccccc')
-                : (node.cor || '#cccccc');
-            const legendKey = [color, channel || '', bandwidth || '', frequency || ''].join('|');
+            const legendKey = configKey(channel, bandwidth, frequency);
 
             if (!legendGroups.has(legendKey)) {
+                const style = estiloConfiguracao(channel, bandwidth, frequency);
                 legendGroups.set(legendKey, {
-                    color,
+                    color: style.color,
+                    shape: style.shape,
+                    order: style.order,
                     channel: channel || 'N/A',
                     bandwidth: bandwidth || 'N/A',
                     frequency: frequency || 'N/A',
@@ -762,19 +837,17 @@ window.addEventListener('DOMContentLoaded', function() {
         }
         legendaDiv.appendChild(edgeLegend);
 
-        Array.from(legendGroups.values()).forEach(item => {
+        Array.from(legendGroups.values()).sort((a, b) => a.order - b.order).forEach(item => {
             const legendaItem = document.createElement('div');
             legendaItem.className = 'legenda-item';
             legendaItem.innerHTML = `
-                <div class="cor-amostra" style="background-color: ${item.color}"></div>
+                <div class="cor-amostra forma-${item.shape}" style="background-color: ${item.color}"></div>
                 <div class="nome-ap">${item.count} AP(s) · canal ${item.channel} · ${item.bandwidth} · ${item.frequency}</div>
             `;
             legendaDiv.appendChild(legendaItem);
         });
     }
 
-    const EDGE_CONFLICT_COLOR = '#d62828';
-    const EDGE_OVERLAP_COLOR = '#c3cad2';
     const OVERLAP_LABEL_EDGE_LIMIT = 40;
 
     // Rotulos das arestas sem conflito: visiveis por padrao apenas em grafos pequenos,
@@ -791,8 +864,6 @@ window.addEventListener('DOMContentLoaded', function() {
             toggle.checked = showOverlapLabels;
         }
     }
-
-    const CHANGED_NODE_BORDER_COLOR = '#1f2933';
 
     function edgeKey(source, target) {
         return [String(source), String(target)].sort().join('\u0000');
@@ -924,17 +995,26 @@ window.addEventListener('DOMContentLoaded', function() {
         const optimizedEdgeKeys = new Set();
 
         graphData.nodes.forEach(node => {
+            const style = usarConfiguracaoProposta
+                ? estiloConfiguracao(node.proposed_channel, node.proposed_bandwidth, node.proposed_frequency)
+                : estiloConfiguracao(node.channel, node.bandwidth, node.frequency);
             elements.push({
                 data: {
                     id: node.id,
                     label: node.label || node.id,
-                    cor: usarConfiguracaoProposta
-                        ? (node.proposed_cor || node.cor || '#cccccc')
-                        : (node.cor || '#cccccc'),
+                    cor: style.color,
+                    forma: style.shape,
                     changed: usarConfiguracaoProposta && nodeConfigChanged(node)
                 }
             });
         });
+
+        const conflictColor = cssToken('--color-graph-conflict', '#d62828');
+        const overlapColor = cssToken('--color-graph-overlap', '#c3cad2');
+        const resolvedColor = cssToken('--color-graph-resolved', 'rgba(214, 40, 40, 0.35)');
+        const changedBorderColor = cssToken('--color-text-strong', '#18222d');
+        const edgeLabelColor = cssToken('--color-text-muted', '#607080');
+        const edgeLabelBackground = cssToken('--color-surface', '#fff');
 
         graphData.links.forEach(link => {
             const collision = Number(link.collision_peso ?? link.peso) || 0;
@@ -975,6 +1055,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     selector: 'node',
                     style: {
                         'background-color': 'data(cor)',
+                        'shape': 'data(forma)',
                         'label': 'data(label)'
                     }
                 },
@@ -984,7 +1065,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         'border-width': function() {
                             return showChangeHighlights ? 4 : 0;
                         },
-                        'border-color': CHANGED_NODE_BORDER_COLOR,
+                        'border-color': changedBorderColor,
                         'font-weight': function() {
                             return showChangeHighlights ? 'bold' : 'normal';
                         }
@@ -994,13 +1075,13 @@ window.addEventListener('DOMContentLoaded', function() {
                     selector: 'edge',
                     style: {
                         'width': 1,
-                        'line-color': EDGE_OVERLAP_COLOR,
+                        'line-color': overlapColor,
                         'label': function(ele) {
                             return showOverlapLabels ? `${ele.data('collision').toFixed(1)}%` : '';
                         },
                         'font-size': 9,
-                        'color': '#7a8591',
-                        'text-background-color': '#fff',
+                        'color': edgeLabelColor,
+                        'text-background-color': edgeLabelBackground,
                         'text-background-opacity': 0.8,
                         'text-background-padding': 2,
                         'z-index': 1
@@ -1018,13 +1099,10 @@ window.addEventListener('DOMContentLoaded', function() {
                             return showChangeHighlights ? 2 : 1;
                         },
                         'line-color': function() {
-                            return showChangeHighlights ? EDGE_CONFLICT_COLOR : EDGE_OVERLAP_COLOR;
+                            return showChangeHighlights ? resolvedColor : overlapColor;
                         },
                         'line-style': function() {
                             return showChangeHighlights ? 'dashed' : 'solid';
-                        },
-                        'opacity': function() {
-                            return showChangeHighlights ? 0.35 : 1;
                         },
                         'label': function(ele) {
                             if (showChangeHighlights || ele.data('synthetic') || !showOverlapLabels) {
@@ -1041,13 +1119,13 @@ window.addEventListener('DOMContentLoaded', function() {
                         'width': function(ele) {
                             return Math.min(8, Math.max(2.5, ele.data('interference') * 0.06));
                         },
-                        'line-color': EDGE_CONFLICT_COLOR,
+                        'line-color': conflictColor,
                         'label': function(ele) {
                             return `${ele.data('interference').toFixed(1)}%`;
                         },
                         'font-size': 10,
                         'font-weight': 'bold',
-                        'color': EDGE_CONFLICT_COLOR,
+                        'color': conflictColor,
                         'z-index': 10
                     }
                 }
@@ -1288,6 +1366,7 @@ window.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(graphData => {
                 originalGraphData = graphData;
+                atualizarEstilosConfiguracoes();
                 renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
                 atualizarInfoConsumo('cy1', graphData);
@@ -1372,6 +1451,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const graphData = data.graph_data || { nodes: [], links: [] };
         optimizedGraphData = graphData;
+        atualizarEstilosConfiguracoes();
         renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
         atualizarInfoConsumo('cy2', graphData);

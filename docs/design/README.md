@@ -75,7 +75,36 @@ Color must not be the only signal: the changes in the summary panel, for example
 
 ### Graphs
 
-The legend lines of the conflict graphs use `--color-graph-conflict` (`#d62828`), `--color-graph-overlap` (`#c3cad2`) and `--color-graph-resolved`. They repeat the edge colors drawn by Cytoscape; aligning the graphs with the palette is planned in #96.
+The colors of the configurations in the conflict graphs and of the series in the scalability test charts come from an eight-color categorical palette, always in the same order:
+
+| Position | Token | Color |
+|---|---|---|
+| 1 | `--color-graph-series-1` | blue `#2a78d6` |
+| 2 | `--color-graph-series-2` | orange `#eb6834` |
+| 3 | `--color-graph-series-3` | aqua `#1baf7a` |
+| 4 | `--color-graph-series-4` | yellow `#eda100` |
+| 5 | `--color-graph-series-5` | pink `#e87ba4` |
+| 6 | `--color-graph-series-6` | green `#008300` |
+| 7 | `--color-graph-series-7` | violet `#4a3aa7` |
+| 8 | `--color-graph-series-8` | red `#e34948` |
+
+**Assignment.** The configurations present in both graphs (original and proposed) are sorted by band, bandwidth and channel, and each one receives, in that order, a fixed combination of color and node shape. The same configuration therefore has the same color and shape in both graphs and in the legends; when the analysis brings new configurations, the original graph is recolored too. Colors no longer come from the hash computed by analysis_service (the `cor` and `proposed_cor` fields remain in the API response, but the interface does not use them).
+
+**Color and shape.** In the graphs, any node can sit next to any other, so the palette must work for every pair, not only for neighboring colors. That is why color is combined with shape:
+
+- configurations 1 to 8: the eight colors, as circles, except orange (square) and red (triangle), which are confused with other colors by people with color vision deficiency;
+- 9th to 28th: the colors repeat as squares, triangles, diamonds and hexagons, and each shape only receives colors that can be told apart;
+- from the 29th configuration on, the combinations repeat in the same order. In that case, the legend, which lists the channel, bandwidth and band of each combination, is the reference.
+
+The full sequence is `CONFIG_STYLE_SEQUENCE`, in `analysis.js`.
+
+**Color vision validation.** The palette was checked with the categorical palette validator (OKLab separation for protanopia, deuteranopia and tritanopia):
+
+- between neighboring colors in the order, it passes every check (worst pair: yellow and aqua, ΔE 9.1 in protanopia; normal vision: ΔE 19.6);
+- across all pairs, five combinations fall below the minimum: orange with yellow, pink, green and red, and pink with red (the worst, orange and green, at ΔE 3.2 in protanopia). In all of them the two configurations have different shapes, which was checked for the 28 combinations;
+- yellow, pink and aqua are below 3:1 on white; that is why nodes carry the AP name and the legend describes each configuration in text.
+
+Edges use `--color-graph-conflict` (`#d62828`) for conflicts, `--color-graph-overlap` (`#c3cad2`) for overlap without conflict and `--color-graph-resolved` (resolved conflict, dashed). The border of changed APs uses `--color-text-strong`, and edge labels use `--color-text-muted` on `--color-surface`. JavaScript reads these tokens from the CSS, so the colors of graphs, legends and charts change in one place.
 
 ## Contrast
 
@@ -195,6 +224,6 @@ Fixed values that remain outside the tokens:
 
 - `font-size: 16px` on the root, which defines the `rem`;
 - `inherit` in the Leaflet overrides;
-- colors computed at runtime in JavaScript (the color of each configuration in graphs and charts), handled in #96.
+- the color of each legend swatch and chart series, applied by JavaScript from the palette tokens.
 
 The style sheets do not use `!important`: the overrides of Leaflet (`.map-container .leaflet-*`) and of the inventory rows win through selector specificity.
