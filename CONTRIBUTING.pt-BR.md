@@ -2,15 +2,21 @@
 
 [English](CONTRIBUTING.md) | **Português**
 
+## Branches
+
+- **`main`**: branch padrão e protegida. Recebe apenas as versões prontas e não aceita *push* direto, *force push* nem exclusão; quem clona ou visita o repositório cai na última versão estável.
+- **`develop`**: branch de integração. Recebe os *pull requests* das *issues* e acumula a versão em andamento.
+- **Branches de *issue***: partem da `develop` e voltam para ela.
+
 ## Fluxo de Trabalho
 
-Toda alteração parte de uma *issue* e chega ao `main` por um *pull request*.
+Toda alteração parte de uma *issue* e chega à `develop` por um *pull request*.
 
 1. **Issue.** Descreva a tarefa com título no infinitivo (por exemplo, "Implementar ...", "Corrigir ...") e corpo nas seções `## Contexto`, `## Objetivo` e `## Critérios de aceite`, estes em forma de lista de tarefas. Associe a *issue* a um *milestone* de versão e aplique as *labels*:
    - tipo: `feature`, `bug`, `refactor`, `documentation`, `test`, `chore`, `security`, `dependencies` ou `technical-debt`;
    - área: `frontend` ou `backend`;
    - prioridade: `priority:high`, `priority:medium` ou `priority:low`.
-2. **Branch.** Crie o *branch* a partir da própria *issue*, pelo botão *Create a branch* do GitHub ou com `gh issue develop <número> --base main --checkout`. O nome fica no formato `<número>-<título-da-issue>`, e a *issue* é fechada automaticamente quando o *pull request* for mesclado.
+2. **Branch.** Crie o *branch* pela própria *issue*, com base na `develop`: `gh issue develop <número> --base develop --checkout`. Informe sempre a base, já que a branch padrão é a `main`. O nome fica no formato `<número>-<título-da-issue>`.
 3. **Commits.** Siga o [Conventional Commits](https://www.conventionalcommits.org/pt-br/) em português, com uma linha curta e sem corpo:
    ```text
    feat: adiciona estratégia gulosa de atribuição
@@ -18,7 +24,8 @@ Toda alteração parte de uma *issue* e chega ao `main` por um *pull request*.
    docs: atualiza guia de instalação
    ```
    Tipos usados: `feat`, `fix`, `refactor`, `docs`, `test` e `chore`.
-4. **Pull request.** Abra para o `main`, com título no presente descrevendo o resultado (por exemplo, "Adiciona estratégia gulosa de atribuição"). A mesclagem é feita por *squash*, o que gera um único commit no `main` com o número do *pull request*.
+4. **Pull request.** Abra para a `develop`, informando a base (`gh pr create --base develop`), com título no presente descrevendo o resultado (por exemplo, "Adiciona estratégia gulosa de atribuição") e corpo com `Closes #<issue>`, que vincula a *issue* ao *pull request*. A mesclagem é feita por *squash*, o que gera um único commit na `develop` com o número do *pull request*.
+5. **Fechamento da issue.** O GitHub só fecha *issues* automaticamente em mesclagens na branch padrão; como os *pull requests* vão para a `develop`, feche a *issue* após a mesclagem. Antes, confira cada critério de aceite e marque os cumpridos na descrição (`- [ ]` → `- [x]`); um critério não cumprido fica desmarcado, com um comentário explicando o que falta. Depois, feche como concluída, citando o *pull request*: `gh issue close <número> --reason completed --comment "Concluída no #<pull request>."`.
 
 ## Versionamento
 
@@ -28,7 +35,11 @@ O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`M
 - `MINOR` para funcionalidades novas compatíveis com as anteriores;
 - `MAJOR` para mudanças que quebram a compatibilidade.
 
-Cada versão tem um *milestone* com as *issues* que a compõem. Ao concluí-lo, a versão é marcada com uma *tag* (`vX.Y.Z`) e um *release* no GitHub.
+Cada versão tem um *milestone* com as *issues* que a compõem. Quando todas estão concluídas na `develop`:
+
+1. abra um *pull request* da `develop` para a `main` e mescle-o por *merge commit* (não por *squash*, para que as duas branches não divirjam e a versão seguinte não repita as mudanças já mescladas);
+2. marque a versão com uma *tag* (`vX.Y.Z`) no commit resultante da `main`;
+3. publique um *release* no GitHub a partir da *tag*.
 
 ## Ambiente de Desenvolvimento
 
