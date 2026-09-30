@@ -15,10 +15,11 @@ O botão **Carregar APs** abre uma janela com três origens:
 - **Zabbix:** lista os APs monitorados pelo Zabbix configurado (ver seção 4). O Zabbix não informa coordenadas; APs já salvos mantêm as coordenadas do inventário.
 - **Importar JSON:** lê um arquivo com uma lista de APs ou um objeto com a chave `aps`, como o produzido pela opção abaixo.
 - **Gerar topologia:** cria APs aleatórios já posicionados. Os parâmetros são:
-  - *Quantidade de nós*: número de APs, entre 2 e 500;
-  - *Fator de clique*: número mínimo de vizinhos que cada AP tenta manter, menor que a quantidade de nós.
+  - *Quantidade de nós*: número de APs, entre 2 e 1000;
+  - *Fator de clique*: número mínimo de vizinhos que cada AP tenta manter, menor que a quantidade de nós;
+  - *Semente* (opcional): inteiro entre 0 e 4294967295. A mesma semente, com os mesmos parâmetros e a mesma versão do PowerTrackZ, gera a mesma topologia; em branco, uma semente é sorteada. A semente usada aparece na revisão, no nome do arquivo baixado e no campo `metadata.seed` do JSON.
 
-Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coordenadas ficam destacados em vermelho. **Baixar JSON** grava a lista em um arquivo, útil para repetir um experimento com a mesma topologia. **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo são atualizados, e os demais são criados.
+Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coordenadas ficam destacados em vermelho. **Baixar JSON** grava a lista em um arquivo, útil para repetir um experimento com a mesma topologia (que também pode ser recriada pela semente). **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo são atualizados, e os demais são criados.
 
 ### Editar o inventário
 

@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateSubmit = document.getElementById('submit-load-generate');
     const nodeCountInput = document.getElementById('generate-node-count');
     const cliqueFactorInput = document.getElementById('generate-clique-factor');
+    const seedInput = document.getElementById('generate-seed');
+    const MAX_NODE_COUNT = 1000;
+    const MAX_SEED = 4294967295;
     const feedback = document.getElementById('load-feedback');
     const review = document.getElementById('load-review');
     const reviewBody = document.getElementById('load-review-body');
@@ -158,9 +161,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const withoutCoordinates = stagedPoints.filter(point => !hasCoordinates(point)).length;
-        reviewSummary.textContent = withoutCoordinates
+        const seed = stagedSource === 'generate' ? stagedPayload?.metadata?.seed : null;
+        reviewSummary.textContent = (withoutCoordinates
             ? `${count} AP(s) carregados, ${withoutCoordinates} sem coordenadas (não participam da análise até serem posicionados no mapa).`
-            : `${count} AP(s) carregados.`;
+            : `${count} AP(s) carregados.`) + (seed != null ? ` Semente: ${seed}.` : '');
         reviewSource.textContent = SOURCE_LABELS[stagedSource] || '';
 
         reviewBody.innerHTML = stagedPoints.map(point => `
@@ -238,12 +242,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const nodeCount = Number.parseInt(nodeCountInput.value, 10);
         const cliqueFactor = Number.parseInt(cliqueFactorInput.value, 10);
-        if (!Number.isInteger(nodeCount) || nodeCount < 2) {
-            showFeedback('error', 'Quantidade de nós inválida.', ['Informe um inteiro maior ou igual a 2.']);
+        if (!Number.isInteger(nodeCount) || nodeCount < 2 || nodeCount > MAX_NODE_COUNT) {
+            showFeedback('error', 'Quantidade de nós inválida.', [`Informe um inteiro entre 2 e ${MAX_NODE_COUNT}.`]);
             return;
         }
         if (!Number.isInteger(cliqueFactor) || cliqueFactor < 1 || cliqueFactor >= nodeCount) {
             showFeedback('error', 'Fator de clique inválido.', ['Informe um inteiro maior ou igual a 1 e menor que a quantidade de nós.']);
+            return;
+        }
+
+        const seedText = seedInput.value.trim();
+        const seed = seedText === '' ? null : Number(seedText);
+        if (seed !== null && (!Number.isInteger(seed) || seed < 0 || seed > MAX_SEED)) {
+            showFeedback('error', 'Semente inválida.', [`Informe um inteiro entre 0 e ${MAX_SEED} ou deixe o campo em branco.`]);
             return;
         }
 
@@ -252,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/access_points/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ node_count: nodeCount, clique_factor: cliqueFactor })
+                body: JSON.stringify({ node_count: nodeCount, clique_factor: cliqueFactor, seed })
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -274,7 +285,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `powertrackz-infra-${stagedPoints.length}-aps.json`;
+        const seed = stagedPayload?.metadata?.seed;
+        link.download = `powertrackz-infra-${stagedPoints.length}-aps${seed != null ? `-semente-${seed}` : ''}.json`;
         document.body.appendChild(link);
         link.click();
         link.remove();
