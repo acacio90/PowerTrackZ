@@ -2,15 +2,21 @@
 
 **English** | [Português](CONTRIBUTING.pt-BR.md)
 
+## Branches
+
+- **`main`**: default and protected branch. It only receives finished versions and accepts no direct *push*, *force push* or deletion; whoever clones or visits the repository lands on the latest stable version.
+- **`develop`**: integration branch. It receives the *pull requests* of the *issues* and accumulates the version in progress.
+- ***Issue* branches**: start from `develop` and go back to it.
+
 ## Workflow
 
-Every change starts from an *issue* and reaches `main` through a *pull request*. Issues, commits and pull requests are written in Portuguese.
+Every change starts from an *issue* and reaches `develop` through a *pull request*. Issues, commits and pull requests are written in Portuguese.
 
 1. **Issue.** Describe the task with a title in the infinitive (for example, "Implementar ...", "Corrigir ...") and a body with the sections `## Contexto`, `## Objetivo` and `## Critérios de aceite`, the latter as a task list. Assign the *issue* to a version *milestone* and apply the *labels*:
    - type: `feature`, `bug`, `refactor`, `documentation`, `test`, `chore`, `security`, `dependencies` or `technical-debt`;
    - area: `frontend` or `backend`;
    - priority: `priority:high`, `priority:medium` or `priority:low`.
-2. **Branch.** Create the *branch* from the *issue* itself, with GitHub's *Create a branch* button or with `gh issue develop <number> --base main --checkout`. The name follows the format `<number>-<issue-title>`, and the *issue* is closed automatically when the *pull request* is merged.
+2. **Branch.** Create the *branch* from the *issue* itself, based on `develop`: `gh issue develop <number> --base develop --checkout`. Always give the base, since the default branch is `main`. The name follows the format `<number>-<issue-title>`.
 3. **Commits.** Follow [Conventional Commits](https://www.conventionalcommits.org/) in Portuguese, with a short single line and no body:
    ```text
    feat: adiciona estratégia gulosa de atribuição
@@ -18,7 +24,8 @@ Every change starts from an *issue* and reaches `main` through a *pull request*.
    docs: atualiza guia de instalação
    ```
    Types used: `feat`, `fix`, `refactor`, `docs`, `test` and `chore`.
-4. **Pull request.** Open it against `main`, with a title in the present tense describing the result (for example, "Adiciona estratégia gulosa de atribuição"). Merging is done by *squash*, which produces a single commit on `main` with the *pull request* number.
+4. **Pull request.** Open it against `develop`, giving the base (`gh pr create --base develop`), with a title in the present tense describing the result (for example, "Adiciona estratégia gulosa de atribuição") and a body with `Closes #<issue>`, which links the *issue* to the *pull request*. Merging is done by *squash*, which produces a single commit on `develop` with the *pull request* number.
+5. **Closing the issue.** GitHub only closes *issues* automatically on merges into the default branch; since *pull requests* go to `develop`, close the *issue* after the merge. Before that, check each acceptance criterion and tick the ones met in the description (`- [ ]` → `- [x]`); a criterion not met stays unticked, with a comment explaining what is missing. Then close it as completed, citing the *pull request*: `gh issue close <number> --reason completed --comment "Concluída no #<pull request>."`.
 
 ## Versioning
 
@@ -28,7 +35,11 @@ The project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PAT
 - `MINOR` for new backward-compatible features;
 - `MAJOR` for changes that break compatibility.
 
-Each version has a *milestone* with the *issues* that make it up. When it is completed, the version is marked with a *tag* (`vX.Y.Z`) and a GitHub *release*.
+Each version has a *milestone* with the *issues* that make it up. When all of them are completed on `develop`:
+
+1. open a *pull request* from `develop` to `main` and merge it with a *merge commit* (not a *squash*, so the two branches do not diverge and the next version does not repeat the changes already merged);
+2. mark the version with a *tag* (`vX.Y.Z`) on the resulting `main` commit;
+3. publish a GitHub *release* from the *tag*.
 
 ## Development Environment
 
