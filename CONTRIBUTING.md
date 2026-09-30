@@ -29,11 +29,24 @@ Every change starts from an *issue* and reaches `develop` through a *pull reques
 
 ## Versioning
 
-The project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`), applied to the public interface: HTTP routes, the format of JSON responses and the way the system is run (`docker-compose.yml`, ports and `.env` variables).
+The project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`), applied to the public interface.
 
-- `PATCH` for fixes that do not change the expected behavior;
-- `MINOR` for new backward-compatible features;
-- `MAJOR` for changes that break compatibility.
+The **public interface** is what other programs and scripts use from PowerTrackZ:
+
+- the services' HTTP routes and the fields of the JSON requests and responses, as documented in [`docs/api`](docs/api/README.md), including default values that change the results (such as the optimization criterion or the APs' default radius);
+- the way the system is run: `docker-compose.yml`, ports and `.env` variables.
+
+The look and the text of the screens and the text of error messages are not part of it (status codes and response fields are).
+
+| Part | When it goes up | Examples |
+|---|---|---|
+| `PATCH` | Fixes that change neither the expected behavior nor compatibility | v1.2.1: visual standardization and text review, with no route or field changes |
+| `MINOR` | New backward-compatible features: new, optional routes, fields or parameters | v1.3.0: new strategies and a configurable optimization criterion, keeping the current default |
+| `MAJOR` | Changes that break compatibility: removing or renaming a route or field, changing a response format or a default value that changes the results | removing the `cor` and `proposed_cor` fields from the analysis response |
+
+**Deprecation.** To rename or replace a field, parameter or route without breaking compatibility, the MINOR version accepts both names and the *release* marks the old one as deprecated; the old name is only removed in the next MAJOR version. That is what happened to `clique_factor`, which is still accepted as an alternative to `min_degree`.
+
+v1.2.0 is a recorded exception: published as a MINOR, it renamed `execution.comparison` fields without keeping the old names and changed default values, and under SemVer it should have been v2.0.0. Published versions are not renumbered; the deviation is noted in the *release* notes.
 
 Each version has a *milestone* with the *issues* that make it up. When all of them are completed on `develop`:
 

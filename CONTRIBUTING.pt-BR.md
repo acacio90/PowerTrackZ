@@ -29,11 +29,24 @@ Toda alteração parte de uma *issue* e chega à `develop` por um *pull request*
 
 ## Versionamento
 
-O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`MAJOR.MINOR.PATCH`), aplicado à interface pública: rotas HTTP, formato das respostas JSON e forma de executar o sistema (`docker-compose.yml`, portas e variáveis do `.env`).
+O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`MAJOR.MINOR.PATCH`), aplicado à interface pública.
 
-- `PATCH` para correções que não alteram o comportamento esperado;
-- `MINOR` para funcionalidades novas compatíveis com as anteriores;
-- `MAJOR` para mudanças que quebram a compatibilidade.
+**Interface pública** é o que outros programas e scripts usam do PowerTrackZ:
+
+- as rotas HTTP dos serviços e os campos das requisições e respostas JSON, como documentados em [`docs/api`](docs/api/README.pt-BR.md), incluindo os valores padrão que mudam o resultado (como o critério de otimização ou o raio padrão dos APs);
+- a forma de executar o sistema: `docker-compose.yml`, portas e variáveis do `.env`.
+
+Não fazem parte dela a aparência e os textos das telas nem o texto das mensagens de erro (os códigos de status e os campos da resposta, sim).
+
+| Parte | Quando sobe | Exemplos |
+|---|---|---|
+| `PATCH` | Correções que não alteram o comportamento esperado nem a compatibilidade | v1.2.1: padronização visual e revisão dos textos, sem mudar rotas nem campos |
+| `MINOR` | Funcionalidades novas compatíveis com as anteriores: rotas, campos ou parâmetros novos e opcionais | v1.3.0: novas estratégias e critério de otimização configurável, com o padrão atual mantido |
+| `MAJOR` | Mudanças que quebram a compatibilidade: remover ou renomear uma rota ou campo, mudar o formato de uma resposta ou um valor padrão que altera os resultados | remover os campos `cor` e `proposed_cor` da resposta da análise |
+
+**Descontinuação.** Para renomear ou substituir um campo, parâmetro ou rota sem quebrar a compatibilidade, a versão MINOR aceita os dois nomes e a *release* registra o antigo como descontinuado; o nome antigo só é removido na próxima versão MAJOR. Foi o que aconteceu com `clique_factor`, que continua aceito como alternativa a `min_degree`.
+
+A v1.2.0 é uma exceção registrada: publicada como MINOR, ela renomeou campos de `execution.comparison` sem manter os nomes antigos e mudou valores padrão, e pelo SemVer deveria ter sido a v2.0.0. Versões publicadas não são renumeradas; o desvio está anotado nas notas da *release*.
 
 Cada versão tem um *milestone* com as *issues* que a compõem. Quando todas estão concluídas na `develop`:
 
