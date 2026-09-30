@@ -62,8 +62,8 @@ document.addEventListener('DOMContentLoaded', function() {
             longitude: num => num >= -180 && num <= 180
         };
         const errorMessages = {
-            'modal-latitude': 'Latitude deve estar entre -90 e 90',
-            'modal-longitude': 'Longitude deve estar entre -180 e 180'
+            'modal-latitude': 'A latitude deve estar entre -90 e 90.',
+            'modal-longitude': 'A longitude deve estar entre -180 e 180.'
         };
 
         inputs.forEach(input => {
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isValid = Array.from(inputs).every(input => input.value.trim());
             if (!isValid) {
                 event.preventDefault();
-                alert('Preencha todos os campos obrigatorios.');
+                alert('Preencha todos os campos obrigatórios.');
             }
         });
     }

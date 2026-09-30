@@ -96,7 +96,7 @@ window.addEventListener('DOMContentLoaded', function() {
             <div class="panel panel-floating analysis-loading-card">
                 <div class="analysis-loading-header">
                     <div class="analysis-loading-spinner"></div>
-                    <p class="analysis-loading-title">Processando analise</p>
+                    <p class="analysis-loading-title">Processando a análise</p>
                 </div>
                 <p class="analysis-loading-description">Preparando dados do grafo.</p>
                 <div class="analysis-loading-bar">
@@ -133,9 +133,9 @@ window.addEventListener('DOMContentLoaded', function() {
     function getStrategyDisplayName(strategy) {
         return {
             backtracking: 'Backtracking',
-            greedy: 'Greedy',
-            genetic: 'Genetic (AG)'
-        }[strategy] || 'Selecione uma estrategia';
+            greedy: 'Guloso',
+            genetic: 'Algoritmo genético'
+        }[strategy] || strategy || 'Nenhuma estratégia';
     }
 
     function setAnalysisButtonsDisabled(disabled) {
@@ -213,11 +213,11 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const detail = strategyDetails[strategyName];
         if (!detail) {
-            container.innerHTML = '<p class="analysis-parameter-meta">Parametros indisponiveis para esta estrategia.</p>';
+            container.innerHTML = '<p class="analysis-parameter-meta">Os parâmetros desta estratégia não estão disponíveis. Recarregue a página.</p>';
             return;
         }
         if (!detail.parameters || detail.parameters.length === 0) {
-            container.innerHTML = '<p class="analysis-parameter-meta">Esta estrategia nao possui parametros configuraveis.</p>';
+            container.innerHTML = '<p class="analysis-parameter-meta">Esta estratégia não tem parâmetros configuráveis.</p>';
             return;
         }
 
@@ -260,10 +260,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
             const value = Number(raw);
             if (!Number.isFinite(value)) {
-                return { error: `${parameter.label}: informe um numero.` };
+                return { error: `${parameter.label}: informe um número.` };
             }
             if (parameter.type === 'integer' && !Number.isInteger(value)) {
-                return { error: `${parameter.label}: informe um numero inteiro.` };
+                return { error: `${parameter.label}: informe um número inteiro.` };
             }
             if (value < parameter.min || value > parameter.max) {
                 return { error: `${parameter.label}: informe um valor entre ${parameter.min} e ${parameter.max}.` };
@@ -347,19 +347,19 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const items = [`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Solucao</span>
+                    <span class="analysis-execution-label">Solução</span>
                     <span class="analysis-execution-value">${describeSearchOutcome(strategy, search)}</span>
                 </div>`];
 
         if (strategy === 'backtracking') {
             items.push(`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Conflitos Guloso / Final</span>
+                    <span class="analysis-execution-label">Conflitos (guloso / final)</span>
                     <span class="analysis-execution-value">${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}</span>
                 </div>`);
             items.push(`
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Nos Explorados</span>
+                    <span class="analysis-execution-label">Nós explorados</span>
                     <span class="analysis-execution-value">${search.nodes_explored != null ? Number(search.nodes_explored).toLocaleString('pt-BR') : '-'}</span>
                 </div>`);
         }
@@ -398,18 +398,18 @@ window.addEventListener('DOMContentLoaded', function() {
         const comparison = execution.comparison || {};
         container.hidden = false;
         container.innerHTML = `
-            <h3 class="analysis-execution-title">Metadados de Execucao</h3>
+            <h3 class="analysis-execution-title">Metadados da execução</h3>
             <div class="analysis-execution-grid">
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Estrategia</span>
-                    <span class="analysis-execution-value">${execution.strategy || '-'}</span>
+                    <span class="analysis-execution-label">Estratégia</span>
+                    <span class="analysis-execution-value">${execution.strategy ? escapeHtml(getStrategyDisplayName(execution.strategy)) : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Tempo</span>
                     <span class="analysis-execution-value">${execution.duration_ms != null ? `${execution.duration_ms} ms` : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Nos</span>
+                    <span class="analysis-execution-label">APs</span>
                     <span class="analysis-execution-value">${graphSnapshot.nodes ?? '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
@@ -421,15 +421,15 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-value">${graphSnapshot.density != null ? graphSnapshot.density : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-label">Conflitos (antes / depois)</span>
                     <span class="analysis-execution-value">${comparison.conflicts_before != null ? comparison.conflicts_before : '-'} / ${comparison.conflicts_after != null ? comparison.conflicts_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Densidade de Conflitos Antes / Depois</span>
+                    <span class="analysis-execution-label">Densidade de conflitos (antes / depois)</span>
                     <span class="analysis-execution-value">${comparison.conflict_density_before != null ? comparison.conflict_density_before : '-'} / ${comparison.conflict_density_after != null ? comparison.conflict_density_after : '-'}</span>
                 </div>
                 <div class="analysis-execution-item">
-                    <span class="analysis-execution-label">Parametros</span>
+                    <span class="analysis-execution-label">Parâmetros</span>
                     <span class="analysis-execution-value">${formatExecutionParameters(execution.parameters, execution.strategy)}</span>
                 </div>${renderSearchMetadata(execution.strategy, execution.search)}${renderBandsMetadata(execution.strategy, execution.bands)}
             </div>
@@ -564,7 +564,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const {
             visible = true,
-            title = 'Processando analise',
+            title = 'Processando a análise',
             description = 'Preparando dados do grafo.',
             step = 'Aguardando resposta do servidor',
             percentage = null
@@ -697,9 +697,9 @@ window.addEventListener('DOMContentLoaded', function() {
 
         if (threadAvailabilityInfo) {
             if (Number.isFinite(availableAnalysisThreads) && availableAnalysisThreads > 0) {
-                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit} de ${availableAnalysisThreads} disponiveis`;
+                threadAvailabilityInfo.textContent = `Threads úteis para este grafo: ${usefulThreadLimit} de ${availableAnalysisThreads} disponíveis`;
             } else {
-                threadAvailabilityInfo.textContent = `Threads uteis para este grafo: ${usefulThreadLimit}`;
+                threadAvailabilityInfo.textContent = `Threads úteis para este grafo: ${usefulThreadLimit}`;
             }
         }
     }
@@ -824,15 +824,15 @@ window.addEventListener('DOMContentLoaded', function() {
         const edgeLegend = document.createElement('div');
         edgeLegend.className = 'legenda-arestas';
         edgeLegend.innerHTML = `
-            <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferencia %)</div></div>
-            <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposicao sem conflito (%)</div></div>
+            <div class="legenda-item"><span class="linha-amostra linha-conflito"></span><div class="nome-ap">Conflito (interferência, %)</div></div>
+            <div class="legenda-item"><span class="linha-amostra linha-sobreposicao"></span><div class="nome-ap">Sobreposição sem conflito (%)</div></div>
         `;
         if (usarConfiguracaoProposta && showChangeHighlights) {
             const changedCount = nodes.filter(nodeConfigChanged).length;
             const resolvedCount = graphInstances.cy2 ? graphInstances.cy2.edges('[?resolved]').length : 0;
             edgeLegend.innerHTML += `
                 <div class="legenda-item"><span class="linha-amostra linha-resolvida"></span><div class="nome-ap">Conflito resolvido (${resolvedCount})</div></div>
-                <div class="legenda-item"><span class="cor-amostra no-alterado"></span><div class="nome-ap">AP com configuracao alterada (${changedCount})</div></div>
+                <div class="legenda-item"><span class="cor-amostra no-alterado"></span><div class="nome-ap">AP com configuração alterada (${changedCount})</div></div>
             `;
         }
         legendaDiv.appendChild(edgeLegend);
@@ -1249,9 +1249,9 @@ window.addEventListener('DOMContentLoaded', function() {
             <thead>
                 <tr>
                     <th>Nome do AP</th>
-                    <th>Configuracao Original</th>
-                    <th>Configuracao Proposta</th>
-                    <th>Acoes</th>
+                    <th>Configuração original</th>
+                    <th>Configuração proposta</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -1299,7 +1299,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         <div class="analysis-inline-edit">
                             <select class="input-edit" data-field="channel" aria-label="Canal"></select>
                             <select class="input-edit" data-field="bandwidth" aria-label="Largura de banda"></select>
-                            <select class="input-edit" data-field="frequency" aria-label="Frequencia"></select>
+                            <select class="input-edit" data-field="frequency" aria-label="Faixa"></select>
                         </div>
                     `;
                     const selects = {
@@ -1327,7 +1327,7 @@ window.addEventListener('DOMContentLoaded', function() {
         const nomeEstrategia = getStrategyDisplayName(estrategiaNome);
 
         titulo.className = 'app-table-title analysis-changes-title';
-        titulo.textContent = `Alteracoes de Configuracao Propostas pelo ${nomeEstrategia}`;
+        titulo.textContent = `Configurações propostas (${nomeEstrategia})`;
         container.appendChild(titulo);
 
         const tableShell = document.createElement('div');
@@ -1344,7 +1344,7 @@ window.addEventListener('DOMContentLoaded', function() {
     function renderConfigPills(config, highlight = false) {
         const pillClass = highlight ? 'tag tag-accent' : 'tag';
         const changeIcon = highlight
-            ? '<span class="analysis-change-icon" title="Configuracao alterada">&#8635;</span>'
+            ? '<span class="analysis-change-icon" title="Configuração alterada">&#8635;</span>'
             : '';
 
         return `
@@ -1372,7 +1372,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 atualizarInfoConsumo('cy1', graphData);
             })
             .catch(error => {
-                document.getElementById('cy1').innerHTML = '<p class="cy-error">Erro ao carregar o grafo.</p>';
+                document.getElementById('cy1').innerHTML = '<p class="cy-error">Não foi possível carregar o grafo. Recarregue a página.</p>';
                 console.error('Erro ao carregar grafo original:', error);
             });
     }
@@ -1413,7 +1413,7 @@ window.addEventListener('DOMContentLoaded', function() {
         currentAnalysisJobId = null;
         setGraphLoading('cy2', { visible: false });
         setAnalysisButtonsDisabled(false);
-        setEmptyOptimizedState('Execucao cancelada. Selecione uma estrategia para iniciar novamente.');
+        setEmptyOptimizedState('Análise cancelada. Clique em Executar análise para iniciar de novo.');
     }
 
     function cancelarAnaliseSilenciosamenteAoSair() {
@@ -1446,7 +1446,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!data.success) {
-            throw new Error(data.error || 'Falha na analise');
+            throw new Error(data.error || 'A análise falhou. Tente executar de novo.');
         }
 
         const graphData = data.graph_data || { nodes: [], links: [] };
@@ -1461,7 +1461,7 @@ window.addEventListener('DOMContentLoaded', function() {
         setGraphLoading('cy2', {
             visible: true,
             title: `Executando ${getStrategyDisplayName(data.strategy_used)}`,
-            description: 'Analise concluida com sucesso.',
+            description: 'Análise concluída.',
             step: 'Processamento finalizado',
             percentage: 100
         });
@@ -1490,7 +1490,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Falha ao iniciar a analise');
+            throw new Error(errorData.error || 'Não foi possível iniciar a análise. Tente executar de novo.');
         }
 
         if (!response.body || typeof TextDecoder === 'undefined') {
@@ -1536,14 +1536,14 @@ window.addEventListener('DOMContentLoaded', function() {
                         setGraphLoading('cy2', {
                             visible: true,
                             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
-                            description: 'Aplicando a estrategia escolhida para atribuir configuracoes com menor interferencia.',
+                            description: 'Aplicando a estratégia escolhida para atribuir as configurações de menor interferência.',
                             step: event.payload.message || 'Iniciando processamento',
                             percentage: null
                         });
                     } else if (event.type === 'progress') {
                         const progress = event.payload || {};
                         const stage = progress.stage || 'assignment';
-                        let description = 'Processando estrategia.';
+                        let description = 'Processando a estratégia.';
                         let stepText = 'Executando';
 
                         if (stage === 'assignment') {
@@ -1553,12 +1553,12 @@ window.addEventListener('DOMContentLoaded', function() {
                             const bestConflicts = Number.isFinite(progress.best_conflicts) && progress.best_conflicts >= 0
                                 ? ` | Melhor conflito: ${progress.best_conflicts}`
                                 : '';
-                            description = 'Atribuindo configuracoes aos APs para minimizar interferencia real.';
+                            description = 'Atribuindo configurações aos APs para minimizar a interferência.';
                             stepText = completeAssignmentFound
-                                ? `Atribuicao completa encontrada, validando alternativas${bestConflicts}`
-                                : `${assignedNodes}/${totalNodes} nos com configuracao atribuida${bestConflicts}`;
+                                ? `Atribuição completa encontrada, conferindo alternativas${bestConflicts}`
+                                : `${assignedNodes}/${totalNodes} APs com configuração atribuída${bestConflicts}`;
                         } else {
-                            description = 'Montando dados para a atribuicao de configuracoes.';
+                            description = 'Montando os dados para a atribuição de configurações.';
                             stepText = 'Preparando busca';
                         }
                         setGraphLoading('cy2', {
@@ -1571,9 +1571,9 @@ window.addEventListener('DOMContentLoaded', function() {
                     } else if (event.type === 'result') {
                         finalResult = event.payload;
                     } else if (event.type === 'cancelled') {
-                        throw new Error((event.payload && event.payload.error) || 'Analise cancelada pelo usuario');
+                        throw new Error((event.payload && event.payload.error) || 'Análise cancelada.');
                     } else if (event.type === 'error') {
-                        throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+                        throw new Error((event.payload && event.payload.error) || 'A análise falhou. Tente executar de novo.');
                     }
                 }
 
@@ -1587,12 +1587,12 @@ window.addEventListener('DOMContentLoaded', function() {
             if (event.type === 'result') {
                 finalResult = event.payload;
             } else if (event.type === 'error') {
-                throw new Error((event.payload && event.payload.error) || 'Falha na analise');
+                throw new Error((event.payload && event.payload.error) || 'A análise falhou. Tente executar de novo.');
             }
         }
 
         if (!finalResult) {
-            throw new Error('Resposta de analise incompleta.');
+            throw new Error('A resposta da análise veio incompleta. Tente executar de novo.');
         }
 
         aplicarResultadoAnalise(finalResult, requestToken);
@@ -1619,7 +1619,7 @@ window.addEventListener('DOMContentLoaded', function() {
         setGraphLoading('cy2', {
             visible: true,
             title: `Executando ${getStrategyDisplayName(window.selectedStrategy)}`,
-            description: 'Preparando a analise otimizada do grafo.',
+            description: 'Preparando a análise do grafo.',
             step: 'Enviando dados para o servidor',
             percentage: null
         });
@@ -1640,7 +1640,7 @@ window.addEventListener('DOMContentLoaded', function() {
             if (error && error.name === 'AbortError') {
                 return;
             }
-            const message = error && error.message ? error.message : 'Erro ao carregar a analise.';
+            const message = error && error.message ? error.message : 'Não foi possível carregar a análise. Tente executar de novo.';
             document.getElementById('cy2').innerHTML = `<p class="cy-error">${escapeHtml(message)}</p>`;
             console.error('Erro ao carregar analise otimizada:', error);
         }
@@ -1654,7 +1654,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
             const data = await res.json();
             if (data && data.success && data.strategies && strategyInfo) {
-                strategyInfo.textContent = 'Estrategias: ' + Object.keys(data.strategies).join(', ');
+                strategyInfo.textContent = 'Estratégias: ' + Object.keys(data.strategies).map(getStrategyDisplayName).join(', ');
             }
             if (data && Array.isArray(data.strategy_details)) {
                 strategyDetails = data.strategy_details.reduce(
@@ -1743,7 +1743,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 seletorCanais = window.ChannelPlan.criarSeletor(channelsContainer, plano);
             })
             .catch(err => {
-                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Nao foi possivel carregar os canais; a analise usara os perfis padrao.</p>';
+                channelsContainer.innerHTML = '<p class="analysis-parameter-meta">Não foi possível carregar os canais. A análise usará os perfis padrão; recarregue a página para escolher os canais.</p>';
                 console.warn(err);
             });
     }
@@ -1754,6 +1754,6 @@ window.addEventListener('DOMContentLoaded', function() {
 
     carregarAPs(() => {
         criarGrafoOriginal();
-        setEmptyOptimizedState('Selecione uma estrategia, ajuste os parametros e clique em Executar analise.');
+        setEmptyOptimizedState('Selecione uma estratégia, ajuste os parâmetros e clique em Executar análise.');
     });
 });

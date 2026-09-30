@@ -244,13 +244,13 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadFromZabbix() {
         generateForm.hidden = true;
         clearFeedback();
-        setBusy(zabbixButton, true, 'Consultando...');
+        setBusy(zabbixButton, true, 'Consultando…');
 
         try {
             const response = await fetch('/zabbix/hosts');
             const result = await response.json().catch(() => ({}));
             if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Falha ao consultar o Zabbix.');
+                throw new Error(result.error || 'Não foi possível consultar o Zabbix.');
             }
 
             const points = keepSavedCoordinates(normalizeZabbixHosts(result.data));
@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
             stage(normalizeImportedPoints(content), 'import', content);
         } catch (error) {
             stage([], null);
-            showFeedback('error', 'Falha ao ler o arquivo JSON.', [error.message]);
+            showFeedback('error', 'Não foi possível ler o arquivo JSON. Confira se ele é um JSON válido.', [error.message]);
         } finally {
             event.target.value = '';
         }
@@ -294,11 +294,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const nodeCount = Number.parseInt(nodeCountInput.value, 10);
         const minDegree = Number.parseInt(minDegreeInput.value, 10);
         if (!Number.isInteger(nodeCount) || nodeCount < 2 || nodeCount > MAX_NODE_COUNT) {
-            showFeedback('error', 'Quantidade de nós inválida.', [`Informe um inteiro entre 2 e ${MAX_NODE_COUNT}.`]);
+            showFeedback('error', 'Quantidade de APs inválida.', [`Informe um inteiro entre 2 e ${MAX_NODE_COUNT}.`]);
             return;
         }
         if (!Number.isInteger(minDegree) || minDegree < 1 || minDegree >= nodeCount) {
-            showFeedback('error', 'Grau mínimo inválido.', ['Informe um inteiro maior ou igual a 1 e menor que a quantidade de nós.']);
+            showFeedback('error', 'Grau mínimo inválido.', ['Informe um inteiro maior ou igual a 1 e menor que a quantidade de APs.']);
             return;
         }
 
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        setBusy(generateSubmit, true, 'Gerando...');
+        setBusy(generateSubmit, true, 'Gerando…');
         try {
             const response = await fetch('/api/access_points/generate', {
                 method: 'POST',
@@ -318,13 +318,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(result.error || 'Falha ao gerar a topologia.');
+                throw new Error(result.error || 'Não foi possível gerar a topologia. Confira os parâmetros e tente de novo.');
             }
 
             stage(normalizeImportedPoints(result.payload), 'generate', result.payload);
         } catch (error) {
             stage([], null);
-            showFeedback('error', 'Falha ao gerar a topologia.', [error.message]);
+            showFeedback('error', 'Não foi possível gerar a topologia. Confira os parâmetros e tente de novo.', [error.message]);
         } finally {
             setBusy(generateSubmit, false);
         }
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!stagedPoints.length) return;
 
         clearFeedback();
-        setBusy(saveButton, true, 'Salvando...');
+        setBusy(saveButton, true, 'Salvando…');
         try {
             const response = await fetch('/api/access_points/import', {
                 method: 'POST',
@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(result.error || 'Falha ao salvar os APs.');
+                throw new Error(result.error || 'Não foi possível salvar os APs. Tente de novo.');
             }
 
             const summary = result.summary || {};
@@ -381,11 +381,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            showFeedback('success', 'APs salvos. Atualizando a página...', details);
+            showFeedback('success', 'APs salvos. Atualizando a página…', details);
             window.setTimeout(() => window.location.reload(), 900);
         } catch (error) {
             setBusy(saveButton, false);
-            showFeedback('error', 'Falha ao salvar os APs.', [error.message]);
+            showFeedback('error', 'Não foi possível salvar os APs. Tente de novo.', [error.message]);
         }
     }
 

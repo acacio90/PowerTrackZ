@@ -35,7 +35,7 @@ def validate_url(url):
 class ZabbixClient:
     def __init__(self, url, user, password):
         if not url or not validate_url(url):
-            raise ValueError("URL invalida")
+            raise ValueError("URL inválida. Confira o endereço da API do Zabbix.")
 
         if not url.startswith("https://"):
             url = "https://" + url.lstrip("http://")
@@ -58,10 +58,10 @@ class ZabbixClient:
         except Exception as exc:
             logger.error("Erro ao autenticar no Zabbix: %s", exc)
             if "Login name or password is incorrect" in str(exc):
-                raise ValueError("Credenciais invalidas") from exc
+                raise ValueError("Usuário ou senha inválidos. Confira as credenciais do Zabbix.") from exc
             if "Connection refused" in str(exc):
-                raise ValueError("Servidor Zabbix indisponivel") from exc
-            raise ValueError(f"Erro na autenticacao: {exc}") from exc
+                raise ValueError("O servidor Zabbix não respondeu. Confira a URL e se ele está no ar.") from exc
+            raise ValueError(f"Falha na autenticação no Zabbix: {exc}") from exc
 
     def get_hosts(self):
         if not self.zapi:
@@ -125,7 +125,7 @@ class ZabbixClient:
 def get_saved_zabbix_client():
     config = ZabbixConfig.query.first()
     if not config:
-        raise ValueError("Config nao encontrada")
+        raise ValueError("Configuração do Zabbix não encontrada. Salve a configuração antes de carregar os APs.")
     return ZabbixClient(config.url, config.user, config.password)
 
 
@@ -133,18 +133,18 @@ def test_zabbix_connection():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"success": False, "error": "JSON invalido"}), 400
+            return jsonify({"success": False, "error": "JSON inválido."}), 400
 
         url = data.get("url")
         user = data.get("user")
         password = data.get("password")
 
         if not all([url, user, password]):
-            return jsonify({"success": False, "error": "Campos obrigatorios faltando"}), 400
+            return jsonify({"success": False, "error": "Preencha a URL, o usuário e a senha."}), 400
 
         client = ZabbixClient(url.strip(), user.strip(), password.strip())
         client.authenticate()
-        return jsonify({"success": True, "message": "Conectado", "url": url})
+        return jsonify({"success": True, "message": "Conectado.", "url": url})
     except Exception as exc:
         logger.error("Erro ao testar Zabbix: %s", exc)
         return jsonify({
@@ -158,14 +158,14 @@ def save_zabbix_config():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"success": False, "error": "JSON invalido"}), 400
+            return jsonify({"success": False, "error": "JSON inválido."}), 400
 
         url = data.get("url")
         user = data.get("user")
         password = data.get("password")
 
         if not all([url, user, password]):
-            return jsonify({"success": False, "error": "Campos obrigatorios faltando"}), 400
+            return jsonify({"success": False, "error": "Preencha a URL, o usuário e a senha."}), 400
 
         client = ZabbixClient(url.strip(), user.strip(), password.strip())
         client.authenticate()
@@ -174,7 +174,7 @@ def save_zabbix_config():
         db.session.add(ZabbixConfig(url=url.strip(), user=user.strip(), password=password.strip()))
         db.session.commit()
 
-        return jsonify({"success": True, "message": "Configuracao salva", "url": url})
+        return jsonify({"success": True, "message": "Configuração salva.", "url": url})
     except ValueError as exc:
         db.session.rollback()
         return jsonify({"success": False, "error": str(exc)}), 400
@@ -192,7 +192,7 @@ def get_zabbix_config():
     try:
         config = ZabbixConfig.query.first()
         if not config:
-            return jsonify({"success": False, "error": "Config nao encontrada"}), 404
+            return jsonify({"success": False, "error": "Configuração do Zabbix não encontrada. Salve a configuração antes de carregar os APs."}), 404
 
         return jsonify({
             "success": True,

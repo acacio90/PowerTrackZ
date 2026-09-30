@@ -135,7 +135,7 @@
 
 .table-section .data-table th:nth-child(3),
 .table-section .data-table td:nth-child(3) {
-    width: 23%;
+    width: 19%;
 }
 
 .table-section .data-table th:nth-child(4),
@@ -150,7 +150,7 @@
 
 .table-section .data-table th:nth-child(6),
 .table-section .data-table td:nth-child(6) {
-    width: 7%;
+    width: 11%;
 }
 
 .table-section .data-table th:nth-child(7),

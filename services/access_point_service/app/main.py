@@ -110,15 +110,15 @@ def create_access_point():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({"error": "Dados obrigatorios nao enviados"}), 400
+            return jsonify({"error": "Nenhum dado foi enviado. Envie os dados do AP em JSON."}), 400
 
         errors = validate_access_point_payload(data)
         if errors:
-            return jsonify({"error": "Dados invalidos", "details": errors}), 400
+            return jsonify({"error": "Dados inválidos. Corrija os campos indicados e envie de novo.", "details": errors}), 400
 
         upsert_access_point(data)
         db.session.commit()
-        return jsonify({"success": True, "message": "Ponto de acesso salvo/atualizado com sucesso!"}), 201
+        return jsonify({"success": True, "message": "AP salvo."}), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -129,12 +129,12 @@ def bulk_import_access_points():
     try:
         data = request.get_json()
         if data is None:
-            return jsonify({"error": "Dados obrigatorios nao enviados"}), 400
+            return jsonify({"error": "Nenhum dado foi enviado. Envie os dados do AP em JSON."}), 400
 
         summary = import_access_points(data)
         return jsonify({
             "success": True,
-            "message": "Importacao concluida",
+            "message": "Importação concluída.",
             "summary": summary,
         }), 200
     except ValueError as e:
@@ -183,7 +183,7 @@ def get_access_point(id):
     try:
         ap = db.session.get(AccessPoint, id)
         if not ap:
-            return jsonify({"error": "Ponto de acesso nao encontrado"}), 404
+            return jsonify({"error": "AP não encontrado. Recarregue a página para atualizar a lista."}), 404
         return jsonify(ap.to_dict())
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -195,7 +195,7 @@ def update_access_point(id):
         data = request.get_json()
         ap = AccessPoint.query.get(id)
         if not ap:
-            return jsonify({"error": "Ponto de acesso nao encontrado"}), 404
+            return jsonify({"error": "AP não encontrado. Recarregue a página para atualizar a lista."}), 404
 
         ap.name = data.get("name", ap.name)
         ap.channel = data.get("channel", ap.channel)
@@ -206,7 +206,7 @@ def update_access_point(id):
         ap.last_update = datetime.utcnow()
 
         db.session.commit()
-        return jsonify({"success": True, "message": "Ponto de acesso atualizado com sucesso!"})
+        return jsonify({"success": True, "message": "AP atualizado."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -217,11 +217,11 @@ def delete_access_point(id):
     try:
         ap = AccessPoint.query.get(id)
         if not ap:
-            return jsonify({"error": "Ponto de acesso nao encontrado"}), 404
+            return jsonify({"error": "AP não encontrado. Recarregue a página para atualizar a lista."}), 404
 
         db.session.delete(ap)
         db.session.commit()
-        return jsonify({"success": True, "message": "Ponto de acesso removido com sucesso!"})
+        return jsonify({"success": True, "message": "AP excluído."})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -251,24 +251,24 @@ def start_scalability_run():
 def get_scalability_run(run_id):
     run = db.session.get(ScalabilityRun, run_id)
     if not run:
-        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+        return jsonify({"success": False, "error": "Execução não encontrada. Recarregue a página para atualizar o histórico."}), 404
     return jsonify({"success": True, "run": run_to_dict(run)})
 
 
 @app.route("/experiments/scalability/<int:run_id>/cancel", methods=["POST"])
 def cancel_scalability_run(run_id):
     if not scalability_runner.cancel(run_id):
-        return jsonify({"success": False, "error": "Execucao nao esta em andamento"}), 409
-    return jsonify({"success": True, "message": "Cancelamento solicitado"})
+        return jsonify({"success": False, "error": "A execução não está em andamento."}), 409
+    return jsonify({"success": True, "message": "Cancelamento solicitado."})
 
 
 @app.route("/experiments/scalability/<int:run_id>", methods=["DELETE"])
 def delete_scalability_run(run_id):
     run = db.session.get(ScalabilityRun, run_id)
     if not run:
-        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+        return jsonify({"success": False, "error": "Execução não encontrada. Recarregue a página para atualizar o histórico."}), 404
     if scalability_runner.is_active(run_id):
-        return jsonify({"success": False, "error": "Cancele a execucao antes de exclui-la"}), 409
+        return jsonify({"success": False, "error": "A execução ainda está em andamento. Cancele-a antes de excluir."}), 409
     db.session.delete(run)
     db.session.commit()
     return jsonify({"success": True})
@@ -278,7 +278,7 @@ def delete_scalability_run(run_id):
 def export_scalability_run(run_id):
     run = db.session.get(ScalabilityRun, run_id)
     if not run:
-        return jsonify({"success": False, "error": "Execucao nao encontrada"}), 404
+        return jsonify({"success": False, "error": "Execução não encontrada. Recarregue a página para atualizar o histórico."}), 404
     export_format = request.args.get("format", "json")
     filename = f"powertrackz-escalabilidade-{run_id}"
     if export_format == "csv":
@@ -291,7 +291,7 @@ def export_scalability_run(run_id):
         response = jsonify(run_to_dict(run))
         response.headers["Content-Disposition"] = f'attachment; filename="{filename}.json"'
         return response
-    return jsonify({"success": False, "error": "format deve ser csv ou json"}), 400
+    return jsonify({"success": False, "error": "format deve ser csv ou json."}), 400
 
 
 if __name__ == "__main__":

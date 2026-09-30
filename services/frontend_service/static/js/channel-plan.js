@@ -9,7 +9,7 @@
             planoPromise = fetch('/api/analysis/channel-plan')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Nao foi possivel carregar o plano de canais.');
+                        throw new Error('Não foi possível carregar o plano de canais.');
                     }
                     return response.json();
                 })

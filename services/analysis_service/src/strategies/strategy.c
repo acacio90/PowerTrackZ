@@ -37,7 +37,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
     {
         .name = "thread_count",
         .label = "Threads",
-        .description = "Numero de threads que dividem a busca",
+        .description = "Número de threads que dividem a busca.",
         .type = STRATEGY_PARAMETER_INTEGER,
         .default_value = 1,
         .min_value = 1,
@@ -48,7 +48,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
     {
         .name = "time_limit_seconds",
         .label = "Limite de tempo",
-        .description = "Tempo maximo da busca em cada faixa; ao atingi-lo, devolve a melhor configuracao encontrada",
+        .description = "Tempo máximo da busca em cada faixa; ao atingi-lo, devolve a melhor configuração encontrada.",
         .type = STRATEGY_PARAMETER_NUMBER,
         .default_value = 60,
         .min_value = 0,
@@ -63,7 +63,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
 static const AnalysisStrategy STRATEGIES[] = {
     {
         .name = "backtracking",
-        .description = "Busca exata por branch-and-bound que minimiza conflitos e interferencia real, com limite de tempo",
+        .description = "Busca exata por branch-and-bound que minimiza os conflitos e a interferência, com limite de tempo.",
         .mode = "pthread-task-queue",
         .exact = true,
         .parameters = BACKTRACKING_PARAMETERS,
@@ -72,7 +72,7 @@ static const AnalysisStrategy STRATEGIES[] = {
     },
     {
         .name = "greedy",
-        .description = "Heuristica gulosa que atribui a cada AP, em ordem de grau, o perfil de menor interferencia local",
+        .description = "Heurística gulosa que atribui a cada AP, em ordem de grau, o perfil de menor interferência local.",
         .mode = "sequential",
         .exact = false,
         .parameters = NULL,
@@ -81,7 +81,7 @@ static const AnalysisStrategy STRATEGIES[] = {
     },
     {
         .name = "genetic",
-        .description = "Estrategia genetica ainda nao portada para C",
+        .description = "Algoritmo genético; ainda não implementado no serviço em C.",
         .mode = "placeholder",
         .exact = false,
         .parameters = NULL,
@@ -136,19 +136,19 @@ bool validate_strategy_parameters(const AnalysisStrategy *strategy, cJSON *param
             continue;
         }
         if (!cJSON_IsNumber(item)) {
-            snprintf(error, error_size, "Parametro %s deve ser numerico", parameter->name);
+            snprintf(error, error_size, "O parâmetro %s deve ser numérico.", parameter->name);
             return false;
         }
         double value = item->valuedouble;
         if (parameter->type == STRATEGY_PARAMETER_INTEGER && floor(value) != value) {
-            snprintf(error, error_size, "Parametro %s deve ser inteiro", parameter->name);
+            snprintf(error, error_size, "O parâmetro %s deve ser inteiro.", parameter->name);
             return false;
         }
         if (value < parameter->min_value || value > parameter->max_value) {
             snprintf(
                 error,
                 error_size,
-                "Parametro %s deve estar entre %g e %g",
+                "O parâmetro %s deve estar entre %g e %g.",
                 parameter->name,
                 parameter->min_value,
                 parameter->max_value
