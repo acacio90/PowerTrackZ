@@ -38,6 +38,6 @@ Em empate de custo, vence a tarefa de menor índice. Como as tarefas seguem a or
 ## Limitações
 
 - O problema é NP-difícil. Em grafos grandes e densos, a busca exata não termina e para no limite de tempo, devolvendo a melhor solução encontrada (`optimal: false`).
-- O ganho com mais *threads* depende do número de tarefas e da eficácia da poda. Com poucos perfis por faixa, os dois primeiros níveis geram no máximo 36 tarefas em 2,4 GHz e 100 em 5 GHz.
+- O ganho com mais *threads* depende do número de tarefas e da eficácia da poda. Com poucos perfis por faixa, os dois primeiros níveis geram no máximo 25 tarefas em 2,4 GHz e 100 em 5 GHz.
 - O progresso enviado ao *frontend* é a fração de tarefas concluídas, e não uma estimativa do tempo restante.
 - Conflitos entre dois APs travados não entram no custo, pois não dependem da atribuição.
