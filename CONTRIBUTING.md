@@ -41,6 +41,18 @@ Each version has a *milestone* with the *issues* that make it up. When all of th
 2. mark the version with a *tag* (`vX.Y.Z`) on the resulting `main` commit;
 3. publish a GitHub *release* from the *tag*.
 
+## Fixing Published Versions (*hotfix*)
+
+A bug found in an already published version is fixed in a PATCH version (for example, v1.3.1 fixes v1.3.0). It can only contain fixes that change neither the expected behavior nor the compatibility: a wrong calculation, an interface error or a dependency with a security flaw. New features and changes to the public interface go to the next MINOR or MAJOR version.
+
+Since `develop` may contain work not yet published, the fix starts from `main`:
+
+1. **Issue.** Open the *issue* in the fix version's *milestone* (for example, `v1.3.1`), creating the *milestone* if needed.
+2. **Branch.** Create the *branch* from `main`: `gh issue develop <number> --base main --checkout`.
+3. **Pull request.** Open it against `main` (`gh pr create --base main`), with the body `Closes #<issue>`, and merge it by *squash*. Since `main` is the default branch, the *issue* is closed automatically; before that, tick the acceptance criteria that were met.
+4. **Version.** Mark the *tag* (`vX.Y.Z`) on the resulting `main` commit and publish the *release*.
+5. **Back to `develop`.** Open a *pull request* from `main` to `develop` and merge it with a *merge commit*, so the fix is not lost in the next version and the two branches do not diverge. If it conflicts with the work in progress, resolve the conflict in that *pull request*.
+
 ## Development Environment
 
 ```bash
