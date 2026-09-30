@@ -29,6 +29,12 @@ Values outside the declared type or range are rejected with HTTP 400 and a messa
 
 The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes and the conflicts of the greedy and final solutions.
 
+## Interference
+
+The interference between two APs is the product of the spatial overlap of their coverage areas (w, as a percentage of the smaller area) and the spectral overlap of their channels (s, from 0 to 1); there is a conflict when the product is greater than zero. The factor s is the fraction of the narrower channel's width that overlaps the other one, with each channel occupying its width around its center frequency.
+
+For bonded channels, the center frequency is that of the whole block, not that of the primary channel: 36 at 80 MHz occupies channels 36 to 48, centered on channel 42 (5210 MHz); 44 at 40 MHz occupies 44 and 48, centered on 46 (5230 MHz). In 2.4 GHz, the secondary of a 40 MHz channel is 4 channels above the primary when it fits in the band (primaries 1 to 9) and 4 channels below otherwise; so 1 at 40 MHz is centered on channel 3 (2422 MHz) and 11 at 40 MHz on channel 9 (2452 MHz).
+
 ## Channel Plan
 
 `GET /channel-plan` reports the channels offered by the interface, grouped by frequency and bandwidth:

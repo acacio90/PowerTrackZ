@@ -285,20 +285,59 @@ static double parse_bandwidth_mhz(const char *bandwidth) {
     return atof(bandwidth);
 }
 
+// Canal central do bloco agregado que contem o canal primario. Em 2,4 GHz, o secundario de um
+// canal de 40 MHz fica 4 canais acima quando cabe na faixa (primarios 1 a 9) e abaixo nos demais.
+// Em 5 e 6 GHz, o bloco e o alinhado ao inicio do trecho em CHANNEL_SEGMENTS; um canal sem bloco
+// completo naquela largura mantem o proprio centro.
+static int bonded_center_channel(double band, int channel, double bandwidth) {
+    int channels_per_block = 0;
+    if (bandwidth == 40.0) {
+        channels_per_block = 2;
+    } else if (bandwidth == 80.0) {
+        channels_per_block = 4;
+    } else if (bandwidth == 160.0) {
+        channels_per_block = 8;
+    }
+    if (channels_per_block == 0) {
+        return channel;
+    }
+    if (band == 2.4) {
+        return channels_per_block == 2 ? (channel + 4 <= 13 ? channel + 2 : channel - 2) : channel;
+    }
+
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t index = 0; index < segment_count; index++) {
+        const ChannelSegment *segment = &CHANNEL_SEGMENTS[index];
+        if (!segment->aligned_blocks
+            || normalize_frequency_band(segment->frequency) != band
+            || channel < segment->first_channel
+            || channel > segment->last_channel
+            || (channel - segment->first_channel) % segment->channel_step != 0) {
+            continue;
+        }
+        int block_span = channels_per_block * segment->channel_step;
+        int block_start = segment->first_channel + ((channel - segment->first_channel) / block_span) * block_span;
+        int block_end = block_start + (channels_per_block - 1) * segment->channel_step;
+        return block_end <= segment->last_channel ? (block_start + block_end) / 2 : channel;
+    }
+    return channel;
+}
+
 static double center_frequency_mhz(const Node *node) {
     double band = normalize_frequency_band(node->frequency);
     int channel = parse_channel_number(node->channel);
     if (channel <= 0 || band == 0.0) {
         return 0.0;
     }
+    int center_channel = bonded_center_channel(band, channel, parse_bandwidth_mhz(node->bandwidth));
     if (band == 2.4) {
-        return 2407.0 + (5.0 * channel);
+        return 2407.0 + (5.0 * center_channel);
     }
     if (band == 5.0) {
-        return 5000.0 + (5.0 * channel);
+        return 5000.0 + (5.0 * center_channel);
     }
     if (band == 6.0) {
-        return 5950.0 + (5.0 * channel);
+        return 5950.0 + (5.0 * center_channel);
     }
     return 0.0;
 }
