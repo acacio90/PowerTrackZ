@@ -52,11 +52,14 @@ The details of the strategies and of the parameters accepted by the API are in [
 
 ## 3. Reading the Result
 
-- **Summary:** shown above the graphs after each analysis:
-  - *Conflitos*: conflicting edges (in red) in the original and optimized graphs, with the percentage reduction;
+- **Summary:** shown above the graphs after each analysis, with the values computed by analysis_service:
+  - *Conflitos*: conflicting edges (in red) before and after the optimization;
+  - *Interferência total*: sum of the interference (w·s) of the conflicting edges, before and after;
   - *APs alterados*: how many APs had their channel, bandwidth or frequency changed;
-  - *Consumo*: energy estimate before and after, and the difference, over the given number of days;
+  - *Consumo*: energy estimate before and after, over the given number of days;
   - *Estratégia*: execution time and whether the solution is optimal.
+
+  Each change is shown in green, with ▼, when it improves, and in red, with ▲, when it worsens; for the four metrics, lower values are better. Below the cards, the **Resultados por faixa** table shows, for each band, the APs, the number of profiles (k), the conflicts, the interference, the power and the solution.
 - **Graphs:** *Configuração original* and *Configuração proposta* are shown side by side on wide screens and stacked on narrow screens. The APs are positioned by their coordinates, at the same position in both graphs, and zooming and panning in one graph are mirrored in the other; **Reenquadrar** fits both graphs back into view. The color and edge legend is below each graph. Each edge connects two APs whose coverage areas overlap:
   - in **red**, thicker, when the two APs conflict in the displayed configuration, with the interference as a percentage;
   - in **light gray** when there is only overlap, without conflict, with the overlap percentage. In graphs with many edges, these labels are hidden; use *Mostrar pesos das arestas sem conflito* to show them.
