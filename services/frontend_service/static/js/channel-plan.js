@@ -177,13 +177,25 @@
 
             const atalhos = document.createElement('div');
             atalhos.className = 'spectrum-actions';
+            // Um conjunto sem sobreposicao usa uma largura so: toda barra se sobrepoe as de outras larguras que a
+            // contem. Por isso ha um atalho por largura, que marca o maior conjunto dela e desmarca as demais.
             const presets = [
                 ['Padrão', largura => (padrao[frequencia] || {})[largura] || [], 'Perfis padrão das estratégias'],
-                ['Sem sobreposição', largura => semSobreposicao(opcoesPorFaixa[frequencia][largura]), 'Em cada largura, o maior conjunto de opções que não se sobrepõem'],
                 ['Todos', largura => opcoesPorFaixa[frequencia][largura].map(opcao => opcao.channel), 'Todas as opções'],
                 ['Nenhum', () => [], 'Nenhuma opção'],
+                ...larguras.map(unica => [
+                    unica,
+                    largura => (largura === unica ? semSobreposicao(opcoesPorFaixa[frequencia][largura]) : []),
+                    `Só ${unica}, com o maior conjunto de canais que não se sobrepõem`,
+                ]),
             ];
-            presets.forEach(([rotulo, escolher, dica]) => {
+            presets.forEach(([rotulo, escolher, dica], indice) => {
+                if (indice === 3) {
+                    const titulo = document.createElement('span');
+                    titulo.className = 'spectrum-actions-label';
+                    titulo.textContent = 'Sem sobreposição:';
+                    atalhos.appendChild(titulo);
+                }
                 const botao = document.createElement('button');
                 botao.type = 'button';
                 botao.className = 'spectrum-action';
@@ -242,7 +254,9 @@
                     const canais = opcao.channels || [opcao.channel];
                     barra.title = `${canais.length > 1 ? `Canais ${canais.join(', ')}, primário ${opcao.channel}` : `Canal ${opcao.channel}`}`
                         + ` | ${largura} | ${formatarMhz(opcao.lower_mhz)}–${formatarMhz(opcao.upper_mhz)} MHz`;
-                    barra.textContent = opcao.channel;
+                    // Canais de 40 MHz sao pares (primario e secundario): o rotulo mostra os dois, para a escada de
+                    // 2,4 GHz ser lida em ordem (7+11, e nao 11). Blocos maiores mostram o primario.
+                    barra.textContent = canais.length === 2 ? canais.join('+') : opcao.channel;
                     marcar(barra, marcados.includes(opcao.channel));
                     barra.addEventListener('click', () => {
                         marcar(barra, barra.getAttribute('aria-pressed') !== 'true');
