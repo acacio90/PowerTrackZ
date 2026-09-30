@@ -12,7 +12,7 @@
         <div class="container">
             <div class="register-grid">
                 <section class="table-section">
-                    <div class="card app-table-card">
+                    <div class="panel">
                         <div class="table-section-header">
                             <h2 class="card-title">
                                 <i class="fas fa-network-wired"></i>
@@ -22,7 +22,7 @@
                                 <button class="btn btn-primary" id="btn-load-points" type="button">
                                     <i class="fas fa-cloud-arrow-down"></i> Carregar APs
                                 </button>
-                                <button class="btn btn-secondary" id="btn-delete-selected" type="button">
+                                <button class="btn btn-danger" id="btn-delete-selected" type="button">
                                     <i class="fas fa-trash"></i> Excluir Selecionados
                                 </button>
                             </div>
@@ -65,7 +65,7 @@
                                         <td>{{ point.bandwidth }}</td>
                                         <td>{{ point.channel }}</td>
                                         <td>
-                                            <button class="action-button" onclick="openEditModal('{{ point.id }}')" title="Editar ponto de acesso">
+                                            <button class="btn btn-ghost btn-sm" onclick="openEditModal('{{ point.id }}')" title="Editar ponto de acesso" aria-label="Editar ponto de acesso">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                         </td>
@@ -83,7 +83,7 @@
                 </section>
 
                 <section class="map-section">
-                    <div class="card">
+                    <div class="panel">
                         <h2 class="card-title">
                             <i class="fas fa-map-marked-alt"></i>
                             Mapa de Pontos de Acesso
@@ -223,7 +223,7 @@
                         </button>
                     </div>
 
-                    <form id="form-load-generate" class="load-generate" hidden>
+                    <form id="form-load-generate" class="panel panel-muted panel-compact load-generate" hidden>
                         <div class="form-group">
                             <label for="generate-node-count"><i class="fas fa-circle-nodes"></i> Quantidade de nós</label>
                             <input type="number" id="generate-node-count" min="2" max="1000" value="12" required>
@@ -247,9 +247,9 @@
                     <div class="load-review" id="load-review" hidden>
                         <div class="load-review-meta">
                             <span id="load-review-summary"></span>
-                            <span class="load-source-badge" id="load-review-source"></span>
+                            <span class="tag tag-accent" id="load-review-source"></span>
                         </div>
-                        <div class="load-review-metrics" id="load-review-metrics" hidden></div>
+                        <div class="panel panel-muted panel-compact load-review-metrics" id="load-review-metrics" hidden></div>
                         <div class="table-wrapper load-review-table">
                             <table class="data-table app-table">
                                 <thead>

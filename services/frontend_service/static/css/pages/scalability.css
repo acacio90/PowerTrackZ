@@ -5,12 +5,9 @@
     padding: 1.5rem 1rem 3rem;
 }
 
+/* Cada seção é um .panel */
 .scal-card {
     margin-bottom: 1.25rem;
-    padding: 1.25rem 1.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
 }
 
 .scal-card h1 {
@@ -51,9 +48,6 @@
 
 .scal-form input[type="number"] {
     width: 100%;
-    padding: 0.45rem 0.6rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
 }
 
 .scal-strategies {
@@ -147,14 +141,8 @@
 }
 
 .scal-break {
-    display: inline-flex;
-    align-items: center;
     gap: 0.45rem;
-    padding: 0.35rem 0.7rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-strong);
+    font-weight: var(--font-weight-regular);
 }
 
 .scal-swatch {
@@ -192,26 +180,6 @@
     overflow-x: auto;
 }
 
-.scal-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
-}
-
-.scal-table th,
-.scal-table td {
-    padding: 0.45rem 0.6rem;
-    border-bottom: 1px solid var(--color-border);
-    text-align: left;
-    white-space: nowrap;
-    color: var(--color-text-strong);
-}
-
-.scal-table thead th {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-}
-
 .scal-table tr.is-selected td {
     background: var(--color-accent-soft);
 }
@@ -229,20 +197,15 @@
 }
 
 .scal-row-actions {
-    display: flex;
-    gap: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
-.scal-row-actions a,
-.scal-row-actions button {
-    padding: 0.15rem 0.55rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-pill);
-    background: var(--color-surface);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-strong);
-    text-decoration: none;
-    cursor: pointer;
+/* Parâmetros é a coluna mais longa do histórico: quebra a linha para as ações caberem */
+.scal-table td.scal-params {
+    min-width: 16rem;
+    white-space: normal;
 }
 
 .scal-status {

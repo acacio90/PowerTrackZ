@@ -274,9 +274,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <span><strong>Data:</strong> ${escapeHtml(created)}</span>
             <span><strong>Versão:</strong> ${escapeHtml(describeVersion(run.version))}</span>
             <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters))}</span>
-            <span class="scal-row-actions"><a href="${API}/${run.id}/export?format=csv">CSV</a><a href="${API}/${run.id}/export?format=json">JSON</a></span>`;
+            <span class="scal-row-actions"><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a></span>`;
         document.getElementById('scal-result-breaks').innerHTML = (run.strategies || []).map(strategy => `
-            <span class="scal-break">
+            <span class="tag tag-outline scal-break">
                 <span class="scal-swatch" style="background:${strategyStyle(strategy.name).color}"></span>
                 <strong>${escapeHtml(strategyName(strategy.name))}</strong> ${escapeHtml(describeBreak(run, strategy))}
             </span>`).join('');
@@ -343,15 +343,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${run.id}</td>
                     <td>${escapeHtml(run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-')}</td>
                     <td title="${escapeHtml(describeVersion(run.version))}">${escapeHtml(describeVersion(run.version, false))}</td>
-                    <td>${escapeHtml(describeParameters(run.parameters))}</td>
+                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters))}</td>
                     <td class="scal-status">${escapeHtml(STATUS_LABELS[run.status] || run.status)}</td>
                     <td>${(run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
-                    <td class="scal-row-actions">
-                        <button type="button" data-action="view">Ver</button>
-                        <a href="${API}/${run.id}/export?format=csv">CSV</a>
-                        <a href="${API}/${run.id}/export?format=json">JSON</a>
-                        ${run.status === 'running' ? '' : '<button type="button" data-action="delete">Excluir</button>'}
-                    </td>
+                    <td><div class="scal-row-actions">
+                        <button type="button" class="btn btn-ghost btn-sm" data-action="view">Ver</button>
+                        <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a>
+                        <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a>
+                        ${run.status === 'running' ? '' : '<button type="button" class="btn btn-danger btn-sm" data-action="delete">Excluir</button>'}
+                    </div></td>
                 </tr>`).join('');
             highlightSelected();
             const running = runs.find(run => run.status === 'running');

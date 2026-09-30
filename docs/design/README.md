@@ -13,7 +13,7 @@ static/css/
 ├── base/                  # loaded by every page (base.html)
 │   ├── tokens.css         # design tokens
 │   ├── elements.css       # reset and base elements (html, body, main, .container)
-│   └── components.css     # navigation bar, modals, forms, buttons, tables, footer
+│   └── components.css     # navigation, buttons, fields, panels, tables, chips and tags, modals, footer
 └── pages/                 # one file per page, loaded only by that page (extra_css block)
     ├── home.css
     ├── infrastructure.css
@@ -132,9 +132,62 @@ The root stays at `16px`, the base of every `rem` value.
 
 Spacing tokens are meant for new code; existing spacing has not been converted yet.
 
+## Components
+
+Each kind of component has a single style, defined in `components.css`. Pages only add what is specific to them (width, position, columns), without redefining colors, borders, radii or shadows.
+
+### Buttons
+
+Variants by role, on top of Bootstrap's `.btn`:
+
+| Role | Class | Look | Examples |
+|---|---|---|---|
+| Primary | `.btn-primary` | filled with the accent | Save, Run analysis, Generate, Load APs |
+| Secondary | `.btn-secondary` | neutral outline | Cancel, Test connection, Refit, Analysis |
+| Danger | `.btn-danger` | red outline, filled on hover | Delete selected, delete run |
+| Subtle | `.btn-ghost` | text only, soft background on hover | Edit in the table, View, CSV, JSON |
+
+Two sizes: default and `.btn-sm`. States (hover, active, disabled and focus) follow the same mechanism in every variant. One primary action per area; destructive actions use danger even when they are secondary. Choice components, such as the strategy selector on the Analysis page, the AP loading sources and the map's floating button, have their own style and do not use these variants.
+
+### Panels
+
+`.panel` is the standard surface for cards and sections (background, border, `md` radius, `sm` shadow and `--space-5` padding). Modifiers:
+
+| Class | Use |
+|---|---|
+| `.panel-compact` | less padding (summaries, embedded forms) |
+| `.panel-flush` | almost no padding (graph frames) |
+| `.panel-muted` | neutral background and no shadow (indicators, blocks inside another panel) |
+| `.panel-floating` | elements laid over the content (analysis progress) |
+
+### Tables
+
+`.app-table` is the standard table (neutral header background, rows separated by a border, hover highlight), inside `.app-table-shell` (outline) and `.app-table-wrap` (horizontal scroll). `.app-table-compact` is the dense version, used for data tables and the run history.
+
+### Chips and tags
+
+- `.chip`: interactive, pill-shaped (spectrum map shortcuts).
+- `.tag`: informative only; `.tag-accent` to highlight (new configuration, data source) and `.tag-outline` for outlined labels (break points).
+
+### Form fields
+
+Text, number and select fields share a single style, applied to the element and to Bootstrap's `.form-control` and `.form-select` classes: `border-strong` border, `sm` radius, accent focus ring and a recessed background when disabled. The icon next to a field (`.input-group-text`) follows the same border and height.
+
+### Keyboard focus
+
+Every interactive element shows focus when navigating with the keyboard: buttons and fields with the focus ring (`--shadow-focus`), and links, `summary` elements and other controls with an accent outline (`:focus-visible`), which uses the light accent on the navigation bar.
+
 ## Bootstrap
 
-Bootstrap 5.3 is still used. The tokens set its variables (`--bs-primary`, `--bs-link-color`, `--bs-body-color`, `--bs-border-color`, `--bs-focus-ring-color`) in `tokens.css` and the button variables (`--bs-btn-*`) of `.btn-primary`, `.btn-secondary`, `.btn-outline-primary`, `.btn-outline-secondary` and `.btn-outline-danger` in `components.css`, so hover, focus and active states use the token colors. Native controls (checkboxes) use the accent through `accent-color`.
+Bootstrap 5.3 is still used, for these components: buttons (`.btn`, `.btn-sm`), fields (`.form-control`, `.input-group`), system message alerts (`.alert`), the settings modal, the close button (`.btn-close`) and a few spacing utilities (`me-2`, `mt-4`). Its relation to the tokens is:
+
+- in `tokens.css`, its global variables (`--bs-primary`, `--bs-link-color`, `--bs-body-color`, `--bs-border-color`, `--bs-focus-ring-color`) point to the tokens;
+- in `components.css`, button variants are defined through the `--bs-btn-*` variables, so hover, active, focus and disabled states are still Bootstrap's, with the token colors;
+- `.form-control`, `.form-select` and `.input-group-text` get the single field style;
+- alerts (`.alert-success`, `.alert-warning`, `.alert-danger`) use the status colors through the `--bs-alert-*` variables;
+- the dark backdrop of the settings modal comes from `.modal` itself, so Bootstrap's `.modal-backdrop` is hidden.
+
+Cards use `.panel`, not Bootstrap's `.card`. Native controls (checkboxes) use the accent through `accent-color`.
 
 ## Exceptions
 
@@ -143,3 +196,5 @@ Fixed values that remain outside the tokens:
 - `font-size: 16px` on the root, which defines the `rem`;
 - `inherit` in the Leaflet overrides;
 - colors computed at runtime in JavaScript (the color of each configuration in graphs and charts), handled in #96.
+
+The style sheets do not use `!important`: the overrides of Leaflet (`.map-container .leaflet-*`) and of the inventory rows win through selector specificity.

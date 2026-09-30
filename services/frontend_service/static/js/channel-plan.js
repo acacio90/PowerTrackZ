@@ -171,7 +171,7 @@
             const barrasDaFaixa = [];
 
             const detalhes = document.createElement('details');
-            detalhes.className = 'spectrum-band';
+            detalhes.className = 'panel panel-compact spectrum-band';
             const resumo = document.createElement('summary');
             detalhes.appendChild(resumo);
 
@@ -198,7 +198,7 @@
                 }
                 const botao = document.createElement('button');
                 botao.type = 'button';
-                botao.className = 'spectrum-action';
+                botao.className = 'chip spectrum-action';
                 botao.textContent = rotulo;
                 botao.title = dica;
                 botao.addEventListener('click', () => {
