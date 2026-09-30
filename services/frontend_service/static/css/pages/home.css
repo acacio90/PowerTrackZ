@@ -1,4 +1,8 @@
-/* Estilos específicos da página inicial */
+/* Página inicial */
+.card-body {
+    padding: 1.5rem;
+}
+
 .home-header {
     text-align: center;
     padding: 3rem 0;

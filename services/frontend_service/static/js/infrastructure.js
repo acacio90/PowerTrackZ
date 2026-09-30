@@ -114,7 +114,7 @@ function updateCoordinates(lat, lng) {
     ];
 
     forms.forEach(form => {
-        if (form.latInput && form.lngInput && form.modal?.style.display !== 'none') {
+        if (form.latInput && form.lngInput && form.modal?.style.display === 'flex') {
             form.latInput.value = lat.toFixed(6);
             form.lngInput.value = lng.toFixed(6);
         }
