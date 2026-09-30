@@ -36,7 +36,7 @@ function Resolve-PythonCommand {
         }
     }
 
-    Write-ErrorAndExit "Python nao encontrado no PATH. Instale Python 3.9+ ou ajuste o PATH."
+    Write-ErrorAndExit "Python nao encontrado no PATH. Instale Python 3.10+ ou ajuste o PATH."
 }
 
 function Resolve-DockerCommand {
