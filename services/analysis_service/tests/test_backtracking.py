@@ -126,6 +126,50 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.host_port}{path}", timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def spectral_factor(self, left, right):
+        # Dois APs no mesmo ponto: a sobreposicao espacial w e 100%, e o peso de interferencia e 100 * s.
+        aps = [
+            {
+                "id": ap_id,
+                "label": ap_id,
+                "x": -23.5505,
+                "y": -46.6333,
+                "raio": 30,
+                "channel": channel,
+                "bandwidth": bandwidth,
+                "frequency": frequency,
+                "locked": False,
+            }
+            for ap_id, (channel, bandwidth, frequency) in (("left", left), ("right", right))
+        ]
+        links = self.post_json("/collision-graph", {"aps": aps})["links"]
+        self.assertEqual(len(links), 1)
+        self.assertAlmostEqual(links[0]["collision_peso"], 100.0)
+        return links[0]["interference_peso"] / 100.0
+
+    def test_spectral_overlap_uses_the_center_of_bonded_channels(self):
+        cases = [
+            # 36 a 80 MHz ocupa 36-48 (centro 5210 MHz) e cobre o canal 48.
+            (("36", "80 MHz", "5 GHz"), ("48", "20 MHz", "5 GHz"), 1.0),
+            # 44 a 40 MHz ocupa 44-48 (centro 5230 MHz) e cobre o canal 48.
+            (("44", "40 MHz", "5 GHz"), ("48", "20 MHz", "5 GHz"), 1.0),
+            # 149 a 80 MHz ocupa 149-161 (centro 5775 MHz) e cobre o canal 161.
+            (("149", "80 MHz", "5 GHz"), ("161", "20 MHz", "5 GHz"), 1.0),
+            # 36 a 40 MHz (36-40) e 44 a 20 MHz so se tocam na borda.
+            (("36", "40 MHz", "5 GHz"), ("44", "20 MHz", "5 GHz"), 0.0),
+            # 1 a 40 MHz usa o secundario acima (centro no canal 3) e cobre 15 dos 20 MHz do canal 6.
+            (("1", "40 MHz", "2.4 GHz"), ("6", "20 MHz", "2.4 GHz"), 0.75),
+            # 11 a 40 MHz usa o secundario abaixo (centro no canal 9) e cobre 15 dos 20 MHz do canal 6.
+            (("11", "40 MHz", "2.4 GHz"), ("6", "20 MHz", "2.4 GHz"), 0.75),
+            # A 20 MHz o centro continua sendo o do proprio canal.
+            (("1", "20 MHz", "2.4 GHz"), ("6", "20 MHz", "2.4 GHz"), 0.0),
+            (("1", "20 MHz", "2.4 GHz"), ("3", "20 MHz", "2.4 GHz"), 0.5),
+            (("36", "20 MHz", "5 GHz"), ("36", "20 MHz", "5 GHz"), 1.0),
+        ]
+        for left, right, expected in cases:
+            with self.subTest(left=left, right=right):
+                self.assertAlmostEqual(self.spectral_factor(left, right), expected)
+
     def test_channel_plan_lists_valid_channels_per_band_and_bandwidth(self):
         valid = self.get_json("/channel-plan")["valid"]
 

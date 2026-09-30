@@ -29,6 +29,12 @@ Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma
 
 A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados e os conflitos da solução gulosa e da final.
 
+## Interferência
+
+A interferência entre dois APs é o produto da sobreposição espacial das coberturas (w, em porcentagem da menor área) pela sobreposição espectral dos canais (s, de 0 a 1); há conflito quando o produto é maior que zero. O fator s é a fração da largura do canal mais estreito que se sobrepõe ao outro, com cada canal ocupando a sua largura em torno da frequência central.
+
+Em canais agregados, a frequência central é a do bloco inteiro, e não a do canal primário: 36 a 80 MHz ocupa os canais 36 a 48, com centro no canal 42 (5210 MHz); 44 a 40 MHz ocupa 44 e 48, com centro no 46 (5230 MHz). Em 2,4 GHz, o secundário de um canal de 40 MHz fica 4 canais acima do primário quando cabe na faixa (primários 1 a 9) e 4 canais abaixo nos demais; assim, 1 a 40 MHz tem centro no canal 3 (2422 MHz) e 11 a 40 MHz, no canal 9 (2452 MHz).
+
 ## Plano de Canais
 
 `GET /channel-plan` informa os canais oferecidos pela interface, agrupados por frequência e largura de banda:
