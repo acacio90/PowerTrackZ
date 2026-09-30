@@ -23,4 +23,8 @@ ProposedConfig *build_backtracking_proposals(
     AssignmentStats *stats
 );
 
+// Perfis (canal, largura e frequencia) que as estrategias podem propor.
+int search_profile_count(void);
+ProposedConfig search_profile_at(int index);
+
 #endif

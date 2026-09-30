@@ -44,20 +44,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (formModal) {
+        // Frequencia, largura e canal sao listas com todos os canais permitidos.
+        window.ChannelPlan.carregar()
+            .then(plano => window.ChannelPlan.vincular(
+                {
+                    frequency: document.getElementById('modal-frequency'),
+                    bandwidth: document.getElementById('modal-bandwidth'),
+                    channel: document.getElementById('modal-channel')
+                },
+                plano.valid
+            ))
+            .catch(err => console.error(err));
+
         const inputs = formModal.querySelectorAll('input[required]');
         const validations = {
             latitude: num => num >= -90 && num <= 90,
-            longitude: num => num >= -180 && num <= 180,
-            frequency: num => !isNaN(num) && num > 0 && num <= 6,
-            bandwidth: num => !isNaN(num) && num > 0 && num <= 160,
-            channel: num => !isNaN(num) && num > 0 && num <= 165
+            longitude: num => num >= -180 && num <= 180
         };
         const errorMessages = {
             'modal-latitude': 'Latitude deve estar entre -90 e 90',
-            'modal-longitude': 'Longitude deve estar entre -180 e 180',
-            'modal-frequency': 'Frequencia invalida (0-6 GHz)',
-            'modal-bandwidth': 'Largura de banda invalida (0-160 MHz)',
-            'modal-channel': 'Canal invalido (1-165)'
+            'modal-longitude': 'Longitude deve estar entre -180 e 180'
         };
 
         inputs.forEach(input => {

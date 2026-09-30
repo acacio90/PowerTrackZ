@@ -1468,26 +1468,40 @@ window.addEventListener('DOMContentLoaded', function() {
             tbody.appendChild(tr);
 
             const button = tr.querySelector('.btn-editar');
-            button.addEventListener('click', function() {
+            button.addEventListener('click', async function() {
                 const tdProposta = tr.querySelector('.td-proposta');
 
                 if (!button.classList.contains('is-saving')) {
+                    let plano;
+                    try {
+                        plano = await window.ChannelPlan.carregar();
+                    } catch (err) {
+                        alert(err.message);
+                        return;
+                    }
+
+                    // Na proposta, so os perfis que as estrategias podem propor.
                     tdProposta.innerHTML = `
                         <div class="analysis-inline-edit">
-                            <input type='text' class='input-edit' value='${proposta.channel}' />
-                            <input type='text' class='input-edit' value='${proposta.bandwidth}' />
-                            <input type='text' class='input-edit' value='${proposta.frequency}' />
+                            <select class="input-edit" data-field="channel" aria-label="Canal"></select>
+                            <select class="input-edit" data-field="bandwidth" aria-label="Largura de banda"></select>
+                            <select class="input-edit" data-field="frequency" aria-label="Frequencia"></select>
                         </div>
                     `;
+                    const selects = {
+                        channel: tdProposta.querySelector('[data-field="channel"]'),
+                        bandwidth: tdProposta.querySelector('[data-field="bandwidth"]'),
+                        frequency: tdProposta.querySelector('[data-field="frequency"]')
+                    };
+                    window.ChannelPlan.vincular(selects, plano.profiles, proposta, { manterAtual: true });
                     button.classList.add('is-saving');
                     button.innerHTML = '<i class="fa-solid fa-floppy-disk"></i><span>Salvar</span>';
                     return;
                 }
 
-                const inputs = tdProposta.querySelectorAll('.input-edit');
-                apsOtimizado[idx].channel = inputs[0].value;
-                apsOtimizado[idx].bandwidth = inputs[1].value;
-                apsOtimizado[idx].frequency = inputs[2].value;
+                apsOtimizado[idx].channel = tdProposta.querySelector('[data-field="channel"]').value;
+                apsOtimizado[idx].bandwidth = tdProposta.querySelector('[data-field="bandwidth"]').value;
+                apsOtimizado[idx].frequency = tdProposta.querySelector('[data-field="frequency"]').value;
                 apsOtimizado[idx].locked = true;
                 criarAnaliseOtimizada();
             });

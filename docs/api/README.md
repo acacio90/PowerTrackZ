@@ -28,6 +28,7 @@ PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
+GET /api/analysis/channel-plan
 POST /api/analysis/analyze-graph
 POST /api/analysis/backtracking
 POST /api/analysis/analyze-graph-stream
@@ -66,6 +67,7 @@ GET /health
 GET /analyze
 GET /strategies
 GET /capabilities
+GET /channel-plan
 POST /analyze-graph
 POST /backtracking
 POST /analyze-graph-stream
@@ -89,3 +91,15 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
 ```
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+
+`GET /channel-plan` returns the channels that the interface offers when editing a configuration, grouped by frequency and bandwidth:
+
+```json
+{
+  "success": true,
+  "valid": {"2.4 GHz": {"20 MHz": ["1", "2", "..."], "40 MHz": ["1", "..."]}, "5 GHz": {"...": []}, "6 GHz": {"...": []}},
+  "profiles": {"2.4 GHz": {"40 MHz": ["1", "11"], "20 MHz": ["1", "6", "11"]}, "5 GHz": {"...": []}}
+}
+```
+
+`valid` lists every channel allowed in Brazil and is used when registering and editing APs. `profiles` lists only the configurations the strategies can propose and is used when editing the proposed configuration.

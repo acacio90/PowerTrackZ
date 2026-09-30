@@ -28,6 +28,7 @@ PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
+GET /api/analysis/channel-plan
 POST /api/analysis/analyze-graph
 POST /api/analysis/backtracking
 POST /api/analysis/analyze-graph-stream
@@ -66,6 +67,7 @@ GET /health
 GET /analyze
 GET /strategies
 GET /capabilities
+GET /channel-plan
 POST /analyze-graph
 POST /backtracking
 POST /analyze-graph-stream
@@ -89,3 +91,15 @@ POST /collision-graph
 ```
 
 As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+
+`GET /channel-plan` devolve os canais que a interface oferece na edição de uma configuração, agrupados por frequência e largura de banda:
+
+```json
+{
+  "success": true,
+  "valid": {"2.4 GHz": {"20 MHz": ["1", "2", "..."], "40 MHz": ["1", "..."]}, "5 GHz": {"...": []}, "6 GHz": {"...": []}},
+  "profiles": {"2.4 GHz": {"40 MHz": ["1", "11"], "20 MHz": ["1", "6", "11"]}, "5 GHz": {"...": []}}
+}
+```
+
+`valid` lista todos os canais permitidos no Brasil e é usado no cadastro e na edição de APs. `profiles` lista apenas as configurações que as estratégias podem propor e é usado na edição da configuração proposta.
