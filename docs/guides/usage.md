@@ -65,7 +65,9 @@ The details of the strategies and of the parameters accepted by the API are in [
 - **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with the channels checked in **Canais disponíveis por faixa**; on save, the AP is locked to that configuration and the optimized analysis is run again.
 - **Consumption:** energy (kWh) and cost (R$, at R$ 0.72 per kWh) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field. The power of each AP is computed by analysis_service with the Dembélé et al. (2023) model, from its band and bandwidth; APs at 160 MHz or in 6 GHz, which have no value in the model, are left out of the sum.
 - **Metadados de Execução** (execution metadata):
-  - *Arestas Antes / Depois*: pairs of APs in conflict before and after the optimization;
+  - *Arestas*: pairs of APs whose coverage overlaps in the same band, with or without conflict;
+  - *Conflitos Antes / Depois*: pairs of APs in conflict (interference greater than zero) before and after the optimization;
+  - *Densidade de Conflitos Antes / Depois*: fraction of the possible pairs of APs that are in conflict;
   - *Solução*: whether the configuration is optimal, whether the search stopped at the time limit or whether it was cancelled;
   - *Conflitos Guloso / Final*: in backtracking, conflicts of the initial greedy solution and of the final solution;
   - *Nós Explorados*: size of the search performed;

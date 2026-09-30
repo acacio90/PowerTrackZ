@@ -63,7 +63,9 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 - **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados em **Canais disponíveis por faixa**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
 - **Consumo:** estimativa de energia (kWh) e custo (R$, a R$ 0,72 por kWh), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*. A potência de cada AP é calculada pelo analysis_service com o modelo de Dembélé et al. (2023), pela faixa e pela largura de banda; APs a 160 MHz ou em 6 GHz, que não têm valor no modelo, ficam fora da soma.
 - **Metadados de Execução:**
-  - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimização;
+  - *Arestas*: pares de APs com sobreposição de cobertura na mesma faixa, com ou sem conflito;
+  - *Conflitos Antes / Depois*: pares de APs em conflito (interferência maior que zero) antes e depois da otimização;
+  - *Densidade de Conflitos Antes / Depois*: fração dos pares possíveis de APs que estão em conflito;
   - *Solução*: se a configuração é ótima, se a busca parou no limite de tempo ou se foi cancelada;
   - *Conflitos Guloso / Final*: no backtracking, conflitos da solução inicial gulosa e da solução final;
   - *Nós Explorados*: tamanho da busca realizada;
