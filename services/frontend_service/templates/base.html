@@ -29,19 +29,19 @@
             </a>
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a href="{{ url_for('routes.index') }}" class="nav-link{% if request.endpoint == 'routes.index' %} active{% endif %}">
+                    <a href="{{ url_for('routes.index') }}" class="nav-link{% if request.endpoint == 'routes.index' %} active{% endif %}"{% if request.endpoint == 'routes.index' %} aria-current="page"{% endif %}>
                         <i class="fas fa-home"></i>
                         <span>Início</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ url_for('routes.infrastructure') }}" class="nav-link{% if request.endpoint == 'routes.infrastructure' %} active{% endif %}">
+                    <a href="{{ url_for('routes.infrastructure') }}" class="nav-link{% if request.endpoint == 'routes.infrastructure' %} active{% endif %}"{% if request.endpoint == 'routes.infrastructure' %} aria-current="page"{% endif %}>
                         <i class="fas fa-network-wired"></i>
                         <span>Infraestrutura</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ url_for('routes.analysis') }}" class="nav-link{% if request.endpoint == 'routes.analysis' %} active{% endif %}">
+                    <a href="{{ url_for('routes.analysis') }}" class="nav-link{% if request.endpoint == 'routes.analysis' %} active{% endif %}"{% if request.endpoint == 'routes.analysis' %} aria-current="page"{% endif %}>
                         <i class="fas fa-chart-line"></i>
                         <span>Análise</span>
                     </a>
