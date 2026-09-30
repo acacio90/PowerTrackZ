@@ -6,22 +6,22 @@
 .home-header {
     text-align: center;
     padding: 3rem 0;
-    background-color: #fff;
+    background-color: var(--color-surface);
     margin-bottom: 3rem;
-    border-bottom: 1px solid #eaeaea;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .home-title {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #2d3748;
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
     margin-bottom: 1rem;
     letter-spacing: -0.5px;
 }
 
 .home-subtitle {
-    font-size: 1.25rem;
-    color: #718096;
+    font-size: var(--font-size-lg);
+    color: var(--color-text-muted);
     max-width: 600px;
     margin: 0 auto;
     line-height: 1.6;
@@ -40,14 +40,14 @@
 
 /* Cards */
 .feature-card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     height: 100%;
 }
 
 .feature-card:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-md);
 }
 
 .feature-card .card-body {
@@ -58,28 +58,28 @@
 }
 
 .feature-icon {
-    font-size: 2rem;
+    font-size: var(--font-size-2xl);
     margin-bottom: 1.5rem;
-    color: #4299e1;
+    color: var(--color-accent);
     height: 48px;
     width: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ebf8ff;
-    border-radius: 12px;
+    background: var(--color-accent-soft);
+    border-radius: var(--radius-lg);
 }
 
 .feature-card .card-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2d3748;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-strong);
     margin-bottom: 1rem;
-    line-height: 1.2;
+    line-height: var(--line-height-tight);
 }
 
 .feature-card .card-text {
-    color: #718096;
+    color: var(--color-text-muted);
     margin-bottom: 1.5rem;
     line-height: 1.6;
     flex-grow: 1;
@@ -89,40 +89,40 @@
 .feature-card .btn {
     width: 100%;
     padding: 0.75rem 1.5rem;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     text-align: center;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     transition: all 0.2s ease;
 }
 
 .btn-infrastructure {
-    background-color: #4299e1;
-    color: #fff;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn-infrastructure:hover {
-    background-color: #3182ce;
-    color: #fff;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn-analysis {
-    background-color: #48bb78;
-    color: #fff;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn-analysis:hover {
-    background-color: #38a169;
-    color: #fff;
+    background-color: var(--color-accent-hover);
+    color: var(--color-on-accent);
 }
 
 .btn-scalability {
-    background-color: #805ad5;
-    color: #fff;
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
 }
 
 .btn-scalability:hover {
-    background-color: #6b46c1;
-    color: #fff;
+    background-color: var(--color-accent-hover);
+    color: var(--color-on-accent);
 }
 
 /* Responsividade */
@@ -139,11 +139,11 @@
     }
 
     .home-title {
-        font-size: 2rem;
+        font-size: var(--font-size-2xl);
     }
     
     .home-subtitle {
-        font-size: 1.1rem;
+        font-size: var(--font-size-lg);
         padding: 0 1rem;
     }
     

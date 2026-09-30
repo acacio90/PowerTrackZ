@@ -8,29 +8,29 @@
 .scal-card {
     margin-bottom: 1.25rem;
     padding: 1.25rem 1.5rem;
-    border: 1px solid #e2e7ec;
-    border-radius: 14px;
-    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
 }
 
 .scal-card h1 {
     margin: 0 0 0.35rem;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #18222d;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
 }
 
 .scal-card h2 {
     margin: 0 0 0.75rem;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #18222d;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
 }
 
 .scal-lead {
     margin: 0;
-    font-size: 0.92rem;
-    color: #526272;
+    font-size: var(--font-size-md);
+    color: var(--color-text-muted);
 }
 
 .scal-form {
@@ -44,16 +44,16 @@
 .scal-field-label {
     display: block;
     margin-bottom: 0.3rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #4b5a67;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
 }
 
 .scal-form input[type="number"] {
     width: 100%;
     padding: 0.45rem 0.6rem;
-    border: 1px solid #cbd5df;
-    border-radius: 8px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
 }
 
 .scal-strategies {
@@ -69,14 +69,14 @@
     align-items: center;
     gap: 0.4rem;
     margin: 0;
-    font-weight: 400;
-    font-size: 0.88rem;
-    color: #22313f;
+    font-weight: var(--font-weight-regular);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-strong);
 }
 
 .scal-kind {
-    font-size: 0.75rem;
-    color: #607080;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
 }
 
 .scal-actions {
@@ -90,21 +90,21 @@
 
 .scal-note {
     margin: 0;
-    font-size: 0.8rem;
-    color: #607080;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
 }
 
 .scal-error {
     margin: 0.75rem 0 0;
-    font-size: 0.85rem;
-    color: #b42318;
+    font-size: var(--font-size-sm);
+    color: var(--color-danger);
 }
 
 .scal-progress-bar {
     height: 10px;
     margin: 0.5rem 0;
-    border-radius: 999px;
-    background: #e8edf2;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-sunken);
     overflow: hidden;
 }
 
@@ -112,7 +112,7 @@
     display: block;
     height: 100%;
     width: 0;
-    background: #2a78d6;
+    background: var(--color-accent);
     transition: width 0.3s ease;
 }
 
@@ -122,8 +122,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    font-size: 0.85rem;
-    color: #4b5a67;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
 }
 
 .scal-meta {
@@ -131,12 +131,12 @@
     flex-wrap: wrap;
     gap: 0.35rem 1.25rem;
     margin-bottom: 0.9rem;
-    font-size: 0.85rem;
-    color: #4b5a67;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
 }
 
 .scal-meta strong {
-    color: #18222d;
+    color: var(--color-text-strong);
 }
 
 .scal-breaks {
@@ -151,16 +151,16 @@
     align-items: center;
     gap: 0.45rem;
     padding: 0.35rem 0.7rem;
-    border: 1px solid #e2e7ec;
-    border-radius: 999px;
-    font-size: 0.85rem;
-    color: #22313f;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-strong);
 }
 
 .scal-swatch {
     width: 10px;
     height: 10px;
-    border-radius: 50%;
+    border-radius: var(--radius-round);
     flex: 0 0 auto;
 }
 
@@ -172,15 +172,15 @@
 
 .scal-chart h3 {
     margin: 0 0 0.25rem;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #18222d;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
 }
 
 .scal-chart p {
     margin: 0 0 0.5rem;
-    font-size: 0.78rem;
-    color: #607080;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
 }
 
 .scal-chart-box {
@@ -195,37 +195,37 @@
 .scal-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.83rem;
+    font-size: var(--font-size-sm);
 }
 
 .scal-table th,
 .scal-table td {
     padding: 0.45rem 0.6rem;
-    border-bottom: 1px solid #e2e7ec;
+    border-bottom: 1px solid var(--color-border);
     text-align: left;
     white-space: nowrap;
-    color: #22313f;
+    color: var(--color-text-strong);
 }
 
 .scal-table thead th {
-    font-size: 0.75rem;
-    color: #607080;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
 }
 
 .scal-table tr.is-selected td {
-    background: #f1f6fd;
+    background: var(--color-accent-soft);
 }
 
 .scal-table tr.is-broken td {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .scal-details summary {
     margin: 1rem 0 0.5rem;
     cursor: pointer;
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: #22313f;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-strong);
 }
 
 .scal-row-actions {
@@ -236,21 +236,21 @@
 .scal-row-actions a,
 .scal-row-actions button {
     padding: 0.15rem 0.55rem;
-    border: 1px solid #cbd5df;
-    border-radius: 999px;
-    background: #fff;
-    font-size: 0.78rem;
-    color: #22313f;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-strong);
     text-decoration: none;
     cursor: pointer;
 }
 
 .scal-status {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .scal-empty {
     margin: 0;
-    font-size: 0.88rem;
-    color: #607080;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
 }
