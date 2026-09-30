@@ -234,8 +234,26 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         node = self.get_node_by_id(result, "ap-1")
 
         self.assertEqual(node["proposed_frequency"], "2.4 GHz")
-        self.assertEqual(node["proposed_bandwidth"], "60 MHz")
+        self.assertEqual(node["proposed_bandwidth"], "40 MHz")
         self.assertEqual(node["proposed_channel"], "1")
+
+    def test_proposes_only_bandwidths_valid_for_the_band(self):
+        valid_bandwidths = {
+            "2.4 GHz": {"20 MHz", "40 MHz"},
+            "5 GHz": {"20 MHz", "40 MHz", "80 MHz"},
+        }
+        for seed in (3, 13, 23):
+            aps = self.random_aps(8, seed=seed)
+            for index, ap in enumerate(aps[::2]):
+                ap.update({"frequency": "5 GHz", "channel": ("36", "44", "149", "157")[index % 4]})
+            for strategy in ("greedy", "backtracking"):
+                with self.subTest(seed=seed, strategy=strategy):
+                    result = self.post_json(
+                        "/analyze-graph",
+                        {"aps": aps, "strategy": strategy, "parameters": {"time_limit_seconds": 0}},
+                    )
+                    for node in result["graph_data"]["nodes"]:
+                        self.assertIn(node["proposed_bandwidth"], valid_bandwidths[node["proposed_frequency"]])
 
     def test_respects_locked_access_points(self):
         payload = {
@@ -289,13 +307,24 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
                     "locked": False,
                 },
                 {
-                    "id": "near-heavy",
-                    "label": "Near Heavy",
+                    "id": "near-heavy-1",
+                    "label": "Near Heavy 1",
                     "x": -23.5505,
                     "y": -46.63331,
                     "raio": 100,
                     "channel": "1",
-                    "bandwidth": "60 MHz",
+                    "bandwidth": "20 MHz",
+                    "frequency": "2.4 GHz",
+                    "locked": True,
+                },
+                {
+                    "id": "near-heavy-6",
+                    "label": "Near Heavy 6",
+                    "x": -23.5505,
+                    "y": -46.63331,
+                    "raio": 100,
+                    "channel": "6",
+                    "bandwidth": "20 MHz",
                     "frequency": "2.4 GHz",
                     "locked": True,
                 },

@@ -38,6 +38,6 @@ On a cost tie, the task with the lowest index wins. Since the tasks follow the o
 ## Limitations
 
 - The problem is NP-hard. On large and dense graphs, the exact search does not finish and stops at the time limit, returning the best solution found (`optimal: false`).
-- The gain from more *threads* depends on the number of tasks and on how effective the pruning is. With few profiles per band, the first two levels produce at most 36 tasks in 2.4 GHz and 100 in 5 GHz.
+- The gain from more *threads* depends on the number of tasks and on how effective the pruning is. With few profiles per band, the first two levels produce at most 25 tasks in 2.4 GHz and 100 in 5 GHz.
 - The progress sent to the *frontend* is the fraction of completed tasks, not an estimate of the remaining time.
 - Conflicts between two locked APs are not counted in the cost, since they do not depend on the assignment.

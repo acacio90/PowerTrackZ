@@ -20,8 +20,8 @@ typedef struct {
     const char *frequency;
 } ConfigProfile;
 
+// Em 2,4 GHz so existem canais de 20 e 40 MHz; em 5 GHz, de 20, 40 e 80 MHz.
 static const ConfigProfile CONFIG_PROFILES[] = {
-    {"1", "60 MHz", "2.4 GHz"},
     {"1", "40 MHz", "2.4 GHz"},
     {"11", "40 MHz", "2.4 GHz"},
     {"1", "20 MHz", "2.4 GHz"},
