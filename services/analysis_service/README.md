@@ -35,6 +35,17 @@ The interference between two APs is the product of the spatial overlap of their 
 
 For bonded channels, the center frequency is that of the whole block, not that of the primary channel: 36 at 80 MHz occupies channels 36 to 48, centered on channel 42 (5210 MHz); 44 at 40 MHz occupies 44 and 48, centered on 46 (5230 MHz). In 2.4 GHz, the secondary of a 40 MHz channel is 4 channels above the primary when it fits in the band (primaries 1 to 9) and 4 channels below otherwise; so 1 at 40 MHz is centered on channel 3 (2422 MHz) and 11 at 40 MHz on channel 9 (2452 MHz).
 
+## Energy Consumption
+
+The power of each AP follows the Dembélé et al. (2023) model: the average power of an AP transmitting at 25 Mbps, by band and bandwidth. The values are in `POWER_MODEL`, in `src/analysis_service.c`:
+
+| Band | 20 MHz | 40 MHz | 80 MHz |
+|---|---|---|---|
+| 2.4 GHz | 14.5 W | 13.8 W | — |
+| 5 GHz | 11.1 W | 10.3 W | 9.9 W |
+
+Configurations outside the table (160 MHz and 6 GHz) have no value in the model and are left out of the sums. Each node in `graph_data.nodes` has `power_w` (current configuration) and `proposed_power_w` (proposed configuration), null outside the model; `graph_data` has `power_w`, the total of the displayed configuration, and `power_unmodeled_nodes`. In `execution.comparison` and in each band of `execution.bands`, `power_before_w` and `power_after_w` give the total before and after the optimization, and `power_unmodeled_before` and `power_unmodeled_after`, the APs outside the model. The conversion into energy and cost for the chosen period is done by the interface.
+
 ## Per-Band Graph and Available Channels
 
 APs in different bands do not interfere (s = 0), so the graph has no edges between bands: it is the union of the 2.4, 5 and 6 GHz graphs. The analysis routes solve each band separately, in sequence, each with its own time limit. APs in an unknown band are left out of the search and keep their configuration.

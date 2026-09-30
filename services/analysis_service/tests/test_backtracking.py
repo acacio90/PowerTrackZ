@@ -183,6 +183,52 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
             "locked": False,
         }
 
+    def test_reports_power_of_each_access_point_by_the_consumption_model(self):
+        # Mesmos valores do modelo (Dembele et al., 2023) antes calculado no frontend; 160 MHz e 6 GHz ficam fora.
+        cases = [
+            ("2.4 GHz", "20 MHz", "1", 14.5),
+            ("2.4 GHz", "40 MHz", "1", 13.8),
+            ("5 GHz", "20 MHz", "36", 11.1),
+            ("5 GHz", "40 MHz", "36", 10.3),
+            ("5 GHz", "80 MHz", "36", 9.9),
+            ("5 GHz", "160 MHz", "36", None),
+            ("6 GHz", "20 MHz", "1", None),
+        ]
+        aps = [
+            self.ap_at(f"ap{index}", frequency, channel, bandwidth, offset=index * 0.01)
+            for index, (frequency, bandwidth, channel, _) in enumerate(cases)
+        ]
+        graph = self.post_json("/collision-graph", {"aps": aps})
+        nodes = {node["id"]: node for node in graph["nodes"]}
+
+        for index, (frequency, bandwidth, _, watts) in enumerate(cases):
+            with self.subTest(frequency=frequency, bandwidth=bandwidth):
+                self.assertEqual(nodes[f"ap{index}"]["power_w"], watts)
+                self.assertEqual(nodes[f"ap{index}"]["proposed_power_w"], watts)
+        self.assertAlmostEqual(graph["power_w"], 14.5 + 13.8 + 11.1 + 10.3 + 9.9)
+        self.assertEqual(graph["power_unmodeled_nodes"], 2)
+
+    def test_analysis_reports_power_before_and_after(self):
+        aps = [
+            self.ap_at("a24-1", "2.4 GHz", "1", "20 MHz"),
+            self.ap_at("a24-2", "2.4 GHz", "1", "20 MHz", offset=0.00001),
+            self.ap_at("a5-1", "5 GHz", "36", "20 MHz"),
+        ]
+        result = self.post_json(
+            "/analyze-graph",
+            {"aps": aps, "strategy": "backtracking", "parameters": {"time_limit_seconds": 0}},
+        )
+        comparison = result["execution"]["comparison"]
+        nodes = result["graph_data"]["nodes"]
+
+        self.assertAlmostEqual(comparison["power_before_w"], 14.5 + 14.5 + 11.1)
+        self.assertAlmostEqual(comparison["power_after_w"], sum(node["proposed_power_w"] for node in nodes))
+        self.assertAlmostEqual(result["graph_data"]["power_w"], comparison["power_after_w"])
+        self.assertEqual(
+            sum(band["comparison"]["power_after_w"] for band in result["execution"]["bands"]),
+            comparison["power_after_w"],
+        )
+
     def test_aps_in_different_bands_are_not_linked(self):
         aps = [self.ap_at("a24", "2.4 GHz", "1"), self.ap_at("a5", "5 GHz", "36")]
         self.assertEqual(self.post_json("/collision-graph", {"aps": aps})["links"], [])

@@ -61,7 +61,7 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 
   No grafo otimizado, os APs cuja configuração mudou ganham borda escura, e os conflitos do grafo original resolvidos pela estratégia aparecem tracejados e atenuados. A legenda informa quantos APs mudaram e quantos conflitos foram resolvidos. Desmarque *Destacar mudanças no grafo otimizado* para ocultar esses destaques.
 - **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados em **Canais disponíveis por faixa**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
-- **Consumo:** estimativa de energia (kWh) e custo (R$), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*.
+- **Consumo:** estimativa de energia (kWh) e custo (R$, a R$ 0,72 por kWh), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*. A potência de cada AP é calculada pelo analysis_service com o modelo de Dembélé et al. (2023), pela faixa e pela largura de banda; APs a 160 MHz ou em 6 GHz, que não têm valor no modelo, ficam fora da soma.
 - **Metadados de Execução:**
   - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimização;
   - *Solução*: se a configuração é ótima, se a busca parou no limite de tempo ou se foi cancelada;
