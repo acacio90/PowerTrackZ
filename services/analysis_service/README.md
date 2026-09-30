@@ -29,6 +29,13 @@ Values outside the declared type or range are rejected with HTTP 400 and a messa
 
 The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes and the conflicts of the greedy and final solutions.
 
+## Channel Plan
+
+`GET /channel-plan` reports the channels offered by the interface, grouped by frequency and bandwidth:
+
+- `valid`: every channel allowed in Brazil. In 2.4 GHz, channels 1 to 13, at 20 and 40 MHz (any channel can be the primary of a 40 MHz channel). In 5 GHz (36 to 64, 100 to 144 and 149 to 165) and in 6 GHz (1 to 233), the 40, 80 and 160 MHz channels bond aligned blocks of 2, 4 and 8 channels, and a channel only appears at a width when the whole block exists. The segments are in `CHANNEL_SEGMENTS`, in `src/analysis_service.c`.
+- `profiles`: the profiles the strategies can propose, read from `CONFIG_PROFILES`, in `src/strategies/backtracking.c`.
+
 ## Parallelism
 
 The search starts from the greedy solution, which serves as the bound for pruning. The first two free levels of the tree are expanded into tasks, consumed by *pthreads* from a shared queue. The best solution is shared between the *threads* under a *mutex*, and each *thread* keeps a local copy updated through a version counter, which avoids locking the *mutex* at every node.

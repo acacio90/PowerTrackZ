@@ -162,6 +162,12 @@ def analysis_capabilities_api():
     return jsonify(response_data), status_code
 
 
+@routes.route('/api/analysis/channel-plan', methods=['GET'])
+def analysis_channel_plan_api():
+    response_data, status_code = make_api_request('/analysis/channel-plan', 'GET')
+    return jsonify(response_data), status_code
+
+
 @routes.route('/api/analysis/analyze-graph', methods=['POST'])
 def analysis_analyze_graph_api():
     data = request.get_json(silent=True) or {}

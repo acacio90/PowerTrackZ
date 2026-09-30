@@ -126,6 +126,39 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.host_port}{path}", timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def test_channel_plan_lists_valid_channels_per_band_and_bandwidth(self):
+        valid = self.get_json("/channel-plan")["valid"]
+
+        self.assertEqual(set(valid), {"2.4 GHz", "5 GHz", "6 GHz"})
+        self.assertEqual(set(valid["2.4 GHz"]), {"20 MHz", "40 MHz"})
+        self.assertEqual(valid["2.4 GHz"]["20 MHz"], [str(channel) for channel in range(1, 14)])
+        self.assertEqual(valid["2.4 GHz"]["40 MHz"], [str(channel) for channel in range(1, 14)])
+
+        five = valid["5 GHz"]
+        self.assertEqual(len(five["20 MHz"]), 25)
+        self.assertNotIn("165", five["40 MHz"])
+        self.assertIn("161", five["40 MHz"])
+        self.assertEqual(five["80 MHz"][:4], ["36", "40", "44", "48"])
+        self.assertNotIn("165", five["80 MHz"])
+        self.assertEqual(len(five["160 MHz"]), 16)
+        self.assertNotIn("149", five["160 MHz"])
+
+        six = valid["6 GHz"]
+        self.assertEqual(len(six["20 MHz"]), 59)
+        self.assertNotIn("233", six["40 MHz"])
+        self.assertEqual(len(six["160 MHz"]), 56)
+
+    def test_channel_plan_profiles_are_valid_combinations(self):
+        plan = self.get_json("/channel-plan")
+        profiles = plan["profiles"]
+
+        self.assertEqual(set(profiles), {"2.4 GHz", "5 GHz"})
+        for frequency, bandwidths in profiles.items():
+            for bandwidth, channels in bandwidths.items():
+                with self.subTest(frequency=frequency, bandwidth=bandwidth):
+                    self.assertIn(bandwidth, plan["valid"][frequency])
+                    self.assertTrue(set(channels) <= set(plan["valid"][frequency][bandwidth]))
+
     def test_strategies_describe_their_parameters(self):
         details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
 

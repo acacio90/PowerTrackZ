@@ -25,7 +25,39 @@
 #endif
 
 #include "analysis_service.h"
+#include "strategies/backtracking.h"
 #include "strategies/strategy.h"
+
+// Trechos contiguos de canais de 20 MHz permitidos no Brasil. Em 5 e 6 GHz os canais
+// largos agregam blocos alinhados ao inicio do trecho; em 2,4 GHz os canais se sobrepoem
+// e qualquer canal pode ser o primario de um canal de 40 MHz.
+typedef struct {
+    const char *frequency;
+    int first_channel;
+    int last_channel;
+    int channel_step;
+    bool aligned_blocks;
+} ChannelSegment;
+
+typedef struct {
+    const char *frequency;
+    int bandwidths[4];
+    int bandwidth_count;
+} BandBandwidths;
+
+static const ChannelSegment CHANNEL_SEGMENTS[] = {
+    {"2.4 GHz", 1, 13, 1, false},
+    {"5 GHz", 36, 64, 4, true},
+    {"5 GHz", 100, 144, 4, true},
+    {"5 GHz", 149, 165, 4, true},
+    {"6 GHz", 1, 233, 4, true},
+};
+
+static const BandBandwidths BAND_BANDWIDTHS[] = {
+    {"2.4 GHz", {20, 40}, 2},
+    {"5 GHz", {20, 40, 80, 160}, 4},
+    {"6 GHz", {20, 40, 80, 160}, 4},
+};
 
 typedef struct {
     int fd;
@@ -976,6 +1008,72 @@ static void handle_strategies(int fd) {
     free(text);
 }
 
+static void add_channel_to_plan(cJSON *plan, const char *frequency, const char *bandwidth, const char *channel) {
+    cJSON *band = cJSON_GetObjectItemCaseSensitive(plan, frequency);
+    if (!band) {
+        band = cJSON_AddObjectToObject(plan, frequency);
+    }
+    cJSON *channels = cJSON_GetObjectItemCaseSensitive(band, bandwidth);
+    if (!channels) {
+        channels = cJSON_AddArrayToObject(band, bandwidth);
+    }
+    cJSON_AddItemToArray(channels, cJSON_CreateString(channel));
+}
+
+static cJSON *build_valid_channel_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    size_t band_count = sizeof(BAND_BANDWIDTHS) / sizeof(BAND_BANDWIDTHS[0]);
+    size_t segment_count = sizeof(CHANNEL_SEGMENTS) / sizeof(CHANNEL_SEGMENTS[0]);
+    for (size_t band_index = 0; band_index < band_count; band_index++) {
+        const BandBandwidths *band = &BAND_BANDWIDTHS[band_index];
+        for (int width_index = 0; width_index < band->bandwidth_count; width_index++) {
+            int bandwidth = band->bandwidths[width_index];
+            int channels_per_block = bandwidth / 20;
+            char bandwidth_label[16];
+            snprintf(bandwidth_label, sizeof(bandwidth_label), "%d MHz", bandwidth);
+
+            for (size_t segment_index = 0; segment_index < segment_count; segment_index++) {
+                const ChannelSegment *segment = &CHANNEL_SEGMENTS[segment_index];
+                if (strcmp(segment->frequency, band->frequency) != 0) {
+                    continue;
+                }
+                int block_span = segment->aligned_blocks ? channels_per_block * segment->channel_step : segment->channel_step;
+                int block_size = segment->aligned_blocks ? channels_per_block : 1;
+                for (int block_start = segment->first_channel;
+                     block_start + (block_size - 1) * segment->channel_step <= segment->last_channel;
+                     block_start += block_span) {
+                    for (int offset = 0; offset < block_size; offset++) {
+                        char channel_label[8];
+                        snprintf(channel_label, sizeof(channel_label), "%d", block_start + offset * segment->channel_step);
+                        add_channel_to_plan(plan, band->frequency, bandwidth_label, channel_label);
+                    }
+                }
+            }
+        }
+    }
+    return plan;
+}
+
+static cJSON *build_search_profile_plan(void) {
+    cJSON *plan = cJSON_CreateObject();
+    for (int index = 0; index < search_profile_count(); index++) {
+        ProposedConfig profile = search_profile_at(index);
+        add_channel_to_plan(plan, profile.frequency, profile.bandwidth, profile.channel);
+    }
+    return plan;
+}
+
+static void handle_channel_plan(int fd) {
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddBoolToObject(json, "success", true);
+    cJSON_AddItemToObject(json, "valid", build_valid_channel_plan());
+    cJSON_AddItemToObject(json, "profiles", build_search_profile_plan());
+    char *text = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    send_http(fd, 200, "OK", "application/json", text);
+    free(text);
+}
+
 static void handle_capabilities(int fd) {
     cJSON *json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "success", true);
@@ -1346,6 +1444,7 @@ static void route_request(int fd, Request *request) {
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/health") == 0) { handle_health(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/strategies") == 0) { handle_strategies(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/capabilities") == 0) { handle_capabilities(fd); return; }
+    if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/channel-plan") == 0) { handle_channel_plan(fd); return; }
     if (strcmp(request->method, "GET") == 0 && strcmp(request->path, "/analyze") == 0) { handle_analyze_overview(fd); return; }
 
     cJSON *payload = request->body && request->body[0] ? cJSON_Parse(request->body) : cJSON_CreateObject();

@@ -29,6 +29,13 @@ Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma
 
 A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados e os conflitos da solução gulosa e da final.
 
+## Plano de Canais
+
+`GET /channel-plan` informa os canais oferecidos pela interface, agrupados por frequência e largura de banda:
+
+- `valid`: todos os canais permitidos no Brasil. Em 2,4 GHz, os canais 1 a 13, a 20 e 40 MHz (qualquer canal pode ser o primário de um canal de 40 MHz). Em 5 GHz (36 a 64, 100 a 144 e 149 a 165) e em 6 GHz (1 a 233), os canais de 40, 80 e 160 MHz agregam blocos alinhados de 2, 4 e 8 canais, e um canal só aparece numa largura quando o bloco inteiro existe. Os trechos ficam em `CHANNEL_SEGMENTS`, em `src/analysis_service.c`.
+- `profiles`: os perfis que as estratégias podem propor, lidos de `CONFIG_PROFILES`, em `src/strategies/backtracking.c`.
+
 ## Paralelismo
 
 A busca começa pela solução gulosa, que serve de limite para a poda. Os dois primeiros níveis livres da árvore são expandidos em tarefas, consumidas por *pthreads* a partir de uma fila compartilhada. A melhor solução é compartilhada entre as *threads* sob *mutex*, e cada *thread* mantém uma cópia local atualizada por um contador de versão, o que evita travar o *mutex* a cada nó.

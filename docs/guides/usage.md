@@ -28,6 +28,8 @@ The loaded APs are shown for review, not yet saved; those without coordinates ar
 - **Edit:** the icon next to each AP opens its data; the coordinates can also be adjusted by clicking on the map while the window is open.
 - **Delete:** select the APs and click **Excluir Selecionados**.
 
+When adding or editing an AP, the frequency, bandwidth and channel are chosen from lists with the channels allowed in Brazil (2.4 GHz: channels 1 to 13; 5 GHz: 36 to 64, 100 to 144 and 149 to 165; 6 GHz: 1 to 233). The bandwidths offered depend on the frequency, and the channels on the frequency and the bandwidth; changing the frequency or the bandwidth moves the following fields to a valid value. A saved AP whose configuration is outside these lists opens with the fields left to be selected.
+
 In the list, APs without coordinates are shown in red. Only APs with coordinates take part in the analysis.
 
 ## 2. Analyzing
@@ -57,7 +59,7 @@ The details of the strategies and of the parameters accepted by the API are in [
   - in **light gray** when there is only overlap, without conflict, with the overlap percentage. In graphs with many edges, these labels are hidden; use *Mostrar pesos das arestas sem conflito* to show them.
 
   In the optimized graph, APs whose configuration changed get a dark border, and the conflicts of the original graph resolved by the strategy are shown dashed and faded. The legend shows how many APs changed and how many conflicts were resolved. Uncheck *Destacar mudanças no grafo otimizado* to hide these highlights.
-- **Configuration table:** current and proposed channel, bandwidth and frequency of each AP.
+- **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with only the profiles the strategies can propose; on save, the AP is locked to that configuration and the optimized analysis is run again.
 - **Consumption:** energy (kWh) and cost (R$) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field.
 - **Metadados de Execução** (execution metadata):
   - *Arestas Antes / Depois*: pairs of APs in conflict before and after the optimization;

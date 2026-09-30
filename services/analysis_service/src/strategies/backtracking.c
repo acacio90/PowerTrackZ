@@ -752,3 +752,17 @@ ProposedConfig *build_backtracking_proposals(
     free_setup(&setup);
     return proposals;
 }
+
+int search_profile_count(void) {
+    return PROFILE_COUNT;
+}
+
+ProposedConfig search_profile_at(int index) {
+    ProposedConfig profile = {NULL, NULL, NULL};
+    if (index >= 0 && index < PROFILE_COUNT) {
+        profile.channel = CONFIG_PROFILES[index].channel;
+        profile.bandwidth = CONFIG_PROFILES[index].bandwidth;
+        profile.frequency = CONFIG_PROFILES[index].frequency;
+    }
+    return profile;
+}

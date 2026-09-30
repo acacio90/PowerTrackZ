@@ -26,6 +26,8 @@ Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coo
 - **Editar:** o ícone ao lado de cada AP abre seus dados; as coordenadas também podem ser ajustadas clicando no mapa com a janela aberta.
 - **Excluir:** marque os APs e clique em **Excluir Selecionados**.
 
+Ao adicionar ou editar um AP, frequência, largura de banda e canal são escolhidos em listas com os canais permitidos no Brasil (2,4 GHz: canais 1 a 13; 5 GHz: 36 a 64, 100 a 144 e 149 a 165; 6 GHz: 1 a 233). As larguras oferecidas dependem da frequência, e os canais, da frequência e da largura; ao trocar a frequência ou a largura, os campos seguintes passam a um valor válido. Um AP salvo com uma configuração fora dessas listas abre com os campos por selecionar.
+
 Na lista, APs sem coordenadas aparecem em vermelho. Somente APs com coordenadas participam da análise.
 
 ## 2. Analisar
@@ -55,7 +57,7 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
   - em **cinza-claro** quando há apenas sobreposição, sem conflito, com a porcentagem de sobreposição. Em grafos com muitas arestas, esses rótulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
 
   No grafo otimizado, os APs cuja configuração mudou ganham borda escura, e os conflitos do grafo original resolvidos pela estratégia aparecem tracejados e atenuados. A legenda informa quantos APs mudaram e quantos conflitos foram resolvidos. Desmarque *Destacar mudanças no grafo otimizado* para ocultar esses destaques.
-- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP.
+- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com apenas os perfis que as estratégias podem propor; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
 - **Consumo:** estimativa de energia (kWh) e custo (R$), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*.
 - **Metadados de Execução:**
   - *Arestas Antes / Depois*: pares de APs em conflito antes e depois da otimização;

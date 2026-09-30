@@ -138,22 +138,17 @@
 
                         <div class="form-group">
                             <label for="modal-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
-                            <select id="modal-frequency" name="frequency" required class="form-control">
-                                <option value="">Selecione a frequência</option>
-                                <option value="2.4">2.4 GHz</option>
-                                <option value="5">5 GHz</option>
-                                <option value="6">6 GHz</option>
-                            </select>
+                            <select id="modal-frequency" name="frequency" required class="form-control"></select>
                         </div>
 
                         <div class="form-group">
                             <label for="modal-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
-                            <input type="text" id="modal-bandwidth" name="bandwidth" required placeholder="Ex: 20">
+                            <select id="modal-bandwidth" name="bandwidth" required class="form-control"></select>
                         </div>
 
                         <div class="form-group">
                             <label for="modal-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
-                            <input type="number" id="modal-channel" name="channel" min="1" max="165" required placeholder="1-165">
+                            <select id="modal-channel" name="channel" required class="form-control"></select>
                         </div>
                     </div>
 
@@ -189,15 +184,15 @@
                         </div>
                         <div class="form-group">
                             <label for="edit-frequency"><i class="fas fa-wave-square"></i> Frequência (GHz)</label>
-                            <input type="text" id="edit-frequency" name="frequency" required>
+                            <select id="edit-frequency" name="frequency" required class="form-control"></select>
                         </div>
                         <div class="form-group">
                             <label for="edit-bandwidth"><i class="fas fa-expand-arrows-alt"></i> Largura (MHz)</label>
-                            <input type="text" id="edit-bandwidth" name="bandwidth" required>
+                            <select id="edit-bandwidth" name="bandwidth" required class="form-control"></select>
                         </div>
                         <div class="form-group">
                             <label for="edit-channel"><i class="fas fa-broadcast-tower"></i> Canal</label>
-                            <input type="number" id="edit-channel" name="channel" min="1" max="165" required>
+                            <select id="edit-channel" name="channel" required class="form-control"></select>
                         </div>
                         <input type="hidden" id="edit-id" name="id">
                     </div>
@@ -293,13 +288,21 @@
     <script>
     window.savedAccessPoints = {{ (points or [])|tojson }};
     </script>
+    <script src="{{ url_for('static', filename='js/channel-plan.js') }}"></script>
     <script src="{{ url_for('static', filename='js/infrastructure.js') }}"></script>
     <script src="{{ url_for('static', filename='js/infrastructure-load.js') }}"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
     <script>
-    function openEditModal(pointId) {
+    async function openEditModal(pointId) {
         const point = (window.savedAccessPoints || []).find(item => String(item.id) === String(pointId));
         if (!point) return;
+        let plano;
+        try {
+            plano = await window.ChannelPlan.carregar();
+        } catch (err) {
+            alert(err.message);
+            return;
+        }
         let lat = point.latitude;
         let lng = point.longitude;
         if ((lat === null || lat === undefined) && window.lastSelectedCoordinates) lat = window.lastSelectedCoordinates.lat;
@@ -308,9 +311,16 @@
         document.getElementById('edit-description').value = point.name || '';
         document.getElementById('edit-latitude').value = lat ?? '';
         document.getElementById('edit-longitude').value = lng ?? '';
-        document.getElementById('edit-frequency').value = point.frequency || '';
-        document.getElementById('edit-bandwidth').value = point.bandwidth || '';
-        document.getElementById('edit-channel').value = point.channel || '';
+        // No inventario, todos os canais permitidos; uma configuracao invalida fica por selecionar.
+        window.ChannelPlan.vincular(
+            {
+                frequency: document.getElementById('edit-frequency'),
+                bandwidth: document.getElementById('edit-bandwidth'),
+                channel: document.getElementById('edit-channel')
+            },
+            plano.valid,
+            point
+        );
         document.getElementById('modal-edit-point').style.display = 'flex';
     }
 
