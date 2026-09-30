@@ -16,7 +16,8 @@
 #define STOP_CHECK_INTERVAL 4096
 
 // Perfis padrao de busca. Em 2,4 GHz so existem canais de 20 e 40 MHz; em 5 GHz, de 20, 40 e 80 MHz.
-// A ordem desempata perfis de mesmo custo.
+// A ordem desempata perfis de mesmo custo. Os dois perfis de 40 MHz em 2,4 GHz (1+5 e 7+11) se sobrepoem em
+// 10 MHz (s = 0,25); a busca trata isso como interferencia. Mantidos por decisao da #78 (ver o README).
 static const ProposedConfig CONFIG_PROFILES[] = {
     {"1", "40 MHz", "2.4 GHz"},
     {"11", "40 MHz", "2.4 GHz"},
