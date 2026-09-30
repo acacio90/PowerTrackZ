@@ -115,6 +115,29 @@ class AccessPointRoutesTests(unittest.TestCase):
         payload = response.get_json()
         self.assertIn("lista JSON", payload["error"])
 
+    def test_generate_accepts_min_degree_and_the_former_clique_factor_name(self):
+        by_new_name = self.client.post("/access_points/generate", json={"node_count": 20, "min_degree": 3, "seed": 9})
+        by_old_name = self.client.post("/access_points/generate", json={"node_count": 20, "clique_factor": 3, "seed": 9})
+
+        self.assertEqual(by_new_name.status_code, 200)
+        new_payload = by_new_name.get_json()["payload"]
+        old_payload = by_old_name.get_json()["payload"]
+        self.assertEqual(new_payload["aps"], old_payload["aps"])
+        self.assertEqual(new_payload["metadata"]["min_degree"], 3)
+        self.assertEqual(new_payload["metadata"]["clique_factor"], 3)
+
+        degrees = {ap["id"]: 0 for ap in new_payload["aps"]}
+        for link in new_payload["links"]:
+            degrees[link["source"]] += 1
+            degrees[link["target"]] += 1
+        self.assertGreaterEqual(min(degrees.values()), 3)
+
+    def test_generate_rejects_min_degree_not_smaller_than_node_count(self):
+        response = self.client.post("/access_points/generate", json={"node_count": 5, "min_degree": 5})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("min_degree", response.get_json()["error"])
+
     def test_generate_access_points_uses_frequency_profiles_with_fixed_settings(self):
         response = self.client.post("/access_points/generate", json={
             "node_count": 12,

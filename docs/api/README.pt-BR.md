@@ -29,6 +29,7 @@ DELETE /api/access_points/{id}
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
 GET /api/analysis/channel-plan
+POST /api/analysis/graph-metrics
 POST /api/analysis/analyze-graph
 POST /api/analysis/backtracking
 POST /api/analysis/analyze-graph-stream
@@ -58,7 +59,7 @@ POST /zabbix/save-config
 POST /zabbix/test-connection
 ```
 
-`POST /access_points/generate` recebe `node_count` (2 a 1000), `clique_factor` (1 a `node_count` − 1) e, opcionalmente, `seed` (inteiro de 0 a 4294967295), e devolve em `payload` os APs, as ligações e `metadata`, com a semente usada em `metadata.seed`. A mesma semente e os mesmos parâmetros geram a mesma topologia; sem `seed`, uma é sorteada.
+`POST /access_points/generate` recebe `node_count` (2 a 1000), `min_degree` (1 a `node_count` − 1; o nome anterior, `clique_factor`, continua aceito) e, opcionalmente, `seed` (inteiro de 0 a 4294967295), e devolve em `payload` os APs, as ligações e `metadata`, com a semente usada em `metadata.seed`. A mesma semente e os mesmos parâmetros geram a mesma topologia; sem `seed`, uma é sorteada.
 
 `GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador não existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
@@ -77,6 +78,7 @@ POST /backtracking-stream
 POST /cancel-analysis
 POST /compare-strategies
 POST /collision-graph
+POST /graph-metrics
 ```
 
 `GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia:
@@ -93,6 +95,8 @@ POST /collision-graph
 ```
 
 As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+
+`POST /graph-metrics` recebe `aps`, como as rotas de análise, e devolve as métricas do grafo que a análise montaria (`nodes`, `edges`, `density`, `average_degree` e `max_degree`), no total e em `bands`, sem executar estratégia. APs sem `raio` usam o raio padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz.
 
 `GET /channel-plan` devolve os canais que a interface oferece na edição de uma configuração, agrupados por frequência e largura de banda:
 

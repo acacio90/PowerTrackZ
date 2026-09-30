@@ -14,7 +14,7 @@ if str(APP_DIR) not in sys.path:
 from access_point_generator import MAX_NODE_COUNT, generate_access_point_infrastructure  # noqa: E402
 
 
-def generate_in_subprocess(node_count, clique_factor, seed, hash_seed):
+def generate_in_subprocess(node_count, min_degree, seed, hash_seed):
     # Processo separado com outro PYTHONHASHSEED: a ordem de iteracao de conjuntos de textos muda entre processos,
     # e a topologia nao pode depender dela.
     script = (
@@ -25,7 +25,7 @@ def generate_in_subprocess(node_count, clique_factor, seed, hash_seed):
     )
     environment = {**os.environ, "PYTHONHASHSEED": str(hash_seed)}
     output = subprocess.run(
-        [sys.executable, "-c", script, str(APP_DIR), str(node_count), str(clique_factor), str(seed)],
+        [sys.executable, "-c", script, str(APP_DIR), str(node_count), str(min_degree), str(seed)],
         check=True,
         capture_output=True,
         text=True,

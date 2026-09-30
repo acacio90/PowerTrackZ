@@ -48,6 +48,8 @@ Configurações fora da tabela (160 MHz e 6 GHz) não têm valor no modelo e fic
 
 ## Grafo por Faixa e Canais Disponíveis
 
+O raio de cobertura de cada AP vem do campo `raio` (em metros); sem ele, vale o padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz, os mesmos valores da interface e do gerador. `POST /graph-metrics` devolve as métricas desse grafo (nós, arestas, densidade, grau médio e grau máximo, no total e por faixa) sem executar estratégia.
+
 APs de faixas diferentes não interferem (s = 0), então o grafo não tem arestas entre faixas: ele é a união dos grafos de 2,4, 5 e 6 GHz. As rotas de análise resolvem cada faixa separadamente, em sequência, cada uma com o próprio limite de tempo. APs de faixa desconhecida ficam fora da busca e mantêm a configuração.
 
 O campo `channels` da requisição define os perfis (o k de cada grafo) no mesmo formato de `profiles` em `GET /channel-plan`, por exemplo `{"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}`. Cada combinação é validada contra `valid`, e uma faixa informada precisa de ao menos um canal; caso contrário, a resposta é HTTP 400. As faixas não informadas usam os perfis padrão.

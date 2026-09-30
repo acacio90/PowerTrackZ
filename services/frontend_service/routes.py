@@ -168,6 +168,13 @@ def analysis_channel_plan_api():
     return jsonify(response_data), status_code
 
 
+@routes.route('/api/analysis/graph-metrics', methods=['POST'])
+def analysis_graph_metrics_api():
+    data = request.get_json(silent=True) or {}
+    response_data, status_code = make_api_request('/analysis/graph-metrics', 'POST', data)
+    return jsonify(response_data), status_code
+
+
 @routes.route('/api/analysis/analyze-graph', methods=['POST'])
 def analysis_analyze_graph_api():
     data = request.get_json(silent=True) or {}

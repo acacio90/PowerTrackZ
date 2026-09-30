@@ -237,8 +237,8 @@
                             <input type="number" id="generate-node-count" min="2" max="1000" value="12" required>
                         </div>
                         <div class="form-group">
-                            <label for="generate-clique-factor"><i class="fas fa-share-nodes"></i> Fator de clique</label>
-                            <input type="number" id="generate-clique-factor" min="1" max="20" value="2" required>
+                            <label for="generate-min-degree"><i class="fas fa-share-nodes"></i> Grau mínimo</label>
+                            <input type="number" id="generate-min-degree" min="1" max="20" value="2" required>
                         </div>
                         <div class="form-group">
                             <label for="generate-seed"><i class="fas fa-seedling"></i> Semente (opcional)</label>
@@ -247,7 +247,7 @@
                         <button type="submit" class="btn btn-primary" id="submit-load-generate">
                             <i class="fas fa-wand-magic-sparkles"></i> Gerar
                         </button>
-                        <p class="load-note">O fator de clique define o mínimo de conexões que cada AP tentará manter. A mesma semente, com os mesmos parâmetros, gera a mesma topologia; sem semente, uma é sorteada e informada após a geração.</p>
+                        <p class="load-note">O grau mínimo é o número de vizinhos perto dos quais cada AP é posicionado. O grafo analisado é montado depois, pela sobreposição das coberturas, e costuma ser mais denso; as métricas dele aparecem na revisão. A mesma semente, com os mesmos parâmetros, gera a mesma topologia; sem semente, uma é sorteada e informada após a geração.</p>
                     </form>
 
                     <div id="load-feedback" class="import-feedback" hidden></div>
@@ -257,6 +257,7 @@
                             <span id="load-review-summary"></span>
                             <span class="load-source-badge" id="load-review-source"></span>
                         </div>
+                        <div class="load-review-metrics" id="load-review-metrics" hidden></div>
                         <div class="table-wrapper load-review-table">
                             <table class="data-table app-table">
                                 <thead>

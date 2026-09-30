@@ -755,7 +755,7 @@ body > .footer {
 
 .load-generate {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
     align-items: end;
     gap: 0.75rem;
     padding: 0.85rem 1rem;
@@ -809,6 +809,20 @@ body > .footer {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;
+}
+
+.load-review-metrics {
+    margin-bottom: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+    font-size: 0.85rem;
+}
+
+.load-review-metrics[hidden] {
+    display: none;
 }
 
 .load-review-table {

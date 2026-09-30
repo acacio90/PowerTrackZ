@@ -16,10 +16,10 @@ O botão **Carregar APs** abre uma janela com três origens:
 - **Importar JSON:** lê um arquivo com uma lista de APs ou um objeto com a chave `aps`, como o produzido pela opção abaixo.
 - **Gerar topologia:** cria APs aleatórios já posicionados. Os parâmetros são:
   - *Quantidade de nós*: número de APs, entre 2 e 1000;
-  - *Fator de clique*: número mínimo de vizinhos que cada AP tenta manter, menor que a quantidade de nós;
+  - *Grau mínimo*: número mínimo de vizinhos perto dos quais cada AP é posicionado, menor que a quantidade de nós. Essas ligações servem só para posicionar os APs; o grafo analisado é montado depois, pela sobreposição das coberturas na mesma faixa, e costuma ser bem mais denso;
   - *Semente* (opcional): inteiro entre 0 e 4294967295. A mesma semente, com os mesmos parâmetros e a mesma versão do PowerTrackZ, gera a mesma topologia; em branco, uma semente é sorteada. A semente usada aparece na revisão, no nome do arquivo baixado e no campo `metadata.seed` do JSON.
 
-Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coordenadas ficam destacados em vermelho. **Baixar JSON** grava a lista em um arquivo, útil para repetir um experimento com a mesma topologia (que também pode ser recriada pela semente). **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo são atualizados, e os demais são criados.
+Os APs carregados aparecem para revisão, ainda sem salvar; os que não têm coordenadas ficam destacados em vermelho. Acima da lista, a revisão mostra as métricas do grafo que será analisado (APs, arestas, grau médio, grau máximo e densidade, no total e por faixa), úteis para descrever as instâncias de um experimento. **Baixar JSON** grava a lista em um arquivo, útil para repetir um experimento com a mesma topologia (que também pode ser recriada pela semente). **Salvar** grava os APs no banco: APs com o mesmo `id` de um AP salvo são atualizados, e os demais são criados.
 
 ### Editar o inventário
 
