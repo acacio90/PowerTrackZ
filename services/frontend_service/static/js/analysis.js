@@ -1371,21 +1371,6 @@ window.addEventListener('DOMContentLoaded', function() {
         btnReenquadrar.addEventListener('click', refitGraphs);
     }
 
-    function consumoEnergia25Mbps(bandwidth, frequency) {
-        const bw = String(bandwidth || '').replace(/[^0-9]/g, '');
-        const freq = String(frequency || '').replace(',', '.');
-
-        if (freq.startsWith('5')) {
-            if (bw === '20') return 11.1;
-            if (bw === '40') return 10.3;
-            if (bw === '80') return 9.9;
-        } else if (freq.startsWith('2.4')) {
-            if (bw === '20') return 14.5;
-            if (bw === '40') return 13.8;
-        }
-        return null;
-    }
-
     function getConsumptionDays() {
         const input = document.getElementById('input-dias');
         return Math.max(1, parseInt(input && input.value, 10) || 1);
@@ -1403,18 +1388,15 @@ window.addEventListener('DOMContentLoaded', function() {
         infoGasto.innerHTML = `Consumo em ${dias} dia(s): <b>${consumoDias.toFixed(2)} kWh</b> | Custo: <b>R$ ${valorFinal.toFixed(2)}</b>`;
     }
 
-    function atualizarInfoConsumo(containerId, nodes, usarConfiguracaoProposta) {
-        let consumoTotal = 0;
-
-        nodes.forEach(node => {
-            const bandwidth = usarConfiguracaoProposta ? node.proposed_bandwidth : node.bandwidth;
-            const frequency = usarConfiguracaoProposta ? node.proposed_frequency : node.frequency;
-            const consumo = consumoEnergia25Mbps(bandwidth, frequency);
-            if (consumo) consumoTotal += consumo;
-        });
-
+    // A potencia total (W) da configuracao exibida vem do analysis_service (modelo de Dembele et al., 2023).
+    function atualizarInfoConsumo(containerId, graphData) {
         const painel = getGraphPanel(containerId);
-        painel.dataset.consumoTotal = String(consumoTotal);
+        const potencia = Number(graphData && graphData.power_w);
+        if (!Number.isFinite(potencia)) {
+            clearInfoConsumo(containerId);
+            return;
+        }
+        painel.dataset.consumoTotal = String(potencia);
         renderInfoConsumo(painel);
     }
 
@@ -1573,7 +1555,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 originalGraphData = graphData;
                 renderizarCytoscape('cy1', graphData, false);
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
-                atualizarInfoConsumo('cy1', graphData.nodes, false);
+                atualizarInfoConsumo('cy1', graphData);
             })
             .catch(error => {
                 document.getElementById('cy1').innerHTML = '<p style="color:red">Erro ao carregar o grafo.</p>';
@@ -1657,7 +1639,7 @@ window.addEventListener('DOMContentLoaded', function() {
         optimizedGraphData = graphData;
         renderizarCytoscape('cy2', graphData, true);
         renderizarLegenda(getLegendaDiv('cy2'), graphData.nodes, true);
-        atualizarInfoConsumo('cy2', graphData.nodes, true);
+        atualizarInfoConsumo('cy2', graphData);
         renderExecutionMetadata(data.execution || null);
         renderResultSummary(data.execution || { strategy: data.strategy_used });
         exibirTabelaAlteracoes(graphData.nodes, data.strategy_used);

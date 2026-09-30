@@ -340,6 +340,35 @@ static double channel_center_mhz(double band, int channel, double bandwidth) {
     return 0.0;
 }
 
+// Potencia media (W) de um AP transmitindo a 25 Mbps, por faixa e largura (Dembele et al., 2023). Faixas e
+// larguras fora da tabela (160 MHz e 6 GHz) nao tem valor no modelo.
+typedef struct {
+    double band;
+    double bandwidth;
+    double watts;
+} PowerModelEntry;
+
+static const PowerModelEntry POWER_MODEL[] = {
+    {2.4, 20.0, 14.5},
+    {2.4, 40.0, 13.8},
+    {5.0, 20.0, 11.1},
+    {5.0, 40.0, 10.3},
+    {5.0, 80.0, 9.9},
+};
+
+// Devolve a potencia do AP ou um valor negativo quando a configuracao nao esta no modelo.
+static double access_point_power_w(const char *frequency, const char *bandwidth) {
+    double band = normalize_frequency_band(frequency);
+    double width = parse_bandwidth_mhz(bandwidth);
+    size_t entry_count = sizeof(POWER_MODEL) / sizeof(POWER_MODEL[0]);
+    for (size_t index = 0; index < entry_count; index++) {
+        if (POWER_MODEL[index].band == band && POWER_MODEL[index].bandwidth == width) {
+            return POWER_MODEL[index].watts;
+        }
+    }
+    return -1.0;
+}
+
 static double center_frequency_mhz(const Node *node) {
     return channel_center_mhz(
         normalize_frequency_band(node->frequency),
@@ -580,6 +609,8 @@ static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposa
     cJSON *json = cJSON_CreateObject();
     cJSON *nodes = cJSON_AddArrayToObject(json, "nodes");
     cJSON *links = cJSON_AddArrayToObject(json, "links");
+    double total_power = 0.0;
+    int unmodeled_nodes = 0;
 
     for (int i = 0; i < graph->node_count; i++) {
         const Node *node = &graph->nodes[i];
@@ -604,10 +635,27 @@ static cJSON *build_graph_json(const Graph *graph, const ProposedConfig *proposa
         cJSON_AddNumberToObject(item, "y", node->y);
         cJSON_AddNumberToObject(item, "raio", node->raio);
         cJSON_AddBoolToObject(item, "locked", node->locked);
+        double power = access_point_power_w(node->frequency, node->bandwidth);
+        double proposed_power = access_point_power_w(proposed_frequency, proposed_bandwidth);
+        if (power >= 0.0) {
+            cJSON_AddNumberToObject(item, "power_w", power);
+        } else {
+            cJSON_AddNullToObject(item, "power_w");
+        }
+        if (proposed_power >= 0.0) {
+            cJSON_AddNumberToObject(item, "proposed_power_w", proposed_power);
+            total_power += proposed_power;
+        } else {
+            cJSON_AddNullToObject(item, "proposed_power_w");
+            unmodeled_nodes++;
+        }
         cJSON_AddItemToArray(nodes, item);
         free(color);
         free(proposed_color);
     }
+    // Potencia total da configuracao exibida (a proposta, quando ha; senao, a atual).
+    cJSON_AddNumberToObject(json, "power_w", total_power);
+    cJSON_AddNumberToObject(json, "power_unmodeled_nodes", unmodeled_nodes);
 
     for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
         const Edge *edge = &graph->edges[edge_index];
@@ -682,6 +730,34 @@ static void add_strategy_comparison_to_execution(cJSON *execution, const Graph *
     cJSON_AddNumberToObject(comparison, "edges_after", edges_after);
     cJSON_AddNumberToObject(comparison, "density_before", edge_density_from_counts(graph->node_count, edges_before));
     cJSON_AddNumberToObject(comparison, "density_after", edge_density_from_counts(graph->node_count, edges_after));
+
+    // Potencia total (W) antes e depois, pelo modelo de consumo; APs fora do modelo nao entram na soma.
+    double power_before = 0.0;
+    double power_after = 0.0;
+    int unmodeled_before = 0;
+    int unmodeled_after = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        const Node *node = &graph->nodes[index];
+        double before = access_point_power_w(node->frequency, node->bandwidth);
+        double after = access_point_power_w(
+            proposals[index].frequency ? proposals[index].frequency : node->frequency,
+            proposals[index].bandwidth ? proposals[index].bandwidth : node->bandwidth
+        );
+        if (before >= 0.0) {
+            power_before += before;
+        } else {
+            unmodeled_before++;
+        }
+        if (after >= 0.0) {
+            power_after += after;
+        } else {
+            unmodeled_after++;
+        }
+    }
+    cJSON_AddNumberToObject(comparison, "power_before_w", power_before);
+    cJSON_AddNumberToObject(comparison, "power_after_w", power_after);
+    cJSON_AddNumberToObject(comparison, "power_unmodeled_before", unmodeled_before);
+    cJSON_AddNumberToObject(comparison, "power_unmodeled_after", unmodeled_after);
 }
 
 static void add_search_stats_to_execution(cJSON *execution, const AssignmentStats *stats) {

@@ -63,7 +63,7 @@ The details of the strategies and of the parameters accepted by the API are in [
 
   In the optimized graph, APs whose configuration changed get a dark border, and the conflicts of the original graph resolved by the strategy are shown dashed and faded. The legend shows how many APs changed and how many conflicts were resolved. Uncheck *Destacar mudanças no grafo otimizado* to hide these highlights.
 - **Configuration table:** current and proposed channel, bandwidth and frequency of each AP. **Editar** changes the proposed configuration, chosen from lists with the channels checked in **Canais disponíveis por faixa**; on save, the AP is locked to that configuration and the optimized analysis is run again.
-- **Consumption:** energy (kWh) and cost (R$) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field.
+- **Consumption:** energy (kWh) and cost (R$, at R$ 0.72 per kWh) estimate, above each graph, for the period entered in the *Dias da estimativa de consumo* field. The power of each AP is computed by analysis_service with the Dembélé et al. (2023) model, from its band and bandwidth; APs at 160 MHz or in 6 GHz, which have no value in the model, are left out of the sum.
 - **Metadados de Execução** (execution metadata):
   - *Arestas Antes / Depois*: pairs of APs in conflict before and after the optimization;
   - *Solução*: whether the configuration is optimal, whether the search stopped at the time limit or whether it was cancelled;
