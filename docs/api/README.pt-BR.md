@@ -58,6 +58,8 @@ POST /zabbix/save-config
 POST /zabbix/test-connection
 ```
 
+`POST /access_points/generate` recebe `node_count` (2 a 1000), `clique_factor` (1 a `node_count` − 1) e, opcionalmente, `seed` (inteiro de 0 a 4294967295), e devolve em `payload` os APs, as ligações e `metadata`, com a semente usada em `metadata.seed`. A mesma semente e os mesmos parâmetros geram a mesma topologia; sem `seed`, uma é sorteada.
+
 `GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador não existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
 ## Analysis Service (Porta 5002)

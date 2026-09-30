@@ -17,10 +17,11 @@ The **Carregar APs** button opens a window with three sources:
 - **Zabbix:** lists the APs monitored by the configured Zabbix (see section 4). Zabbix does not provide coordinates; APs already saved keep their inventory coordinates.
 - **Importar JSON:** reads a file with a list of APs or an object with the `aps` key, such as the one produced by the option below.
 - **Gerar topologia:** creates random APs that are already positioned. The parameters are:
-  - *Quantidade de nós*: number of APs, between 2 and 500;
-  - *Fator de clique*: minimum number of neighbors each AP tries to keep, smaller than the number of nodes.
+  - *Quantidade de nós*: number of APs, between 2 and 1000;
+  - *Fator de clique*: minimum number of neighbors each AP tries to keep, smaller than the number of nodes;
+  - *Semente* (optional): integer between 0 and 4294967295. The same seed, with the same parameters and the same PowerTrackZ version, generates the same topology; when left blank, a seed is drawn. The seed used is shown in the review, in the downloaded file name and in the JSON's `metadata.seed` field.
 
-The loaded APs are shown for review, not yet saved; those without coordinates are highlighted in red. **Baixar JSON** writes the list to a file, which is useful for repeating an experiment with the same topology. **Salvar** writes the APs to the database: APs with the same `id` as a saved AP are updated, and the others are created.
+The loaded APs are shown for review, not yet saved; those without coordinates are highlighted in red. **Baixar JSON** writes the list to a file, which is useful for repeating an experiment with the same topology (which can also be recreated from the seed). **Salvar** writes the APs to the database: APs with the same `id` as a saved AP are updated, and the others are created.
 
 ### Editing the inventory
 

@@ -531,6 +531,25 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertLessEqual(search["conflicts"], search["greedy_conflicts"])
         self.assertEqual(result["execution"]["parameters"]["time_limit_seconds"], 1)
 
+    def test_analyzes_one_thousand_access_points(self):
+        aps = self.random_aps(1000, seed=50, spread=0.01)
+        for index, ap in enumerate(aps):
+            ap["raio"] = 20
+            if index % 2:
+                ap.update({"frequency": "5 GHz", "channel": "36", "bandwidth": "80 MHz", "raio": 15})
+        for strategy, parameters in (("greedy", {}), ("backtracking", {"thread_count": 2, "time_limit_seconds": 1})):
+            with self.subTest(strategy=strategy):
+                result = self.post_json(
+                    "/analyze-graph",
+                    {"aps": aps, "strategy": strategy, "parameters": parameters},
+                    timeout=120,
+                )
+                execution = result["execution"]
+                self.assertTrue(result["success"])
+                self.assertEqual(len(result["graph_data"]["nodes"]), 1000)
+                self.assertEqual(sum(band["nodes"] for band in execution["bands"]), 1000)
+                self.assertLessEqual(execution["comparison"]["conflicts_after"], execution["comparison"]["conflicts_before"])
+
     def test_preserves_frequency_and_prefers_highest_clean_bandwidth(self):
         payload = {
             "aps": [

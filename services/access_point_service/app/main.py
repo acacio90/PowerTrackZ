@@ -141,7 +141,7 @@ def generate_access_points():
         data = request.get_json() or {}
         node_count = int(data.get("node_count", 0))
         clique_factor = int(data.get("clique_factor", 0))
-        payload = generate_access_point_infrastructure(node_count, clique_factor)
+        payload = generate_access_point_infrastructure(node_count, clique_factor, data.get("seed"))
         return jsonify({"success": True, "payload": payload}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
