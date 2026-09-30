@@ -281,6 +281,42 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertEqual(comparison["changed_nodes"], len(changed))
         self.assertGreater(comparison["changed_nodes"], 0)
 
+    def test_graph_metrics_report_the_graph_that_will_be_analyzed(self):
+        aps = [
+            self.ap_at("a", "2.4 GHz", "1"),
+            self.ap_at("b", "2.4 GHz", "6", offset=0.00001),
+            self.ap_at("c", "2.4 GHz", "11", offset=0.00002),
+            self.ap_at("d", "5 GHz", "36"),
+            self.ap_at("e", "5 GHz", "149", offset=0.00001),
+        ]
+        metrics = self.post_json("/graph-metrics", {"aps": aps})
+        analysis = self.post_json("/analyze-graph", {"aps": aps, "strategy": "greedy"})["execution"]
+        bands = {band["frequency"]: band for band in metrics["bands"]}
+
+        self.assertEqual(metrics["nodes"], 5)
+        self.assertEqual(metrics["edges"], analysis["graph_snapshot"]["edges"])
+        self.assertEqual(metrics["edges"], 4)
+        self.assertAlmostEqual(metrics["average_degree"], 8 / 5)
+        self.assertEqual(metrics["max_degree"], 2)
+        self.assertEqual((bands["2.4 GHz"]["nodes"], bands["2.4 GHz"]["edges"], bands["2.4 GHz"]["max_degree"]), (3, 3, 2))
+        self.assertEqual((bands["5 GHz"]["nodes"], bands["5 GHz"]["edges"], bands["5 GHz"]["average_degree"]), (2, 1, 1))
+        self.assertAlmostEqual(bands["2.4 GHz"]["density"], 1.0)
+
+    def test_uses_the_default_coverage_radius_of_the_band_when_none_is_given(self):
+        # 35 m de distancia: dois APs de 2,4 GHz (raio padrao de 20 m) se sobrepoem; dois de 5 GHz (15 m), nao.
+        offset = 35 / 111320
+        aps = []
+        for frequency, channel in (("2.4 GHz", "1"), ("5 GHz", "36")):
+            for index in range(2):
+                ap = self.ap_at(f"{frequency}-{index}", frequency, channel, offset=index * offset)
+                ap["y"] += 0.01 if frequency == "5 GHz" else 0.0
+                del ap["raio"]
+                aps.append(ap)
+        bands = {band["frequency"]: band for band in self.post_json("/graph-metrics", {"aps": aps})["bands"]}
+
+        self.assertEqual(bands["2.4 GHz"]["edges"], 1)
+        self.assertEqual(bands["5 GHz"]["edges"], 0)
+
     def test_aps_in_different_bands_are_not_linked(self):
         aps = [self.ap_at("a24", "2.4 GHz", "1"), self.ap_at("a5", "5 GHz", "36")]
         self.assertEqual(self.post_json("/collision-graph", {"aps": aps})["links"], [])

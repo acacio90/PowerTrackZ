@@ -48,6 +48,8 @@ Configurations outside the table (160 MHz and 6 GHz) have no value in the model 
 
 ## Per-Band Graph and Available Channels
 
+The coverage radius of each AP comes from the `raio` field (in meters); without it, the band's default applies: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz, the same values as the interface and the generator. `POST /graph-metrics` returns the metrics of this graph (nodes, edges, density, average degree and maximum degree, in total and per band) without running a strategy.
+
 APs in different bands do not interfere (s = 0), so the graph has no edges between bands: it is the union of the 2.4, 5 and 6 GHz graphs. The analysis routes solve each band separately, in sequence, each with its own time limit. APs in an unknown band are left out of the search and keep their configuration.
 
 The `channels` field of the request sets the profiles (the k of each graph) in the same format as `profiles` in `GET /channel-plan`, for example `{"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}`. Each combination is validated against `valid`, and a band that is given needs at least one channel; otherwise, the response is HTTP 400. Bands that are not given use the default profiles.

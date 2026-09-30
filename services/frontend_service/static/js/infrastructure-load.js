@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateForm = document.getElementById('form-load-generate');
     const generateSubmit = document.getElementById('submit-load-generate');
     const nodeCountInput = document.getElementById('generate-node-count');
-    const cliqueFactorInput = document.getElementById('generate-clique-factor');
+    const minDegreeInput = document.getElementById('generate-min-degree');
+    const reviewMetrics = document.getElementById('load-review-metrics');
     const seedInput = document.getElementById('generate-seed');
     const MAX_NODE_COUNT = 1000;
     const MAX_SEED = 4294967295;
@@ -147,6 +148,56 @@ document.addEventListener('DOMContentLoaded', function() {
         stagedSource = source;
         stagedPayload = payload;
         renderReview();
+        loadGraphMetrics(points);
+    }
+
+    function formatMetric(value, digits = 0) {
+        return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    }
+
+    function describeGraph(metrics) {
+        return `${formatMetric(metrics.nodes)} APs, ${formatMetric(metrics.edges)} arestas, `
+            + `grau médio ${formatMetric(metrics.average_degree, 1)}, grau máximo ${formatMetric(metrics.max_degree)}, `
+            + `densidade ${formatMetric(metrics.density, 3)}`;
+    }
+
+    // Metricas do grafo que a analise vai montar (sobreposicao das coberturas na mesma faixa), calculadas pelo
+    // analysis_service com a mesma construcao de grafo da analise. APs sem coordenadas ficam de fora, como na analise.
+    let metricsRequest = 0;
+    async function loadGraphMetrics(points) {
+        const request = ++metricsRequest;
+        const positioned = points.filter(hasCoordinates);
+        reviewMetrics.hidden = true;
+        reviewMetrics.textContent = '';
+        if (!positioned.length) return;
+
+        try {
+            const response = await fetch('/api/analysis/graph-metrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    aps: positioned.map(point => ({
+                        id: point.id,
+                        label: point.name,
+                        x: Number(point.latitude),
+                        y: Number(point.longitude),
+                        channel: String(point.channel || ''),
+                        bandwidth: point.bandwidth,
+                        frequency: point.frequency
+                    }))
+                })
+            });
+            const metrics = await response.json().catch(() => ({}));
+            if (request !== metricsRequest || !response.ok || !metrics.success) return;
+
+            const bands = (metrics.bands || [])
+                .map(band => `${String(band.frequency).replace('.', ',')}: ${describeGraph(band)}`)
+                .join(' · ');
+            reviewMetrics.textContent = `Grafo que será analisado: ${describeGraph(metrics)}.${bands ? ` Por faixa: ${bands}.` : ''}`;
+            reviewMetrics.hidden = false;
+        } catch (error) {
+            console.warn('Não foi possível calcular as métricas do grafo:', error);
+        }
     }
 
     function renderReview() {
@@ -241,13 +292,13 @@ document.addEventListener('DOMContentLoaded', function() {
         clearFeedback();
 
         const nodeCount = Number.parseInt(nodeCountInput.value, 10);
-        const cliqueFactor = Number.parseInt(cliqueFactorInput.value, 10);
+        const minDegree = Number.parseInt(minDegreeInput.value, 10);
         if (!Number.isInteger(nodeCount) || nodeCount < 2 || nodeCount > MAX_NODE_COUNT) {
             showFeedback('error', 'Quantidade de nós inválida.', [`Informe um inteiro entre 2 e ${MAX_NODE_COUNT}.`]);
             return;
         }
-        if (!Number.isInteger(cliqueFactor) || cliqueFactor < 1 || cliqueFactor >= nodeCount) {
-            showFeedback('error', 'Fator de clique inválido.', ['Informe um inteiro maior ou igual a 1 e menor que a quantidade de nós.']);
+        if (!Number.isInteger(minDegree) || minDegree < 1 || minDegree >= nodeCount) {
+            showFeedback('error', 'Grau mínimo inválido.', ['Informe um inteiro maior ou igual a 1 e menor que a quantidade de nós.']);
             return;
         }
 
@@ -263,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/access_points/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ node_count: nodeCount, clique_factor: cliqueFactor, seed })
+                body: JSON.stringify({ node_count: nodeCount, min_degree: minDegree, seed })
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {

@@ -1103,6 +1103,21 @@ static cJSON *build_strategy_parameters_json(const AnalysisStrategy *strategy) {
     return json;
 }
 
+// Raio de cobertura (m) usado quando o AP nao informa o seu; os mesmos valores da interface e do gerador.
+static double default_coverage_radius(const char *frequency) {
+    double band = normalize_frequency_band(frequency);
+    if (band == 2.4) {
+        return 20.0;
+    }
+    if (band == 5.0) {
+        return 15.0;
+    }
+    if (band == 6.0) {
+        return 12.0;
+    }
+    return 10.0;
+}
+
 static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
     double build_started_at = now_seconds();
     memset(graph, 0, sizeof(*graph));
@@ -1131,7 +1146,7 @@ static bool build_graph(cJSON *payload, Graph *graph, char **error_message) {
         cJSON *locked = cJSON_GetObjectItemCaseSensitive(ap, "locked");
         node.x = cJSON_IsNumber(x) ? x->valuedouble : 0.0;
         node.y = cJSON_IsNumber(y) ? y->valuedouble : 0.0;
-        node.raio = cJSON_IsNumber(raio) ? raio->valuedouble : 50.0;
+        node.raio = cJSON_IsNumber(raio) ? raio->valuedouble : default_coverage_radius(node.frequency);
         node.locked = cJSON_IsBool(locked) ? cJSON_IsTrue(locked) : 0;
         add_node(graph, node);
     }
@@ -1620,6 +1635,64 @@ static void handle_analyze_overview(int fd) {
     free(text);
 }
 
+static void add_graph_metrics(cJSON *json, const Graph *graph) {
+    int max_degree = 0;
+    for (int index = 0; index < graph->node_count; index++) {
+        if (graph->nodes[index].neighbor_count > max_degree) {
+            max_degree = graph->nodes[index].neighbor_count;
+        }
+    }
+    cJSON_AddNumberToObject(json, "nodes", graph->node_count);
+    cJSON_AddNumberToObject(json, "edges", graph->edge_count);
+    cJSON_AddNumberToObject(json, "density", graph_density(graph));
+    cJSON_AddNumberToObject(json, "average_degree", graph->node_count > 0 ? (2.0 * graph->edge_count) / graph->node_count : 0.0);
+    cJSON_AddNumberToObject(json, "max_degree", max_degree);
+}
+
+// Metricas do grafo de conflitos potenciais (APs da mesma faixa com coberturas sobrepostas), no total e por
+// faixa, sem executar estrategia nem devolver o grafo inteiro.
+static void handle_graph_metrics(int fd, cJSON *payload) {
+    Graph graph;
+    char *error_message = NULL;
+    if (!build_graph(payload, &graph, &error_message)) {
+        send_json_error(fd, 400, error_message ? error_message : "Erro ao montar grafo");
+        free(error_message);
+        return;
+    }
+
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddBoolToObject(json, "success", true);
+    add_graph_metrics(json, &graph);
+    cJSON *bands_json = cJSON_AddArrayToObject(json, "bands");
+    double bands[MAX_BANDS];
+    int band_count = collect_bands(&graph, bands);
+    int *original_indexes = malloc(sizeof(int) * (size_t) graph.node_count);
+    int *local_indexes = malloc(sizeof(int) * (size_t) graph.node_count);
+    if (!original_indexes || !local_indexes) {
+        perror("malloc graph metrics");
+        exit(1);
+    }
+    for (int band_index = 0; band_index < band_count; band_index++) {
+        Graph subgraph;
+        build_band_subgraph(&graph, bands[band_index], &subgraph, original_indexes, local_indexes);
+        char band_label[32];
+        snprintf(band_label, sizeof(band_label), "%g GHz", bands[band_index]);
+        cJSON *band_json = cJSON_CreateObject();
+        cJSON_AddStringToObject(band_json, "frequency", band_label);
+        add_graph_metrics(band_json, &subgraph);
+        cJSON_AddItemToArray(bands_json, band_json);
+        free_band_subgraph(&subgraph);
+    }
+    free(original_indexes);
+    free(local_indexes);
+
+    char *text = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    send_http(fd, 200, "OK", "application/json", text);
+    free(text);
+    free_graph(&graph);
+}
+
 static void handle_collision_graph(int fd, cJSON *payload) {
     Graph graph;
     char *error_message = NULL;
@@ -1959,6 +2032,8 @@ static void route_request(int fd, Request *request) {
 
     if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/collision-graph") == 0) {
         handle_collision_graph(fd, payload);
+    } else if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/graph-metrics") == 0) {
+        handle_graph_metrics(fd, payload);
     } else if (strcmp(request->method, "POST") == 0 && strcmp(request->path, "/backtracking") == 0) {
         cJSON_ReplaceItemInObject(payload, "strategy", cJSON_CreateString("backtracking"));
         handle_analyze_graph(fd, payload);

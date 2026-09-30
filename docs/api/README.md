@@ -29,6 +29,7 @@ DELETE /api/access_points/{id}
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
 GET /api/analysis/channel-plan
+POST /api/analysis/graph-metrics
 POST /api/analysis/analyze-graph
 POST /api/analysis/backtracking
 POST /api/analysis/analyze-graph-stream
@@ -58,7 +59,7 @@ POST /zabbix/save-config
 POST /zabbix/test-connection
 ```
 
-`POST /access_points/generate` takes `node_count` (2 to 1000), `clique_factor` (1 to `node_count` − 1) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
+`POST /access_points/generate` takes `node_count` (2 to 1000), `min_degree` (1 to `node_count` − 1; the former name, `clique_factor`, is still accepted) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
 
 `GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
 
@@ -77,6 +78,7 @@ POST /backtracking-stream
 POST /cancel-analysis
 POST /compare-strategies
 POST /collision-graph
+POST /graph-metrics
 ```
 
 Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy:
@@ -93,6 +95,8 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
 ```
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+
+`POST /graph-metrics` takes `aps`, like the analysis routes, and returns the metrics of the graph the analysis would build (`nodes`, `edges`, `density`, `average_degree` and `max_degree`), in total and in `bands`, without running a strategy. APs without `raio` use the band's default radius: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz.
 
 `GET /channel-plan` returns the channels that the interface offers when editing a configuration, grouped by frequency and bandwidth:
 

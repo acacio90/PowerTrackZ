@@ -69,10 +69,12 @@ def build_generated_access_points(node_count, rnd):
     return aps
 
 
-def build_generated_links(node_count, clique_factor, rnd):
+# Ligacoes usadas so para posicionar os APs: cada AP recebe ao menos min_degree vizinhos, perto dos quais e
+# colocado. A analise monta o proprio grafo pela sobreposicao das coberturas, em geral bem mais denso.
+def build_generated_links(node_count, min_degree, rnd):
     links = []
     adjacency = [set() for _ in range(node_count)]
-    minimum_connections = max(1, min(clique_factor, node_count - 1))
+    minimum_connections = max(1, min(min_degree, node_count - 1))
 
     for index in range(node_count - 1):
         adjacency[index].add(index + 1)
@@ -190,30 +192,32 @@ def resolve_seed(seed):
     return value
 
 
-def generate_access_point_infrastructure(node_count, clique_factor, seed=None):
+def generate_access_point_infrastructure(node_count, min_degree, seed=None):
     """Gera APs posicionados em uma topologia. A mesma semente, com os mesmos parametros e a mesma versao do
     gerador, produz a mesma topologia; sem semente, uma e sorteada e devolvida em metadata.seed."""
     if node_count < 2:
         raise ValueError("node_count deve ser maior ou igual a 2")
     if node_count > MAX_NODE_COUNT:
         raise ValueError(f"node_count deve ser menor ou igual a {MAX_NODE_COUNT}")
-    if clique_factor < 1:
-        raise ValueError("clique_factor deve ser maior ou igual a 1")
-    if clique_factor >= node_count:
-        raise ValueError("clique_factor deve ser menor que node_count")
+    if min_degree < 1:
+        raise ValueError("min_degree deve ser maior ou igual a 1")
+    if min_degree >= node_count:
+        raise ValueError("min_degree deve ser menor que node_count")
 
     resolved_seed = resolve_seed(seed)
     # Gerador proprio: sorteios de outras partes do servico nao alteram a sequencia desta topologia.
     rnd = random.Random(resolved_seed)
     aps = build_generated_access_points(node_count, rnd)
-    links = build_generated_links(node_count, clique_factor, rnd)
+    links = build_generated_links(node_count, min_degree, rnd)
     positioned_aps = assign_coordinates_for_topology(aps, links, rnd)
 
     return {
         "metadata": {
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "node_count": node_count,
-            "clique_factor": clique_factor,
+            "min_degree": min_degree,
+            # Nome anterior do parametro, mantido para quem le arquivos gerados antes.
+            "clique_factor": min_degree,
             "seed": resolved_seed,
         },
         "aps": positioned_aps,

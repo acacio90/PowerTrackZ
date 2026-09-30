@@ -18,10 +18,10 @@ The **Carregar APs** button opens a window with three sources:
 - **Importar JSON:** reads a file with a list of APs or an object with the `aps` key, such as the one produced by the option below.
 - **Gerar topologia:** creates random APs that are already positioned. The parameters are:
   - *Quantidade de nós*: number of APs, between 2 and 1000;
-  - *Fator de clique*: minimum number of neighbors each AP tries to keep, smaller than the number of nodes;
+  - *Grau mínimo*: minimum number of neighbors near which each AP is placed, smaller than the number of nodes. These links are only used to place the APs; the analyzed graph is built afterwards, from the coverage overlap in the same band, and is usually much denser;
   - *Semente* (optional): integer between 0 and 4294967295. The same seed, with the same parameters and the same PowerTrackZ version, generates the same topology; when left blank, a seed is drawn. The seed used is shown in the review, in the downloaded file name and in the JSON's `metadata.seed` field.
 
-The loaded APs are shown for review, not yet saved; those without coordinates are highlighted in red. **Baixar JSON** writes the list to a file, which is useful for repeating an experiment with the same topology (which can also be recreated from the seed). **Salvar** writes the APs to the database: APs with the same `id` as a saved AP are updated, and the others are created.
+The loaded APs are shown for review, not yet saved; those without coordinates are highlighted in red. Above the list, the review shows the metrics of the graph that will be analyzed (APs, edges, average degree, maximum degree and density, in total and per band), useful for describing the instances of an experiment. **Baixar JSON** writes the list to a file, which is useful for repeating an experiment with the same topology (which can also be recreated from the seed). **Salvar** writes the APs to the database: APs with the same `id` as a saved AP are updated, and the others are created.
 
 ### Editing the inventory
 
