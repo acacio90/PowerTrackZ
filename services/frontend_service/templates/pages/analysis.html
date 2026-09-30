@@ -93,7 +93,18 @@
         margin: 0 0 1rem;
     }
 
-    .analysis-channel-band {
+    .spectrum-legend {
+        margin: 0.25rem 0 0;
+        font-size: 0.8rem;
+        color: #607080;
+    }
+
+    .spectrum-legend-overlap {
+        font-weight: 600;
+        color: #c2410c;
+    }
+
+    .spectrum-band {
         margin-top: 0.5rem;
         border: 1px solid #e2e7ec;
         border-radius: 10px;
@@ -101,49 +112,135 @@
         background: #fff;
     }
 
-    .analysis-channel-band summary {
+    .spectrum-band summary {
         cursor: pointer;
         font-size: 0.9rem;
         font-weight: 600;
         color: #22313f;
     }
 
-    .analysis-channel-row {
+    .spectrum-actions {
         display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        margin-top: 0.5rem;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0.6rem 0 0.4rem;
     }
 
-    .analysis-channel-width {
-        flex: 0 0 4.5rem;
-        padding-top: 0.2rem;
-        font-size: 0.8rem;
-        font-weight: 600;
+    .spectrum-actions-label {
+        align-self: center;
+        margin-left: 0.4rem;
+        font-size: 0.78rem;
         color: #5d6c79;
     }
 
-    .analysis-channel-options {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.3rem;
-    }
-
-    .analysis-channel-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        min-width: 3.2rem;
-        padding: 0.15rem 0.4rem;
+    .spectrum-action {
+        padding: 0.2rem 0.65rem;
         border: 1px solid #cbd5df;
         border-radius: 999px;
-        font-size: 0.8rem;
+        background: #fff;
+        font-size: 0.78rem;
         color: #22313f;
         cursor: pointer;
     }
 
-    .analysis-channel-chip input {
-        margin: 0;
+    .spectrum-action:hover {
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+    .spectrum-body {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .spectrum-labels {
+        flex: 0 0 5.5rem;
+    }
+
+    .spectrum-label {
+        display: flex;
+        align-items: center;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #5d6c79;
+        border-bottom: 1px solid transparent;
+    }
+
+    .spectrum-label small {
+        margin-left: 0.2rem;
+        font-weight: 400;
+    }
+
+    .spectrum-axis-label {
+        height: 1.4rem;
+        font-weight: 400;
+    }
+
+    .spectrum-scroll {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+    }
+
+    .spectrum-canvas {
+        position: relative;
+    }
+
+    .spectrum-row {
+        position: relative;
+        border-bottom: 1px dashed #e2e7ec;
+    }
+
+    .spectrum-bar {
+        position: absolute;
+        height: 22px;
+        padding: 0 2px;
+        overflow: hidden;
+        border: 1px solid #b8c4cf;
+        border-radius: 5px;
+        background: #f5f7f9;
+        font-size: 0.72rem;
+        line-height: 20px;
+        color: #3d4b57;
+        white-space: nowrap;
+        text-overflow: clip;
+        cursor: pointer;
+    }
+
+    .spectrum-bar:hover {
+        border-color: #0d6efd;
+    }
+
+    .spectrum-bar.is-selected {
+        border-color: #0b5ed7;
+        background: #0d6efd;
+        font-weight: 600;
+        color: #fff;
+    }
+
+    .spectrum-bar.is-selected.is-overlapping {
+        border-color: #c2410c;
+        background: #f97316;
+    }
+
+    .spectrum-bar:focus-visible {
+        outline: 2px solid #0b5ed7;
+        outline-offset: 1px;
+    }
+
+    .spectrum-axis {
+        position: relative;
+        height: 1.4rem;
+        border-top: 1px solid #b8c4cf;
+    }
+
+    .spectrum-tick {
+        position: absolute;
+        top: 0.15rem;
+        transform: translateX(-50%);
+        font-size: 0.68rem;
+        color: #607080;
+        white-space: nowrap;
     }
 
     .analysis-parameter-error {
