@@ -7,33 +7,6 @@
     margin-bottom: var(--space-5);
 }
 
-.analysis-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text);
-    margin-bottom: 0.5rem;
-}
-
-.analysis-header h1 {
-    margin: 0;
-    font-size: var(--font-size-2xl);
-    line-height: var(--line-height-tight);
-    color: var(--color-text-strong);
-}
-
-.analysis-subtitle {
-    margin: 0.5rem 0 0;
-    max-width: 780px;
-    font-size: var(--font-size-md);
-    line-height: 1.6;
-    color: var(--color-text-muted);
-}
-
 .analysis-layout {
     display: grid;
     grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);

@@ -10,13 +10,6 @@
     margin-bottom: 1.25rem;
 }
 
-.scal-card h1 {
-    margin: 0 0 0.35rem;
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-strong);
-}
-
 .scal-card h2 {
     margin: 0 0 0.75rem;
     font-size: var(--font-size-base);
@@ -25,9 +18,7 @@
 }
 
 .scal-lead {
-    margin: 0;
-    font-size: var(--font-size-md);
-    color: var(--color-text-muted);
+    max-width: none;
 }
 
 .scal-form {

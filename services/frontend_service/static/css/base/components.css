@@ -355,6 +355,33 @@
     font-weight: var(--font-weight-semibold);
 }
 
+/* ---------- Título de página ----------
+ * .page-title: ícone no destaque e título em negrito; .page-subtitle, a linha opcional logo abaixo.
+ * O espaço até o conteúdo fica a cargo de quem usa (cabeçalho da página ou do painel).
+ */
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    color: var(--color-text-strong);
+}
+
+.page-title i {
+    color: var(--color-accent);
+}
+
+.page-subtitle {
+    margin: 0.5rem 0 0;
+    max-width: 780px;
+    font-size: var(--font-size-md);
+    line-height: 1.6;
+    color: var(--color-text-muted);
+}
+
 /* ---------- Tabelas ----------
  * .app-table é a tabela padrão; .app-table-compact, a versão densa para tabelas de dados e histórico.
  * O contorno fica no .app-table-shell, e a rolagem horizontal, no .app-table-wrap.
