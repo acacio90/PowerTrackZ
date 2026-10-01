@@ -4,12 +4,18 @@ Uma unica topologia e gerada pela semente com o tamanho maximo, e as instancias 
 n APs), de modo que cada instancia contem a anterior. Para cada tamanho, as estrategias sao executadas pelo
 analysis_service, primeiro as exatas, que servem de referencia de otimo para as demais. Uma estrategia quebra no
 primeiro tamanho em que deixa de resolver o problema: um metodo exato, quando para pelo limite de tempo sem
-comprovar o otimo; um metodo sem garantia de otimo, quando excede o limite de tempo. Depois de quebrar, ela deixa
-de ser executada nos tamanhos seguintes.
+comprovar o otimo; um metodo deterministico sem garantia de otimo, quando excede o limite de tempo; uma estrategia
+estocastica (que declara semente), quando a maioria das repeticoes para pelo limite de tempo antes dos proprios
+criterios de parada. Depois de quebrar, ela deixa de ser executada nos tamanhos seguintes.
+
+As estrategias estocasticas sao repetidas por tamanho, com sementes derivadas da semente do teste (as mesmas em
+todas as estrategias e tamanhos), e cada repeticao vira um ponto; as estatisticas por tamanho saem dos pontos.
 """
 import csv
+import hashlib
 import io
 import json
+import statistics
 import logging
 import os
 import threading
@@ -31,7 +37,9 @@ DEFAULT_PARAMETERS = {
     "time_limit_seconds": 10,
     "thread_count": 1,
     "objective": "default",
+    "repetitions": 1,
 }
+MAX_REPETITIONS = 100
 
 POINT_FIELDS = [
     "nodes", "edges", "density", "average_degree", "strategy", "exact", "duration_seconds", "wall_seconds",
@@ -40,6 +48,12 @@ POINT_FIELDS = [
 ]
 # Colunas acrescentadas depois de "objective" no CSV (#124): tempo de CPU e energia estimada do processamento.
 PROCESSING_FIELDS = ["cpu_seconds", "processing_energy_j", "processing_max_energy_j"]
+# Colunas acrescentadas depois delas (#86): repeticao e semente de cada ponto.
+REPETITION_FIELDS = ["repetition", "seed"]
+# Metricas resumidas por tamanho e estrategia (media, desvio-padrao, melhor e pior).
+SUMMARY_FIELDS = ["duration_seconds", "conflicts", "interference", "power_w", "processing_energy_j"]
+# Parametros que o teste define para todas as estrategias, e nao por estrategia.
+SHARED_PARAMETERS = {"seed", "time_limit_seconds"}
 
 
 class ScalabilityConflict(Exception):
@@ -75,10 +89,12 @@ class AnalysisClient:
     def graph_metrics(self, aps):
         return self._post("/graph-metrics", {"aps": aps}, self.timeout)
 
-    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default"):
+    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default", channels=None):
         # Cada faixa tem o proprio limite de tempo; a margem cobre a montagem e a serializacao da resposta.
         timeout = max(self.timeout, time_limit_seconds * 4 + 60)
         payload = {"aps": aps, "strategy": strategy, "parameters": parameters, "objective": objective}
+        if isinstance(channels, dict):
+            payload["channels"] = channels
         return self._post("/analyze-graph", payload, timeout)
 
 
@@ -100,11 +116,7 @@ def validate_parameters(data, strategy_details, objectives=("default",)):
     data = data or {}
     # As metaheuristicas ficam de fora ate o teste ter repeticoes por semente: o ponto de quebra dos metodos
     # sem garantia de otimo (limite de tempo excedido) nao descreve uma busca que para pelo tempo.
-    implemented = [
-        detail["name"]
-        for detail in strategy_details
-        if detail.get("implemented") and detail.get("family") != "metaheuristic"
-    ]
+    implemented = [detail["name"] for detail in strategy_details if detail.get("implemented")]
     max_nodes = _integer(data, "max_nodes", 2, MAX_NODE_COUNT)
     step = _integer(data, "step", 1, max_nodes)
     min_degree = _integer(data, "min_degree", 1, max_nodes - 1)
@@ -125,6 +137,16 @@ def validate_parameters(data, strategy_details, objectives=("default",)):
     if objective not in objectives:
         raise ValueError(f"objective deve ser um dos objetivos do analysis_service: {', '.join(objectives)}")
 
+    repetitions = _integer(data, "repetitions", 1, MAX_REPETITIONS)
+    strategy_parameters = validate_strategy_parameters(data.get("strategy_parameters"), strategies)
+
+    # Canais escolhidos no mapa do espectro, no formato de "profiles" do /channel-plan; o analysis_service os valida.
+    channels = data.get("channels")
+    if channels in (None, "padrao", {}):
+        channels = "padrao"
+    elif not isinstance(channels, dict):
+        raise ValueError("channels deve ser um objeto por faixa e largura, como profiles em /channel-plan, ou ficar vazio")
+
     return {
         "max_nodes": max_nodes,
         "step": step,
@@ -134,8 +156,36 @@ def validate_parameters(data, strategy_details, objectives=("default",)):
         "time_limit_seconds": time_limit,
         "thread_count": thread_count,
         "objective": objective,
-        "channels": "padrao",
+        "channels": channels,
+        "repetitions": repetitions,
+        "strategy_parameters": strategy_parameters,
     }
+
+
+def validate_strategy_parameters(value, strategies):
+    """Parametros proprios de cada estrategia: {estrategia: {parametro: valor}}. A semente e o limite de tempo sao do
+    teste, e os valores sao validados pelo analysis_service ao executar."""
+    if value in (None, {}):
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("strategy_parameters deve ser um objeto com os parâmetros de cada estratégia")
+    result = {}
+    for name, parameters in value.items():
+        if name not in strategies:
+            raise ValueError(f"strategy_parameters traz a estratégia {name}, que não foi escolhida no teste")
+        if not isinstance(parameters, dict):
+            raise ValueError(f"Os parâmetros de {name} devem ser um objeto")
+        for key, item in parameters.items():
+            if isinstance(item, bool) or not isinstance(item, (int, float, str)):
+                raise ValueError(f"O parâmetro {key} de {name} deve ser um número ou uma opção")
+        result[name] = {key: item for key, item in parameters.items() if key not in SHARED_PARAMETERS}
+    return result
+
+
+def repetition_seed(test_seed, repetition):
+    """Semente da repeticao (a partir de 0), derivada da semente do teste: a mesma em todas as estrategias e tamanhos."""
+    digest = hashlib.sha256(f"powertrackz:{test_seed}:{repetition}".encode()).hexdigest()
+    return int(digest[:8], 16)
 
 
 def instance_sizes(max_nodes, step):
@@ -167,6 +217,32 @@ def strategy_broke(exact, stop_reason, duration_seconds, time_limit_seconds):
     if exact:
         return stop_reason == "time_limit"
     return duration_seconds > time_limit_seconds
+
+
+def stochastic_broke(stop_reasons):
+    """Estrategia estocastica: quebra quando a maioria das repeticoes para pelo limite de tempo, antes dos proprios
+    criterios de parada (iteracoes, iteracoes sem melhora ou temperatura minima)."""
+    return sum(reason == "time_limit" for reason in stop_reasons) * 2 > len(stop_reasons)
+
+
+def summarize_points(points):
+    """Estatisticas por tamanho e estrategia: repeticoes, e media, desvio-padrao, melhor e pior de cada metrica."""
+    groups = {}
+    for point in points:
+        groups.setdefault((point["nodes"], point["strategy"]), []).append(point)
+    summaries = []
+    for (nodes, strategy), group in groups.items():
+        summary = {"nodes": nodes, "strategy": strategy, "repetitions": len(group), "broke": any(p.get("broke") for p in group)}
+        for field in SUMMARY_FIELDS:
+            values = [p[field] for p in group if p.get(field) is not None]
+            summary[field] = {
+                "mean": statistics.fmean(values) if values else None,
+                "std": statistics.stdev(values) if len(values) > 1 else (0.0 if values else None),
+                "min": min(values) if values else None,
+                "max": max(values) if values else None,
+            }
+        summaries.append(summary)
+    return summaries
 
 
 def build_point(size, metrics, strategy, exact, result, wall_seconds, time_limit_seconds):
@@ -230,6 +306,7 @@ def run_to_dict(run, include_points=True):
     }
     if include_points:
         data["points"] = json.loads(run.points or "[]")
+        data["summaries"] = summarize_points(data["points"])
     return data
 
 
@@ -238,7 +315,8 @@ def run_to_csv(run):
     version = data["version"]
     parameters = data["parameters"]
     # Colunas novas entram no fim, para nao deslocar as existentes (leitura por posicao continua valida).
-    header = ["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS + ["objective"] + PROCESSING_FIELDS
+    header = (["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS
+              + ["objective"] + PROCESSING_FIELDS + REPETITION_FIELDS)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(header)
@@ -249,7 +327,7 @@ def run_to_csv(run):
         ] + [point.get(field) for field in POINT_FIELDS] + [
             # Execucoes anteriores ao criterio configuravel usaram o objetivo padrao.
             parameters.get("objective", "default"),
-        ] + [point.get(field) for field in PROCESSING_FIELDS])
+        ] + [point.get(field) for field in PROCESSING_FIELDS + REPETITION_FIELDS])
     return output.getvalue()
 
 
@@ -281,7 +359,13 @@ class ScalabilityRunner:
             if self._active_run is not None:
                 raise ScalabilityConflict("Já existe um teste de escalabilidade em andamento. Aguarde o fim dele ou cancele-o.")
             strategies = [
-                {"name": detail["name"], "exact": bool(detail.get("exact")), "description": detail.get("description")}
+                {
+                    "name": detail["name"],
+                    "exact": bool(detail.get("exact")),
+                    "description": detail.get("description"),
+                    # Estocastica: declara semente; e repetida com as sementes derivadas da semente do teste.
+                    "stochastic": any(parameter.get("name") == "seed" for parameter in detail.get("parameters") or []),
+                }
                 for detail in details if detail["name"] in parameters["strategies"]
             ]
             run = ScalabilityRun(
@@ -335,12 +419,16 @@ class ScalabilityRunner:
         # Exatas primeiro: quando comprovam o otimo, servem de referencia para as demais no mesmo tamanho.
         ordered = sorted(strategies, key=lambda strategy: not strategy["exact"])
         time_limit = parameters["time_limit_seconds"]
-        analysis_parameters = {"thread_count": parameters["thread_count"], "time_limit_seconds": time_limit}
+        objective = parameters.get("objective", "default")
+        channels = parameters.get("channels")
+        repetitions = parameters.get("repetitions", 1)
+        own_parameters = parameters.get("strategy_parameters") or {}
+        seeds = [repetition_seed(parameters["seed"], index) for index in range(repetitions)]
 
         topology = generate_access_point_infrastructure(parameters["max_nodes"], parameters["min_degree"], parameters["seed"])
         all_aps = to_analysis_aps(topology["aps"])
         sizes = instance_sizes(parameters["max_nodes"], parameters["step"])
-        total_steps = len(sizes) * len(ordered)
+        total_steps = len(sizes) * sum(repetitions if strategy.get("stochastic") else 1 for strategy in ordered)
         done_steps = 0
         points, breaks = [], {}
 
@@ -352,18 +440,36 @@ class ScalabilityRunner:
             points_of_size = []
             for strategy in ordered:
                 name = strategy["name"]
+                stochastic = strategy.get("stochastic", False)
+                runs = seeds if stochastic else [None]
                 if name in breaks or self._cancel.is_set():
-                    done_steps += 1
+                    done_steps += len(runs)
                     continue
-                self._save(run_id, current_step=f"{size} APs: {name}")
-                started = self.clock()
-                result = self.client.analyze(aps, name, analysis_parameters, time_limit, parameters.get("objective", "default"))
-                point = build_point(size, metrics, name, strategy["exact"], result, self.clock() - started, time_limit)
-                points_of_size.append(point)
-                if point["broke"]:
+                points_of_strategy = []
+                for index, seed in enumerate(runs):
+                    if self._cancel.is_set():
+                        break
+                    step = f"{size} APs: {name}" + (f" (repetição {index + 1} de {len(runs)})" if stochastic else "")
+                    self._save(run_id, current_step=step)
+                    analysis_parameters = {"thread_count": parameters["thread_count"], "time_limit_seconds": time_limit,
+                                           **own_parameters.get(name, {})}
+                    if seed is not None:
+                        analysis_parameters["seed"] = seed
+                    started = self.clock()
+                    result = self.client.analyze(aps, name, analysis_parameters, time_limit, objective, channels)
+                    point = build_point(size, metrics, name, strategy["exact"], result, self.clock() - started, time_limit)
+                    point["repetition"] = index + 1
+                    point["seed"] = seed
+                    points_of_strategy.append(point)
+                    done_steps += 1
+                    self._save(run_id, progress=done_steps / total_steps)
+                if stochastic and points_of_strategy:
+                    broke = stochastic_broke([point["stop_reason"] for point in points_of_strategy])
+                    for point in points_of_strategy:
+                        point["broke"] = broke
+                points_of_size.extend(points_of_strategy)
+                if any(point["broke"] for point in points_of_strategy):
                     breaks[name] = size
-                done_steps += 1
-                self._save(run_id, progress=done_steps / total_steps)
             fill_optimality_gaps(points_of_size)
             points.extend(points_of_size)
             self._save(run_id, points=json.dumps(points), breaks=json.dumps(breaks))

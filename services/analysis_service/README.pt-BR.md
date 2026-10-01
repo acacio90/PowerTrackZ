@@ -233,5 +233,5 @@ Em empate de custo, vence a tarefa de menor índice. Como as tarefas seguem a or
 - O problema é NP-difícil. Em grafos grandes e densos, a busca exata não termina e para no limite de tempo, devolvendo a melhor solução encontrada (`optimal: false`).
 - O ganho com mais *threads* depende do número de tarefas e da eficácia da poda. Com poucos perfis por faixa, os dois primeiros níveis geram no máximo 25 tarefas em 2,4 GHz e 100 em 5 GHz.
 - No backtracking, o progresso enviado ao *frontend* é a fração de tarefas concluídas, e não uma estimativa do tempo restante.
-- As metaheurísticas ainda não participam do teste de escalabilidade: o ponto de quebra dos métodos sem garantia de ótimo (limite de tempo excedido) não descreve uma busca que para pelo tempo, e a comparação precisa de repetições por semente.
+- No teste de escalabilidade, as metaheurísticas são repetidas por semente e quebram quando a maioria das repetições para pelo limite de tempo antes dos próprios critérios de parada (ver o guia de uso).
 - Conflitos entre dois APs travados não entram no custo, pois não dependem da atribuição.

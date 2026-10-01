@@ -7,137 +7,177 @@
 
 {% block content %}
 <section class="scal-page">
-    <div class="scal-card panel">
-        <h1 class="page-title"><i class="fas fa-gauge-high"></i> Teste de escalabilidade</h1>
-        <p class="page-subtitle scal-lead">
-            Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
-            até o ponto de quebra de cada estratégia: nos métodos exatos, o primeiro tamanho em que o ótimo não é encontrado
-            no limite de tempo; nos demais, o primeiro em que o limite de tempo é excedido. Nada é salvo no inventário de APs.
-        </p>
+    <div class="container">
+        <header class="scal-card panel">
+            <h1 class="page-title"><i class="fas fa-gauge-high"></i> Teste de escalabilidade</h1>
+            <p class="page-subtitle scal-lead">
+                Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
+                até o ponto de quebra de cada estratégia: nos métodos exatos, o primeiro tamanho em que o ótimo não é encontrado
+                no limite de tempo; no guloso, o primeiro em que o limite de tempo é excedido; nas estratégias estocásticas,
+                repetidas por semente, o primeiro em que a maioria das repetições para pelo limite de tempo. Nada é salvo no
+                inventário de APs.
+            </p>
+        </header>
 
-        <form id="scal-form" class="scal-form" novalidate>
-            <div>
-                <label for="scal-max-nodes">Tamanho máximo (APs)</label>
-                <input type="number" id="scal-max-nodes" min="2" max="1000" value="200" required>
-            </div>
-            <div>
-                <label for="scal-step">Passo (APs)</label>
-                <input type="number" id="scal-step" min="1" max="1000" value="10" required>
-            </div>
-            <div>
-                <label for="scal-min-degree">Grau mínimo</label>
-                <input type="number" id="scal-min-degree" min="1" max="20" value="3" required>
-            </div>
-            <div>
-                <label for="scal-seed">Semente (opcional)</label>
-                <input type="number" id="scal-seed" min="0" max="4294967295" step="1" placeholder="Aleatória">
-            </div>
-            <div>
-                <label for="scal-time-limit">Limite de tempo (s)</label>
-                <input type="number" id="scal-time-limit" min="0.1" max="3600" step="0.1" value="10" required>
-            </div>
-            <div>
-                <label for="scal-threads">Threads</label>
-                <input type="number" id="scal-threads" min="1" max="256" value="1" required>
-            </div>
-            <div>
-                <label for="scal-objective">Critério de otimização</label>
-                <select id="scal-objective">
-                    <option value="default">Padrão</option>
-                </select>
-            </div>
-            <div class="scal-strategies" id="scal-strategies">
-                <span class="scal-field-label">Estratégias:</span>
-                <span class="scal-note">Carregando estratégias…</span>
-            </div>
-            <div class="scal-actions">
-                <p class="scal-note">
-                    Os canais usados são os perfis padrão. Uma execução por vez, para que os tempos não se misturem; nos métodos exatos,
-                    o limite vale para cada faixa. As metaheurísticas ainda não entram neste teste.
-                </p>
-                <button type="submit" class="btn btn-primary" id="scal-start">
-                    <i class="fa-solid fa-play"></i> Executar teste
-                </button>
-            </div>
-        </form>
-        <p class="scal-error" id="scal-error" hidden></p>
-    </div>
-
-    <div class="scal-card panel" id="scal-progress" hidden>
-        <h2>Em execução</h2>
-        <div class="scal-progress-bar"><span id="scal-progress-fill"></span></div>
-        <div class="scal-progress-row">
-            <span id="scal-progress-text"></span>
-            <button type="button" class="btn btn-secondary btn-sm" id="scal-cancel">Cancelar</button>
+        <div class="scal-card panel">
+            <h2>Parâmetros do teste</h2>
+            <form id="scal-form" class="scal-form" novalidate>
+                <div>
+                    <label for="scal-max-nodes">Tamanho máximo (APs)</label>
+                    <input type="number" id="scal-max-nodes" min="2" max="1000" value="200" required>
+                </div>
+                <div>
+                    <label for="scal-step">Passo (APs)</label>
+                    <input type="number" id="scal-step" min="1" max="1000" value="10" required>
+                </div>
+                <div>
+                    <label for="scal-min-degree">Grau mínimo</label>
+                    <input type="number" id="scal-min-degree" min="1" max="20" value="3" required>
+                </div>
+                <div>
+                    <label for="scal-seed">Semente (opcional)</label>
+                    <input type="number" id="scal-seed" min="0" max="4294967295" step="1" placeholder="Aleatória">
+                </div>
+                <div>
+                    <label for="scal-time-limit">Limite de tempo (s)</label>
+                    <input type="number" id="scal-time-limit" min="0.1" max="3600" step="0.1" value="10" required>
+                </div>
+                <div>
+                    <label for="scal-repetitions" title="Aplicadas só às estratégias estocásticas (as metaheurísticas)">Repetições (estocásticas)</label>
+                    <input type="number" id="scal-repetitions" min="1" max="100" value="5" required>
+                </div>
+                <div>
+                    <label for="scal-threads">Threads</label>
+                    <input type="number" id="scal-threads" min="1" max="256" value="1" required>
+                </div>
+                <div>
+                    <label for="scal-objective">Critério de otimização</label>
+                    <select id="scal-objective">
+                        <option value="default">Padrão</option>
+                    </select>
+                </div>
+                <div class="scal-channels">
+                    <span class="scal-field-label">Canais:</span>
+                    <span id="scal-channels-summary" class="scal-note">Perfis padrão</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="scal-open-spectrum" disabled>
+                        <i class="fa-solid fa-sliders"></i> Escolher no mapa do espectro
+                    </button>
+                </div>
+                <div class="scal-strategies" id="scal-strategies">
+                    <span class="scal-field-label">Estratégias:</span>
+                    <span class="scal-note">Carregando estratégias…</span>
+                </div>
+                <div class="scal-actions">
+                    <p class="scal-note">
+                        Uma execução por vez, para que os tempos não se misturem. O limite de tempo vale para cada faixa e é o mesmo em
+                        todas as estratégias; as estocásticas são repetidas com as mesmas sementes, derivadas da semente do teste.
+                    </p>
+                    <button type="submit" class="btn btn-primary" id="scal-start">
+                        <i class="fa-solid fa-play"></i> Executar teste
+                    </button>
+                </div>
+            </form>
+            <p class="scal-error" id="scal-error" hidden></p>
         </div>
-    </div>
 
-    <div class="scal-card panel" id="scal-result" hidden>
-        <h2 id="scal-result-title"></h2>
-        <div class="scal-meta" id="scal-result-meta"></div>
-        <div class="scal-breaks" id="scal-result-breaks"></div>
-        <div class="scal-charts">
-            <div class="scal-chart">
-                <h3>Tempo de execução por número de APs</h3>
-                <p>Escala logarítmica. A linha tracejada é o limite de tempo; o marcador em X, o ponto de quebra.</p>
-                <div class="scal-chart-box"><canvas id="scal-chart-time" aria-label="Tempo de execução por número de APs" role="img"></canvas></div>
-            </div>
-            <div class="scal-chart">
-                <h3>Conflitos após a otimização por número de APs</h3>
-                <p>Até o ponto de quebra do método exato, os conflitos dele são o ótimo.</p>
-                <div class="scal-chart-box"><canvas id="scal-chart-conflicts" aria-label="Conflitos por número de APs" role="img"></canvas></div>
+        <div class="scal-card panel" id="scal-progress" hidden>
+            <h2>Em execução</h2>
+            <div class="scal-progress-bar"><span id="scal-progress-fill"></span></div>
+            <div class="scal-progress-row">
+                <span id="scal-progress-text"></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="scal-cancel">Cancelar</button>
             </div>
         </div>
-        <details class="scal-details">
-            <summary>Tabela dos pontos medidos</summary>
+
+        <div class="scal-card panel" id="scal-result" hidden>
+            <h2 id="scal-result-title"></h2>
+            <div class="scal-meta" id="scal-result-meta"></div>
+            <div class="scal-breaks" id="scal-result-breaks"></div>
+            <div class="scal-charts">
+                <div class="scal-chart">
+                    <h3>Tempo de execução por número de APs</h3>
+                    <p>Escala logarítmica. A linha tracejada é o limite de tempo; o marcador em X, o ponto de quebra.</p>
+                    <div class="scal-chart-box"><canvas id="scal-chart-time" aria-label="Tempo de execução por número de APs" role="img"></canvas></div>
+                </div>
+                <div class="scal-chart">
+                    <h3>Conflitos após a otimização por número de APs</h3>
+                    <p>Até o ponto de quebra do método exato, os conflitos dele são o ótimo.</p>
+                    <div class="scal-chart-box"><canvas id="scal-chart-conflicts" aria-label="Conflitos por número de APs" role="img"></canvas></div>
+                </div>
+            </div>
+            <details class="scal-details">
+                <summary>Tabela dos pontos medidos</summary>
+                <div class="scal-table-wrap">
+                    <table class="app-table app-table-compact scal-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">APs</th>
+                                <th scope="col">Arestas</th>
+                                <th scope="col">Densidade</th>
+                                <th scope="col">Estratégia</th>
+                                <th scope="col" title="Nas estratégias estocásticas, os valores são a média ± o desvio-padrão das repetições">Repetições</th>
+                                <th scope="col">Tempo (s)</th>
+                                <th scope="col">Conflitos</th>
+                                <th scope="col">Distância ao ótimo</th>
+                                <th scope="col">Interferência</th>
+                                <th scope="col">Potência (W)</th>
+                                <th scope="col">Nós explorados</th>
+                                <th scope="col" title="Tempo de CPU da análise x potência por núcleo (estimativa; ver docs/energy)">Energia do processamento (J)</th>
+                                <th scope="col">Parada</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scal-points"></tbody>
+                    </table>
+                </div>
+                <p class="scal-note">Cada repetição, com a semente usada, está no CSV.</p>
+            </details>
+        </div>
+
+        <div class="scal-card panel">
+            <h2>Histórico de execuções</h2>
             <div class="scal-table-wrap">
                 <table class="app-table app-table-compact scal-table">
                     <thead>
                         <tr>
-                            <th scope="col">APs</th>
-                            <th scope="col">Arestas</th>
-                            <th scope="col">Densidade</th>
-                            <th scope="col">Estratégia</th>
-                            <th scope="col">Tempo (s)</th>
-                            <th scope="col">Conflitos</th>
-                            <th scope="col">Distância ao ótimo</th>
-                            <th scope="col">Interferência</th>
-                            <th scope="col">Potência (W)</th>
-                            <th scope="col">Nós explorados</th>
-                            <th scope="col" title="Tempo de CPU da análise x potência por núcleo (estimativa; ver docs/energy)">Energia do processamento (J)</th>
-                            <th scope="col">Parada</th>
+                            <th scope="col">#</th>
+                            <th scope="col">Data</th>
+                            <th scope="col">Versão</th>
+                            <th scope="col">Parâmetros</th>
+                            <th scope="col">Situação</th>
+                            <th scope="col">Pontos de quebra</th>
+                            <th scope="col">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="scal-points"></tbody>
+                    <tbody id="scal-history"></tbody>
                 </table>
             </div>
-        </details>
+            <p class="scal-empty" id="scal-history-empty" hidden>Nenhuma execução registrada.</p>
+        </div>
+
     </div>
 
-    <div class="scal-card panel">
-        <h2>Histórico de execuções</h2>
-        <div class="scal-table-wrap">
-            <table class="app-table app-table-compact scal-table">
-                <thead>
-                    <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Data</th>
-                        <th scope="col">Versão</th>
-                        <th scope="col">Parâmetros</th>
-                        <th scope="col">Situação</th>
-                        <th scope="col">Pontos de quebra</th>
-                        <th scope="col">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="scal-history"></tbody>
-            </table>
+    {# Mapa do espectro: mesmo seletor de canais da página de Análise. #}
+    <div id="scal-spectrum-modal" class="modal spectrum-modal" role="dialog" aria-modal="true" aria-labelledby="scal-spectrum-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="scal-spectrum-title"><i class="fa-solid fa-sliders"></i> Canais disponíveis por faixa</h2>
+                <button type="button" class="btn-close" id="scal-spectrum-close" aria-label="Fechar"></button>
+            </div>
+            <div class="spectrum-modal-body">
+                <div id="scal-channels">
+                    <p class="scal-note">Carregando canais…</p>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="scal-spectrum-done">Concluir</button>
+            </div>
         </div>
-        <p class="scal-empty" id="scal-history-empty" hidden>Nenhuma execução registrada.</p>
     </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/channel-plan.js') }}"></script>
 <script src="{{ url_for('static', filename='js/scalability.js') }}"></script>
 {% endblock %}
