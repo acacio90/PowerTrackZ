@@ -671,3 +671,164 @@
     text-align: center;
     color: var(--color-text-muted);
 }
+
+/* ---------- Mapa do espectro ----------
+ * Escolha dos canais por faixa (channel-plan.js), num modal; usado na Análise e no teste de escalabilidade.
+ */
+.spectrum-modal {
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.spectrum-modal .modal-content {
+    width: min(1100px, 100%);
+    max-width: 1100px;
+    margin: 0 auto;
+    max-height: calc(100vh - 4rem);
+    overflow: hidden;
+}
+
+.spectrum-modal-body {
+    min-height: 0;
+    padding: var(--space-4);
+    overflow-y: auto;
+}
+
+.spectrum-modal .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.spectrum-legend {
+    margin: 0.25rem 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.spectrum-legend-overlap {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-warning);
+}
+
+.spectrum-band {
+    margin-top: 0.5rem;
+}
+
+.spectrum-band summary {
+    cursor: pointer;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-strong);
+}
+
+.spectrum-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.6rem 0 0.4rem;
+}
+
+.spectrum-actions-label {
+    align-self: center;
+    margin-left: 0.4rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.spectrum-body {
+    display: flex;
+    align-items: flex-start;
+}
+
+.spectrum-labels {
+    flex: 0 0 5.5rem;
+}
+
+.spectrum-label {
+    display: flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-muted);
+    border-bottom: 1px solid transparent;
+}
+
+.spectrum-label small {
+    margin-left: 0.2rem;
+    font-weight: var(--font-weight-regular);
+}
+
+.spectrum-axis-label {
+    height: 1.4rem;
+    font-weight: var(--font-weight-regular);
+}
+
+.spectrum-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.spectrum-canvas {
+    position: relative;
+}
+
+.spectrum-row {
+    position: relative;
+    border-bottom: 1px dashed var(--color-border);
+}
+
+.spectrum-bar {
+    position: absolute;
+    height: 22px;
+    padding: 0 2px;
+    overflow: hidden;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-muted);
+    font-size: var(--font-size-xs);
+    line-height: 20px;
+    color: var(--color-text);
+    white-space: nowrap;
+    text-overflow: clip;
+    cursor: pointer;
+}
+
+.spectrum-bar:hover {
+    border-color: var(--color-accent);
+}
+
+.spectrum-bar.is-selected {
+    border-color: var(--color-accent-hover);
+    background: var(--color-accent);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-on-accent);
+}
+
+.spectrum-bar.is-selected.is-overlapping {
+    border-color: var(--color-warning);
+    background: var(--color-warning);
+}
+
+.spectrum-bar:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 1px;
+}
+
+.spectrum-axis {
+    position: relative;
+    height: 1.4rem;
+    border-top: 1px solid var(--color-border-strong);
+}
+
+.spectrum-tick {
+    position: absolute;
+    top: 0.15rem;
+    transform: translateX(-50%);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}

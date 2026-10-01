@@ -21,7 +21,10 @@ from scalability import (  # noqa: E402
     ScalabilityRunner,
     instance_sizes,
     mark_interrupted_runs,
+    repetition_seed,
+    stochastic_broke,
     strategy_broke,
+    summarize_points,
     validate_parameters,
 )
 from version import read_version  # noqa: E402
@@ -31,19 +34,25 @@ OBJECTIVES = ["default", "energy_tiebreak", "energy_first"]
 STRATEGIES = [
     {"name": "backtracking", "implemented": True, "exact": True},
     {"name": "greedy", "implemented": True, "exact": False},
-    {"name": "local_search", "implemented": True, "exact": False, "family": "metaheuristic"},
+    {"name": "local_search", "implemented": True, "exact": False, "family": "metaheuristic",
+     "parameters": [{"name": "seed"}, {"name": "time_limit_seconds"}, {"name": "max_iterations"}]},
     {"name": "genetic", "implemented": False, "exact": False, "family": "metaheuristic"},
 ]
 
 
 class FakeAnalysisClient:
-    """Backtracking comprova o otimo ate 30 APs; o guloso leva 10 ms por AP e fica 2 conflitos acima do otimo."""
+    """Backtracking comprova o otimo ate 30 APs; o guloso leva 10 ms por AP e fica 2 conflitos acima do otimo.
+    A busca local (estocastica) da conflitos que dependem da semente e para pelo limite de tempo a partir de
+    time_limit_from APs nas sementes em time_limited_seeds (todas, se for None)."""
 
-    def __init__(self, cancel_at=None):
+    def __init__(self, cancel_at=None, time_limit_from=50, time_limited_seeds=None):
         self.calls = []
+        self.requests = []
         self.objectives_used = set()
         self.cancel_at = cancel_at
         self.runner = None
+        self.time_limit_from = time_limit_from
+        self.time_limited_seeds = time_limited_seeds
 
     def strategies(self):
         return STRATEGIES
@@ -54,8 +63,9 @@ class FakeAnalysisClient:
     def graph_metrics(self, aps):
         return {"edges": len(aps) - 1, "density": 0.1, "average_degree": 2.0}
 
-    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default"):
+    def analyze(self, aps, strategy, parameters, time_limit_seconds, objective="default", channels=None):
         self.calls.append((strategy, [ap["id"] for ap in aps]))
+        self.requests.append({"strategy": strategy, "size": len(aps), "parameters": dict(parameters), "channels": channels})
         self.objectives_used.add(objective)
         size = len(aps)
         if self.cancel_at == size and self.runner:
@@ -64,6 +74,11 @@ class FakeAnalysisClient:
             optimal = size <= 30
             search = {"optimal": optimal, "stop_reason": "completed" if optimal else "time_limit", "nodes_explored": size * 100}
             conflicts, duration_ms = 0, 5
+        elif strategy == "local_search":
+            seed = parameters["seed"]
+            limited = size >= self.time_limit_from and (self.time_limited_seeds is None or seed in self.time_limited_seeds)
+            search = {"optimal": False, "stop_reason": "time_limit" if limited else "no_improvement", "nodes_explored": size}
+            conflicts, duration_ms = 1 + seed % 4, 20
         else:
             search = {"optimal": False, "stop_reason": "completed", "nodes_explored": size}
             conflicts, duration_ms = 2, size * 10
@@ -106,7 +121,8 @@ class ScalabilityTests(unittest.TestCase):
             TEST_DB_PATH.unlink()
 
     def start(self, **parameters):
-        body = {"max_nodes": 100, "step": 10, "min_degree": 2, "seed": 7, "time_limit_seconds": 0.5, **parameters}
+        body = {"max_nodes": 100, "step": 10, "min_degree": 2, "seed": 7, "time_limit_seconds": 0.5,
+                "strategies": ["backtracking", "greedy"], **parameters}
         response = self.client.post("/experiments/scalability", json=body)
         self.assertEqual(response.status_code, 202, response.get_json())
         run_id = response.get_json()["run"]["id"]
@@ -161,11 +177,11 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(csv_response.mimetype, "text/csv")
         self.assertIn("attachment", csv_response.headers["Content-Disposition"])
         self.assertTrue(lines[0].startswith("run_id,commit,tag,seed,min_degree,time_limit_seconds,thread_count,nodes,"))
-        self.assertTrue(lines[0].endswith(",objective,cpu_seconds,processing_energy_j,processing_max_energy_j"))
+        self.assertTrue(lines[0].endswith(",objective,cpu_seconds,processing_energy_j,processing_max_energy_j,repetition,seed"))
         self.assertIn(",default,", lines[1])
         point = run["points"][0]
         self.assertAlmostEqual(point["processing_energy_j"], point["cpu_seconds"] * 3.25)
-        self.assertTrue(lines[1].endswith(f",{point['cpu_seconds']},{point['processing_energy_j']},{point['processing_max_energy_j']}"))
+        self.assertTrue(lines[1].endswith(f",{point['cpu_seconds']},{point['processing_energy_j']},{point['processing_max_energy_j']},1,"))
         self.assertEqual(len(lines), 1 + len(run["points"]))
         self.assertEqual(json.loads(json_response.get_data())["id"], run["id"])
 
@@ -187,7 +203,7 @@ class ScalabilityTests(unittest.TestCase):
 
     def test_rejects_invalid_parameters_and_concurrent_runs(self):
         invalid = (
-            {"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"strategies": ["local_search"]}, {"seed": -1},
+            {"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"seed": -1},
             {"objective": "energia"},
         )
         for body in invalid:
@@ -197,6 +213,64 @@ class ScalabilityTests(unittest.TestCase):
         self.runner._active_run = 999
         response = self.client.post("/experiments/scalability", json={})
         self.assertEqual(response.status_code, 409)
+
+    def test_stochastic_strategies_repeat_with_the_same_seeds_in_every_size(self):
+        run = self.start(strategies=["greedy", "local_search"], repetitions=3, max_nodes=30)
+        seeds = [repetition_seed(7, index) for index in range(3)]
+        local = [request for request in self.fake.requests if request["strategy"] == "local_search"]
+        greedy = [request for request in self.fake.requests if request["strategy"] == "greedy"]
+
+        self.assertEqual(len(greedy), 3)
+        self.assertEqual([request["parameters"]["seed"] for request in local], seeds * 3)
+        points = [point for point in run["points"] if point["strategy"] == "local_search"]
+        self.assertEqual([(point["nodes"], point["repetition"], point["seed"]) for point in points[:3]],
+                         [(10, 1, seeds[0]), (10, 2, seeds[1]), (10, 3, seeds[2])])
+        summary = next(item for item in run["summaries"] if item["strategy"] == "local_search" and item["nodes"] == 10)
+        conflicts = [1 + seed % 4 for seed in seeds]
+        self.assertEqual(summary["repetitions"], 3)
+        self.assertEqual(summary["conflicts"]["min"], min(conflicts))
+        self.assertEqual(summary["conflicts"]["max"], max(conflicts))
+        self.assertAlmostEqual(summary["conflicts"]["mean"], sum(conflicts) / 3)
+        self.assertEqual(run["strategies"][1]["stochastic"], True)
+        self.assertEqual(run["progress"], 1.0)
+
+    def test_stochastic_strategy_breaks_when_most_repetitions_stop_at_the_time_limit(self):
+        run = self.start(strategies=["local_search"], repetitions=3)
+        self.assertEqual(run["breaks"], {"local_search": 50})
+        self.assertEqual(max(point["nodes"] for point in run["points"]), 50)
+
+    def test_stochastic_strategy_does_not_break_with_a_minority_of_time_limit_stops(self):
+        self.fake.time_limited_seeds = {repetition_seed(7, 0)}
+        run = self.start(strategies=["local_search"], repetitions=3)
+        self.assertEqual(run["breaks"], {})
+        self.assertEqual(max(point["nodes"] for point in run["points"]), 100)
+
+    def test_forwards_the_strategy_parameters_and_the_channels(self):
+        channels = {"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}
+        self.start(
+            strategies=["greedy", "local_search"], repetitions=2, max_nodes=10, channels=channels,
+            strategy_parameters={"local_search": {"max_iterations": 500, "seed": 9, "time_limit_seconds": 99}},
+        )
+        local = [request for request in self.fake.requests if request["strategy"] == "local_search"]
+        greedy = next(request for request in self.fake.requests if request["strategy"] == "greedy")
+
+        # A semente e o limite de tempo sao do teste; os demais parametros sao os da estrategia.
+        self.assertEqual(local[0]["parameters"]["max_iterations"], 500)
+        self.assertEqual(local[0]["parameters"]["time_limit_seconds"], 0.5)
+        self.assertEqual([request["parameters"]["seed"] for request in local], [repetition_seed(7, 0), repetition_seed(7, 1)])
+        self.assertNotIn("max_iterations", greedy["parameters"])
+        self.assertTrue(all(request["channels"] == channels for request in self.fake.requests))
+
+    def test_rejects_invalid_repetitions_parameters_and_channels(self):
+        invalid = (
+            {"repetitions": 0}, {"repetitions": 101}, {"channels": "todos"},
+            {"strategy_parameters": {"tabu_search": {"tabu_tenure": 5}}},
+            {"strategy_parameters": {"greedy": {"x": [1]}}},
+        )
+        for body in invalid:
+            with self.subTest(body=body):
+                response = self.client.post("/experiments/scalability", json={"strategies": ["greedy"], **body})
+                self.assertEqual(response.status_code, 400)
 
     def test_marks_runs_left_running_as_interrupted(self):
         with main.app.app_context():
@@ -213,8 +287,31 @@ class ScalabilityTests(unittest.TestCase):
         self.assertTrue(strategy_broke(False, "completed", 10.5, 10))
         self.assertFalse(strategy_broke(False, "completed", 9.9, 10))
         parameters = validate_parameters({}, STRATEGIES)
-        self.assertEqual(parameters["strategies"], ["backtracking", "greedy"])
+        self.assertEqual(parameters["strategies"], ["backtracking", "greedy", "local_search"])
         self.assertIsInstance(parameters["seed"], int)
+        self.assertEqual((parameters["repetitions"], parameters["channels"], parameters["strategy_parameters"]), (1, "padrao", {}))
+
+    def test_repetition_seeds_are_derived_from_the_test_seed(self):
+        seeds = [repetition_seed(7, index) for index in range(5)]
+        self.assertEqual(seeds, [repetition_seed(7, index) for index in range(5)])
+        self.assertEqual(len(set(seeds)), 5)
+        self.assertNotEqual(seeds, [repetition_seed(8, index) for index in range(5)])
+        self.assertTrue(all(0 <= seed <= 2**32 - 1 for seed in seeds))
+
+    def test_stochastic_break_needs_a_majority_of_time_limit_stops(self):
+        self.assertTrue(stochastic_broke(["time_limit", "time_limit", "no_improvement"]))
+        self.assertFalse(stochastic_broke(["time_limit", "no_improvement", "no_improvement"]))
+        self.assertFalse(stochastic_broke(["time_limit", "iteration_limit"]))
+        self.assertTrue(stochastic_broke(["time_limit"]))
+
+    def test_summaries_report_mean_spread_best_and_worst(self):
+        points = [{"nodes": 10, "strategy": "local_search", "conflicts": value, "duration_seconds": 1.0, "broke": False}
+                  for value in (2, 4, 6)]
+        summary = summarize_points(points)[0]
+        self.assertEqual(summary["repetitions"], 3)
+        self.assertEqual(summary["conflicts"], {"mean": 4, "std": 2.0, "min": 2, "max": 6})
+        self.assertEqual(summary["duration_seconds"]["std"], 0.0)
+        self.assertIsNone(summary["power_w"]["mean"])
 
 
 class VersionTests(unittest.TestCase):

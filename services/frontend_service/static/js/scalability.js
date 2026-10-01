@@ -19,7 +19,16 @@ document.addEventListener('DOMContentLoaded', () => {
         failed: 'Falhou',
         interrupted: 'Interrompida',
     };
-    const STOP_LABELS = { completed: 'concluída', time_limit: 'limite de tempo', cancelled: 'cancelada' };
+    const STOP_LABELS = {
+        completed: 'concluída',
+        time_limit: 'limite de tempo',
+        cancelled: 'cancelada',
+        iteration_limit: 'limite de iterações',
+        no_improvement: 'sem melhora',
+        min_temperature: 'temperatura mínima',
+    };
+    // A semente, o limite de tempo e as threads sao do teste (iguais para todas as estrategias); o resto e de cada uma.
+    const SHARED_PARAMETERS = new Set(['seed', 'time_limit_seconds', 'thread_count']);
 
     const form = document.getElementById('scal-form');
     const strategiesBox = document.getElementById('scal-strategies');
@@ -35,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyEmpty = document.getElementById('scal-history-empty');
 
     let strategyOrder = [];
+    let strategyDetails = {};
+    let channelSelector = null;
     let displayNames = {};
     let objectiveLabels = {};
     let pollTimer = null;
@@ -84,16 +95,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function describeParameters(parameters) {
+        const own = Object.entries(parameters.strategy_parameters || {})
+            .filter(([, values]) => Object.keys(values).length)
+            .map(([name, values]) => `${strategyName(name)}: ${Object.entries(values).map(([key, value]) => `${key} ${value}`).join(', ')}`);
         return `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `
             + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s), `
-            + `critério ${objectiveLabel(parameters.objective)}`;
+            + `critério ${objectiveLabel(parameters.objective)}`
+            + `${parameters.repetitions > 1 ? `, ${parameters.repetitions} repetições` : ''}`
+            + `${parameters.channels && parameters.channels !== 'padrao' ? ', canais escolhidos' : ''}`
+            + `${own.length ? `; ${own.join('; ')}` : ''}`;
     }
 
     function describeBreak(run, strategy) {
         const size = run.breaks[strategy.name];
         if (size != null) {
-            return strategy.exact
-                ? `quebra em ${size} APs (ótimo não encontrado no limite)`
+            if (strategy.exact) return `quebra em ${size} APs (ótimo não encontrado no limite)`;
+            return strategy.stochastic
+                ? `quebra em ${size} APs (maioria das repetições no limite de tempo)`
                 : `quebra em ${size} APs (limite de tempo excedido)`;
         }
         const tested = (run.points || []).filter(point => point.strategy === strategy.name).map(point => point.nodes);
@@ -129,17 +147,84 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="${escapeHtml(objective.name)}" title="${escapeHtml(objective.description)}">${escapeHtml(objective.label)}</option>`).join('');
                 objectiveSelect.value = data.default_objective || objectives[0].name;
             }
-            // As metaheuristicas ainda nao entram no teste: o ponto de quebra delas depende de repeticoes por semente.
-            const implemented = details.filter(detail => detail.implemented && detail.family !== 'metaheuristic');
-            strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
-                <label>
-                    <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" checked>
-                    ${escapeHtml(strategyName(detail.name))}
-                    <span class="scal-kind">(${detail.exact ? 'exato' : 'sem garantia de ótimo'})</span>
-                </label>`).join('');
+            strategyDetails = details.reduce((byName, detail) => ({ ...byName, [detail.name]: detail }), {});
+            const implemented = details.filter(detail => detail.implemented);
+            // Exatas e construtivas vem marcadas; as metaheuristicas, repetidas por semente, sao escolhidas pelo usuario.
+            strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => {
+                const own = (detail.parameters || []).filter(parameter => !SHARED_PARAMETERS.has(parameter.name));
+                const stochastic = (detail.parameters || []).some(parameter => parameter.name === 'seed');
+                return `
+                <div class="scal-strategy">
+                    <label>
+                        <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" ${detail.family === 'metaheuristic' ? '' : 'checked'}>
+                        ${escapeHtml(strategyName(detail.name))}
+                        <span class="scal-kind">(${detail.exact ? 'exato' : stochastic ? 'estocástica' : 'sem garantia de ótimo'})</span>
+                    </label>
+                    ${own.length ? `
+                    <details class="scal-strategy-params">
+                        <summary>Parâmetros</summary>
+                        <div class="scal-param-grid">${own.map(parameter => renderParameter(detail.name, parameter)).join('')}</div>
+                    </details>` : ''}
+                </div>`;
+            }).join('');
         } catch (error) {
             strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)} Recarregue a página.</span>`;
         }
+    }
+
+    function parameterId(strategy, name) {
+        return `scal-param-${strategy}-${name}`;
+    }
+
+    // Campo de um parametro da estrategia, a partir da descricao de /strategies; o padrao vem preenchido.
+    function renderParameter(strategy, parameter) {
+        const id = parameterId(strategy, parameter.name);
+        const unit = parameter.unit ? ` (${escapeHtml(parameter.unit)})` : '';
+        const hint = `${parameter.description || ''}${parameter.zero_disables ? ' 0 desativa.' : ''}`;
+        if (parameter.type === 'choice') {
+            return `<div><label for="${id}" title="${escapeHtml(hint)}">${escapeHtml(parameter.label)}</label>
+                <select id="${id}" data-strategy="${escapeHtml(strategy)}" data-parameter="${escapeHtml(parameter.name)}">
+                ${(parameter.options || []).map(option => `<option value="${escapeHtml(option.value)}" ${option.value === parameter.default ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+                </select></div>`;
+        }
+        const value = parameter.default == null ? '' : parameter.default;
+        return `<div><label for="${id}" title="${escapeHtml(hint)}">${escapeHtml(parameter.label)}${unit}</label>
+            <input type="number" id="${id}" data-strategy="${escapeHtml(strategy)}" data-parameter="${escapeHtml(parameter.name)}"
+                   min="${parameter.min}" max="${parameter.max}" step="${parameter.type === 'integer' ? '1' : 'any'}" value="${value}"
+                   placeholder="${escapeHtml(parameter.optional_label || '')}"></div>`;
+    }
+
+    // Parametros proprios das estrategias marcadas; so os que diferem do padrao vao na requisicao.
+    function readStrategyParameters(strategies) {
+        const result = {};
+        const errors = [];
+        strategies.forEach(name => {
+            const values = {};
+            (strategyDetails[name]?.parameters || []).filter(parameter => !SHARED_PARAMETERS.has(parameter.name)).forEach(parameter => {
+                const field = document.getElementById(parameterId(name, parameter.name));
+                if (!field) return;
+                if (parameter.type === 'choice') {
+                    if (field.value !== parameter.default) values[parameter.name] = field.value;
+                    return;
+                }
+                const raw = field.value.trim().replace(',', '.');
+                if (raw === '') return;
+                const value = Number(raw);
+                if (!Number.isFinite(value) || (parameter.type === 'integer' && !Number.isInteger(value))
+                    || value < parameter.min || value > parameter.max) {
+                    errors.push(`${strategyName(name)}, ${parameter.label}: informe um valor entre ${parameter.min} e ${parameter.max}.`);
+                    return;
+                }
+                if (value !== parameter.default) values[parameter.name] = value;
+            });
+            if (Object.keys(values).length) result[name] = values;
+        });
+        return { result, error: errors[0] || null };
+    }
+
+    function channelsChosen() {
+        if (!channelSelector) return null;
+        return channelSelector.resumo().every(band => band.padrao) ? null : channelSelector.selecao();
     }
 
     function readForm() {
@@ -153,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             time_limit_seconds: Number(document.getElementById('scal-time-limit').value),
             thread_count: integer('scal-threads'),
             objective: objectiveSelect.value,
+            repetitions: integer('scal-repetitions'),
             strategies: [...strategiesBox.querySelectorAll('input[name="strategy"]:checked')].map(input => input.value),
         };
     }
@@ -164,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (parameters.seed !== null && (!Number.isInteger(parameters.seed) || parameters.seed < 0 || parameters.seed > 4294967295)) return 'A semente deve ser um inteiro entre 0 e 4294967295 ou ficar em branco.';
         if (!(parameters.time_limit_seconds > 0 && parameters.time_limit_seconds <= 3600)) return 'O limite de tempo deve ser maior que 0 e até 3600 s.';
         if (!Number.isInteger(parameters.thread_count) || parameters.thread_count < 1 || parameters.thread_count > 256) return 'As threads devem ser um inteiro entre 1 e 256.';
+        if (!Number.isInteger(parameters.repetitions) || parameters.repetitions < 1 || parameters.repetitions > 100) return 'As repetições devem ser um inteiro entre 1 e 100.';
         if (!parameters.strategies.length) return 'Selecione ao menos uma estratégia.';
         return null;
     }
@@ -211,9 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async event => {
         event.preventDefault();
         const parameters = readForm();
-        const invalid = validateForm(parameters);
+        const own = readStrategyParameters(parameters.strategies);
+        const channelError = channelSelector ? channelSelector.validar() : null;
+        const invalid = validateForm(parameters) || own.error || channelError;
         showError(invalid);
         if (invalid) return;
+        parameters.strategy_parameters = own.result;
+        const channels = channelsChosen();
+        if (channels) parameters.channels = channels;
         startButton.disabled = true;
         try {
             const { run } = await requestJson(API, {
@@ -232,23 +324,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function chartDatasets(run, valueOf) {
-        return (run.strategies || []).map(strategy => {
+    // Uma serie por estrategia, pela media de cada tamanho (nas deterministicas, o proprio valor); nas estocasticas,
+    // uma faixa sombreada do pior ao melhor valor das repeticoes mostra a dispersao.
+    function summariesOf(run, strategy) {
+        if (Array.isArray(run.summaries) && run.summaries.length) {
+            return run.summaries.filter(summary => summary.strategy === strategy).sort((a, b) => a.nodes - b.nodes);
+        }
+        // Execucoes antigas, sem resumo: um ponto por tamanho.
+        return (run.points || []).filter(point => point.strategy === strategy).map(point => ({
+            nodes: point.nodes, strategy, repetitions: 1, broke: point.broke,
+            duration_seconds: { mean: point.duration_seconds, std: 0, min: point.duration_seconds, max: point.duration_seconds },
+            conflicts: { mean: point.conflicts, std: 0, min: point.conflicts, max: point.conflicts },
+        }));
+    }
+
+    // Cor da serie com transparencia, para a faixa de dispersao (as cores dos tokens sao hexadecimais).
+    function withAlpha(color, alpha) {
+        const hex = String(color).trim().replace('#', '');
+        if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+        const [r, g, b] = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16));
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function chartDatasets(run, field, transform = value => value) {
+        const datasets = [];
+        (run.strategies || []).forEach(strategy => {
             const style = strategyStyle(strategy.name);
-            const points = (run.points || []).filter(point => point.strategy === strategy.name);
-            return {
+            const summaries = summariesOf(run, strategy.name).filter(summary => summary[field] && summary[field].mean != null);
+            datasets.push({
                 label: strategyName(strategy.name),
-                data: points.map(point => ({ x: point.nodes, y: valueOf(point), point })),
+                data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].mean), summary })),
                 borderColor: style.color,
                 backgroundColor: style.color,
                 borderWidth: 2,
-                pointStyle: points.map(point => (point.broke ? 'crossRot' : style.marker)),
-                pointRadius: points.map(point => (point.broke ? 9 : 4)),
-                pointBorderWidth: points.map(point => (point.broke ? 3 : 1)),
+                pointStyle: summaries.map(summary => (summary.broke ? 'crossRot' : style.marker)),
+                pointRadius: summaries.map(summary => (summary.broke ? 9 : 4)),
+                pointBorderWidth: summaries.map(summary => (summary.broke ? 3 : 1)),
                 pointHoverRadius: 7,
                 tension: 0,
-            };
+            });
+            if (summaries.some(summary => summary.repetitions > 1)) {
+                const band = {
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0,
+                    spread: true,
+                    backgroundColor: withAlpha(style.color, 0.18),
+                };
+                datasets.push({ ...band, label: `${strategyName(strategy.name)} (pior)`, data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].max) })), fill: false });
+                datasets.push({ ...band, label: `${strategyName(strategy.name)} (melhor)`, data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].min) })), fill: '-1' });
+            }
         });
+        return datasets;
+    }
+
+    function describeSummary(summary, field, format) {
+        const value = summary[field];
+        if (!value || value.mean == null) return '-';
+        if (summary.repetitions <= 1) return format(value.mean);
+        return `${format(value.mean)} ± ${format(value.std)} (melhor ${format(value.min)}, pior ${format(value.max)})`;
     }
 
     function renderChart(key, canvasId, datasets, yScale, tooltipLabel) {
@@ -275,8 +410,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                 },
                 plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, color: CHART_TEXT_STRONG } },
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, color: CHART_TEXT_STRONG, filter: item => !datasets[item.datasetIndex].spread },
+                    },
                     tooltip: {
+                        filter: item => !item.dataset.spread,
                         callbacks: {
                             title: items => `${items[0].parsed.x} APs`,
                             label: context => tooltipLabel(context),
@@ -306,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const limit = run.parameters.time_limit_seconds;
         const sizes = (run.points || []).map(point => point.nodes);
-        const timeDatasets = chartDatasets(run, point => Math.max(point.duration_seconds, 1e-5));
+        const timeDatasets = chartDatasets(run, 'duration_seconds', value => Math.max(value, 1e-5));
         if (sizes.length) {
             timeDatasets.push({
                 label: 'Limite de tempo',
@@ -323,34 +462,59 @@ document.addEventListener('DOMContentLoaded', () => {
             title: { display: true, text: 'Tempo (escala log)', color: CHART_TEXT },
             ticks: { callback: logTick, autoSkip: false },
         }, context => {
-            const point = context.raw.point;
-            if (!point) return `Limite de tempo: ${formatNumber(limit, 1)} s`;
-            return `${context.dataset.label}: ${formatSeconds(point.duration_seconds)}${point.broke ? ' (ponto de quebra)' : ''}`;
+            const summary = context.raw.summary;
+            if (!summary) return `Limite de tempo: ${formatNumber(limit, 1)} s`;
+            return `${context.dataset.label}: ${describeSummary(summary, 'duration_seconds', formatSeconds)}${summary.broke ? ' (ponto de quebra)' : ''}`;
         });
-        renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, point => point.conflicts), {
+        renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, 'conflicts'), {
             beginAtZero: true,
             title: { display: true, text: 'Conflitos', color: CHART_TEXT },
         }, context => {
-            const point = context.raw.point;
-            const gap = point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';
-            return `${context.dataset.label}: ${formatNumber(point.conflicts)} conflitos${point.optimal ? ' (ótimo)' : gap}`;
+            const summary = context.raw.summary;
+            const point = (run.points || []).find(item => item.strategy === summary.strategy && item.nodes === summary.nodes) || {};
+            const gap = summary.repetitions <= 1 && point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';
+            return `${context.dataset.label}: ${describeSummary(summary, 'conflicts', value => formatNumber(value, summary.repetitions > 1 ? 1 : 0))} conflitos${point.optimal ? ' (ótimo)' : gap}`;
         });
 
-        document.getElementById('scal-points').innerHTML = (run.points || []).map(point => `
-            <tr class="${point.broke ? 'is-broken' : ''}">
-                <td>${point.nodes}</td>
-                <td>${formatNumber(point.edges)}</td>
-                <td>${formatNumber(point.density, 3)}</td>
-                <td>${escapeHtml(strategyName(point.strategy))}${point.broke ? ' · quebra' : ''}</td>
-                <td>${formatSeconds(point.duration_seconds)}</td>
-                <td>${formatNumber(point.conflicts)}${point.optimal ? ' (ótimo)' : ''}</td>
-                <td>${point.gap_conflicts != null ? formatNumber(point.gap_conflicts) : '-'}</td>
-                <td>${formatNumber(point.interference, 1)}</td>
-                <td>${formatNumber(point.power_w, 1)}</td>
-                <td>${formatNumber(point.nodes_explored)}</td>
-                <td>${point.processing_energy_j != null ? formatNumber(point.processing_energy_j, 2) : '-'}</td>
-                <td>${escapeHtml(STOP_LABELS[point.stop_reason] || point.stop_reason)}</td>
-            </tr>`).join('');
+        // Uma linha por tamanho e estrategia; nas estocasticas, a media ± o desvio-padrao das repeticoes.
+        const rows = [];
+        (run.strategies || []).forEach(strategy => summariesOf(run, strategy.name).forEach(summary => rows.push(summary)));
+        rows.sort((a, b) => a.nodes - b.nodes || strategyOrder.indexOf(a.strategy) - strategyOrder.indexOf(b.strategy));
+        const spread = (summary, field, digits, format) => {
+            const value = summary[field];
+            if (!value || value.mean == null) return '-';
+            const main = format ? format(value.mean) : formatNumber(value.mean, summary.repetitions > 1 ? Math.max(digits, 1) : digits);
+            return summary.repetitions > 1
+                ? `${main} <span class="scal-spread">± ${format ? format(value.std) : formatNumber(value.std, Math.max(digits, 1))}</span>`
+                : main;
+        };
+        document.getElementById('scal-points').innerHTML = rows.map(summary => {
+            const points = (run.points || []).filter(point => point.strategy === summary.strategy && point.nodes === summary.nodes);
+            const first = points[0] || {};
+            const stops = points.reduce((counts, point) => ({ ...counts, [point.stop_reason]: (counts[point.stop_reason] || 0) + 1 }), {});
+            const stopText = Object.entries(stops)
+                .map(([reason, count]) => `${points.length > 1 ? `${count}× ` : ''}${STOP_LABELS[reason] || reason}`).join(', ');
+            const mean = field => {
+                const values = points.map(point => point[field]).filter(value => value != null);
+                return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+            };
+            return `
+            <tr class="${summary.broke ? 'is-broken' : ''}">
+                <td>${summary.nodes}</td>
+                <td>${formatNumber(first.edges)}</td>
+                <td>${formatNumber(first.density, 3)}</td>
+                <td>${escapeHtml(strategyName(summary.strategy))}${summary.broke ? ' · quebra' : ''}</td>
+                <td>${summary.repetitions}</td>
+                <td>${spread(summary, 'duration_seconds', 2, formatSeconds)}</td>
+                <td>${spread(summary, 'conflicts', 0)}${first.optimal ? ' (ótimo)' : ''}</td>
+                <td>${summary.repetitions <= 1 && first.gap_conflicts != null ? formatNumber(first.gap_conflicts) : '-'}</td>
+                <td>${spread(summary, 'interference', 1)}</td>
+                <td>${spread(summary, 'power_w', 1)}</td>
+                <td>${formatNumber(mean('nodes_explored'))}</td>
+                <td>${spread(summary, 'processing_energy_j', 2)}</td>
+                <td>${escapeHtml(stopText)}</td>
+            </tr>`;
+        }).join('');
         highlightSelected();
     }
 
@@ -409,6 +573,47 @@ document.addEventListener('DOMContentLoaded', () => {
             showError(error.message);
         }
     });
+
+    // Canais: o mesmo seletor da pagina de Analise, num modal; sem mudancas, o teste usa os perfis padrao.
+    const spectrumModal = document.getElementById('scal-spectrum-modal');
+    const openSpectrum = document.getElementById('scal-open-spectrum');
+    const channelsSummary = document.getElementById('scal-channels-summary');
+
+    function renderChannelsSummary() {
+        if (!channelSelector) return;
+        const bands = channelSelector.resumo().filter(band => band.k > 0);
+        const custom = bands.some(band => !band.padrao) || channelSelector.resumo().some(band => !band.padrao);
+        channelsSummary.textContent = `${custom ? 'Personalizados' : 'Perfis padrão'}: ${bands.map(band => `${band.rotulo} k = ${band.k}`).join(' · ')}`;
+    }
+
+    function setSpectrumModal(open) {
+        spectrumModal.style.display = open ? 'flex' : 'none';
+        (open ? document.getElementById('scal-spectrum-done') : openSpectrum).focus();
+        if (!open) renderChannelsSummary();
+    }
+
+    openSpectrum.addEventListener('click', () => setSpectrumModal(true));
+    document.getElementById('scal-spectrum-close').addEventListener('click', () => setSpectrumModal(false));
+    document.getElementById('scal-spectrum-done').addEventListener('click', () => setSpectrumModal(false));
+    spectrumModal.addEventListener('click', event => {
+        if (event.target === spectrumModal) setSpectrumModal(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && spectrumModal.style.display === 'flex') setSpectrumModal(false);
+    });
+    if (window.ChannelPlan) {
+        const container = document.getElementById('scal-channels');
+        window.ChannelPlan.carregar()
+            .then(plan => {
+                channelSelector = window.ChannelPlan.criarSeletor(container, plan);
+                container.addEventListener('channelplan:change', renderChannelsSummary);
+                renderChannelsSummary();
+                openSpectrum.disabled = false;
+            })
+            .catch(() => {
+                channelsSummary.textContent = 'Perfis padrão (não foi possível carregar o mapa do espectro; recarregue a página para escolher os canais).';
+            });
+    }
 
     loadStrategies().then(loadHistory);
 });
