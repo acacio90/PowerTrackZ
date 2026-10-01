@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await requestJson('/api/analysis/strategies');
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
-            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', genetic: 'Algoritmo genético' };
+            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', local_search: 'Busca local', genetic: 'Algoritmo genético' };
             const objectives = Array.isArray(data.objectives) ? data.objectives : [];
             if (objectives.length) {
                 objectiveLabels = objectives.reduce((byName, objective) => ({ ...byName, [objective.name]: objective.label }), {});
@@ -129,7 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <option value="${escapeHtml(objective.name)}" title="${escapeHtml(objective.description)}">${escapeHtml(objective.label)}</option>`).join('');
                 objectiveSelect.value = data.default_objective || objectives[0].name;
             }
-            const implemented = details.filter(detail => detail.implemented);
+            // As metaheuristicas ainda nao entram no teste: o ponto de quebra delas depende de repeticoes por semente.
+            const implemented = details.filter(detail => detail.implemented && detail.family !== 'metaheuristic');
             strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
                 <label>
                     <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" checked>

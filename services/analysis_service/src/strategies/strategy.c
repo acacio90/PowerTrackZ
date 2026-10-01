@@ -2,6 +2,8 @@
 
 #include "strategy.h"
 #include "backtracking.h"
+#include "local_search.h"
+#include "metaheuristic.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -67,6 +69,22 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
     },
 };
 
+static ProposedConfig *run_local_search(
+    const Graph *graph,
+    const AnalysisExecutionContext *context,
+    AssignmentStats *stats
+) {
+    return build_local_search_proposals(graph, context, stats);
+}
+
+static const StrategyParameter LOCAL_SEARCH_PARAMETERS[] = {
+    META_SEED_PARAMETER,
+    META_TIME_LIMIT_PARAMETER,
+    META_MAX_ITERATIONS_PARAMETER,
+    META_STAGNATION_PARAMETER,
+    META_INITIAL_SOLUTION_PARAMETER,
+};
+
 #define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
 
 static const AnalysisStrategy STRATEGIES[] = {
@@ -89,6 +107,17 @@ static const AnalysisStrategy STRATEGIES[] = {
         .parameters = NULL,
         .parameter_count = 0,
         .run = run_greedy,
+    },
+    {
+        .name = "local_search",
+        .description = "Busca local: troca o perfil de um AP sorteado e aceita a troca se não piorar a solução; referência para as metaheurísticas.",
+        .mode = "sequential",
+        .family = "metaheuristic",
+        .exact = false,
+        .parameters = LOCAL_SEARCH_PARAMETERS,
+        .parameter_count = PARAMETER_COUNT(LOCAL_SEARCH_PARAMETERS),
+        .run = run_local_search,
+        .validate = meta_validate_parameters,
     },
     {
         .name = "genetic",
@@ -147,6 +176,17 @@ bool validate_strategy_parameters(const AnalysisStrategy *strategy, cJSON *param
         if (!item || cJSON_IsNull(item)) {
             continue;
         }
+        if (parameter->type == STRATEGY_PARAMETER_CHOICE) {
+            bool known = false;
+            for (size_t option = 0; cJSON_IsString(item) && option < parameter->option_count; option++) {
+                known = known || strcmp(item->valuestring, parameter->options[option].value) == 0;
+            }
+            if (!known) {
+                snprintf(error, error_size, "O parâmetro %s tem um valor desconhecido. Use uma das opções listadas em /strategies.", parameter->name);
+                return false;
+            }
+            continue;
+        }
         if (!cJSON_IsNumber(item)) {
             snprintf(error, error_size, "O parâmetro %s deve ser numérico.", parameter->name);
             return false;
@@ -168,7 +208,7 @@ bool validate_strategy_parameters(const AnalysisStrategy *strategy, cJSON *param
             return false;
         }
     }
-    return true;
+    return strategy->validate ? strategy->validate(parameters, error, error_size) : true;
 }
 
 // Valor informado para o parametro, o padrao da estrategia ou, se ela nao o declara, o valor de reserva.
@@ -181,12 +221,42 @@ double strategy_parameter_value(const AnalysisStrategy *strategy, cJSON *paramet
     return cJSON_IsNumber(item) ? item->valuedouble : parameter->default_value;
 }
 
+const char *strategy_parameter_option(const AnalysisStrategy *strategy, cJSON *parameters, const char *name) {
+    const StrategyParameter *parameter = find_strategy_parameter(strategy, name);
+    if (!parameter || parameter->type != STRATEGY_PARAMETER_CHOICE) {
+        return NULL;
+    }
+    cJSON *item = cJSON_IsObject(parameters) ? cJSON_GetObjectItemCaseSensitive(parameters, name) : NULL;
+    for (size_t option = 0; cJSON_IsString(item) && option < parameter->option_count; option++) {
+        if (strcmp(item->valuestring, parameter->options[option].value) == 0) {
+            return parameter->options[option].value;
+        }
+    }
+    return parameter->default_option;
+}
+
+bool strategy_parameter_given(cJSON *parameters, const char *name) {
+    cJSON *item = cJSON_IsObject(parameters) ? cJSON_GetObjectItemCaseSensitive(parameters, name) : NULL;
+    return cJSON_IsNumber(item);
+}
+
 const char *strategy_parameter_type_name(StrategyParameterType type) {
-    return type == STRATEGY_PARAMETER_INTEGER ? "integer" : "number";
+    switch (type) {
+        case STRATEGY_PARAMETER_INTEGER:
+            return "integer";
+        case STRATEGY_PARAMETER_CHOICE:
+            return "choice";
+        default:
+            return "number";
+    }
 }
 
 const char *assignment_stop_reason_name(AssignmentStopReason reason) {
     switch (reason) {
+        case ASSIGNMENT_STOP_NO_IMPROVEMENT:
+            return "no_improvement";
+        case ASSIGNMENT_STOP_ITERATION_LIMIT:
+            return "iteration_limit";
         case ASSIGNMENT_STOP_TIME_LIMIT:
             return "time_limit";
         case ASSIGNMENT_STOP_CANCELLED:

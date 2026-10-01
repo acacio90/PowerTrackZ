@@ -105,10 +105,16 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
   "exact": true,
   "family": "exact",
   "parameters": [
-    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true},
-    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false}
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true, "optional": false},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false, "optional": false}
   ]
 }
+```
+
+An optional parameter (`optional: true`) has no default (`default` is null): it is the metaheuristics' seed, which the service draws when it is not given. A choice parameter (`type: "choice"`) lists its options in `options`, with `value` and `label`, and the default option in `default`, without `min` and `max`:
+
+```json
+{"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
 ```
 
 In the same response, `objectives` lists the accepted optimization criteria, and `default_objective`, the default:
@@ -119,7 +125,20 @@ In the same response, `objectives` lists the accepted optimization criteria, and
 
 The analysis routes receive the criterion in the `objective` field (`default`, `energy_tiebreak` or `energy_first`; without the field, `default`) and report it in `execution.objective`. An unknown objective returns HTTP 400.
 
-The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+The analysis routes receive these values in `parameters`. Values outside the declared type or range, and options outside the list, return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+
+In the metaheuristics (`metaheuristic` family, currently `local_search`), the response also reports:
+
+- `execution.seed`: the seed used, given in `parameters.seed` or drawn; repeating the request with it reproduces the result (except when the search stops at the time limit);
+- `execution.search.iterations` and, in each band, `search.iterations`: the iterations run;
+- `stop_reason`: besides `completed`, `time_limit` and `cancelled`, the reasons `iteration_limit` (iteration limit) and `no_improvement` (iterations without improvement);
+- `execution.bands[].convergence`: the band's convergence curve, with the best solution at the initial solution, at each improvement and at the end:
+
+```json
+[{"iteration": 0, "time_ms": 0.2, "conflicts": 10, "interference": 241.4, "bandwidth": 240, "power_w": 111.0}, {"iteration": 11, "time_ms": 0.3, "conflicts": 9, "interference": 230.9, "bandwidth": 240, "power_w": 111.0}]
+```
+
+On the *streaming* route, the metaheuristics' progress includes `iteration`.
 
 `POST /graph-metrics` takes `aps`, like the analysis routes, and returns the metrics of the graph the analysis would build (`nodes`, `edges`, `density`, `average_degree` and `max_degree`), in total and in `bands`, without running a strategy. APs without `raio` use the band's default radius: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz.
 
