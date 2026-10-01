@@ -34,6 +34,8 @@ typedef struct {
 
 void *assignment_malloc(size_t size, const char *what);
 double assignment_monotonic_seconds(void);
+// Tempo de CPU (s) consumido ate agora pela thread que chama.
+double assignment_thread_cpu_seconds(void);
 double assignment_bandwidth_score(const char *bandwidth);
 bool assignment_same_band(const char *left, const char *right);
 

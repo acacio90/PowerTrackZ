@@ -482,6 +482,40 @@ class AnalysisServiceBacktrackingTests(AnalysisServiceTestCase):
         self.assertLessEqual(search["conflicts"], search["greedy_conflicts"])
         self.assertEqual(result["execution"]["parameters"]["time_limit_seconds"], 1)
 
+    def test_reports_the_processing_cpu_time_and_estimated_energy(self):
+        aps = self.random_aps(40, seed=12)
+        for strategy in ("greedy", "backtracking", "local_search"):
+            with self.subTest(strategy=strategy):
+                parameters = {"time_limit_seconds": 1} if strategy != "greedy" else {}
+                execution = self.post_json("/analyze-graph", {"aps": aps, "strategy": strategy, "parameters": parameters})["execution"]
+                processing = execution["processing"]
+                self.assertGreaterEqual(processing["cpu_seconds"], 0)
+                # Padrao do i7-14700 da maquina de desenvolvimento: 65 W / 20 e 219 W / 20 por nucleo.
+                self.assertAlmostEqual(processing["core_power_w"], 3.25)
+                self.assertAlmostEqual(processing["max_core_power_w"], 10.95)
+                self.assertAlmostEqual(processing["energy_j"], processing["cpu_seconds"] * 3.25)
+                self.assertAlmostEqual(processing["max_energy_j"], processing["cpu_seconds"] * 10.95)
+                self.assertAlmostEqual(
+                    processing["cpu_seconds"],
+                    sum(band["processing"]["cpu_seconds"] for band in execution["bands"]),
+                )
+
+    def test_processing_cpu_time_counts_every_search_thread(self):
+        # Busca que para pelo limite de tempo: com 4 threads, o mesmo tempo de relogio gasta cerca de 4 vezes a CPU.
+        aps = self.random_aps(150, seed=7, spread=0.002)
+        cpu = {}
+        for threads in (1, 4):
+            execution = self.post_json(
+                "/analyze-graph",
+                {"aps": aps, "strategy": "backtracking", "parameters": {"thread_count": threads, "time_limit_seconds": 1}},
+                timeout=60,
+            )["execution"]
+            self.assertEqual(execution["search"]["stop_reason"], "time_limit")
+            cpu[threads] = execution["processing"]["cpu_seconds"]
+            self.assertLessEqual(cpu[threads], threads * execution["duration_seconds"] + 0.5)
+        self.assertGreater(cpu[1], 0.5)
+        self.assertGreater(cpu[4], 2.5 * cpu[1])
+
     def test_analyzes_one_thousand_access_points(self):
         aps = self.random_aps(1000, seed=50, spread=0.01)
         for index, ap in enumerate(aps):

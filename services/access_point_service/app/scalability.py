@@ -38,6 +38,8 @@ POINT_FIELDS = [
     "conflicts_before", "conflicts", "interference_before", "interference", "power_w", "nodes_explored",
     "optimal", "stop_reason", "broke", "gap_conflicts", "gap_interference",
 ]
+# Colunas acrescentadas depois de "objective" no CSV (#124): tempo de CPU e energia estimada do processamento.
+PROCESSING_FIELDS = ["cpu_seconds", "processing_energy_j", "processing_max_energy_j"]
 
 
 class ScalabilityConflict(Exception):
@@ -171,6 +173,7 @@ def build_point(size, metrics, strategy, exact, result, wall_seconds, time_limit
     execution = result.get("execution") or {}
     search = execution.get("search") or {}
     comparison = execution.get("comparison") or {}
+    processing = execution.get("processing") or {}
     duration_seconds = (execution.get("duration_ms") or 0) / 1000.0
     stop_reason = search.get("stop_reason", "completed")
     return {
@@ -193,6 +196,9 @@ def build_point(size, metrics, strategy, exact, result, wall_seconds, time_limit
         "broke": strategy_broke(exact, stop_reason, duration_seconds, time_limit_seconds),
         "gap_conflicts": None,
         "gap_interference": None,
+        "cpu_seconds": processing.get("cpu_seconds"),
+        "processing_energy_j": processing.get("energy_j"),
+        "processing_max_energy_j": processing.get("max_energy_j"),
     }
 
 
@@ -232,7 +238,7 @@ def run_to_csv(run):
     version = data["version"]
     parameters = data["parameters"]
     # Colunas novas entram no fim, para nao deslocar as existentes (leitura por posicao continua valida).
-    header = ["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS + ["objective"]
+    header = ["run_id", "commit", "tag", "seed", "min_degree", "time_limit_seconds", "thread_count"] + POINT_FIELDS + ["objective"] + PROCESSING_FIELDS
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(header)
@@ -243,7 +249,7 @@ def run_to_csv(run):
         ] + [point.get(field) for field in POINT_FIELDS] + [
             # Execucoes anteriores ao criterio configuravel usaram o objetivo padrao.
             parameters.get("objective", "default"),
-        ])
+        ] + [point.get(field) for field in PROCESSING_FIELDS])
     return output.getvalue()
 
 

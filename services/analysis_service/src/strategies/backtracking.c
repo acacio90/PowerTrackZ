@@ -65,6 +65,8 @@ typedef struct {
     atomic_int stop_reason;
     double deadline;
     atomic_llong nodes_explored;
+    // Tempo de CPU somado das threads de busca (protegido por best_lock).
+    double worker_cpu_seconds;
     Job *job;
     int stream_fd;
     pthread_mutex_t *stream_lock;
@@ -287,6 +289,7 @@ static void search_depth(WorkerState *worker, int depth) {
 // Consome tarefas da fila compartilhada ate esgota-la ou ate a busca ser interrompida.
 static void *search_worker(void *arg) {
     ParallelSearch *search = arg;
+    double cpu_started = assignment_thread_cpu_seconds();
     const SearchSetup *setup = search->setup;
     int node_count = setup->graph->node_count;
     WorkerState worker = {
@@ -315,6 +318,9 @@ static void *search_worker(void *arg) {
 
     atomic_fetch_add(&search->nodes_explored, worker.visits);
     free(worker.profiles);
+    pthread_mutex_lock(&search->best_lock);
+    search->worker_cpu_seconds += assignment_thread_cpu_seconds() - cpu_started;
+    pthread_mutex_unlock(&search->best_lock);
     return NULL;
 }
 
@@ -424,6 +430,8 @@ ProposedConfig *build_backtracking_proposals(
     }
     if (started == 0) {
         search_worker(&search);
+        // Sem threads auxiliares, a busca rodou na thread que chamou, cujo tempo de CPU e medido por quem chama.
+        search.worker_cpu_seconds = 0.0;
     }
     for (int worker_index = 0; worker_index < started; worker_index++) {
         pthread_join(workers[worker_index], NULL);
@@ -442,6 +450,7 @@ ProposedConfig *build_backtracking_proposals(
             .interference_score = search.best_cost.interference,
             .bandwidth_score = search.best_cost.bandwidth,
             .power_score_w = search.best_cost.power_mw / 1000.0,
+            .worker_cpu_seconds = search.worker_cpu_seconds,
         };
     }
     analysis_log(

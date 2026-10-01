@@ -15,6 +15,12 @@ double assignment_monotonic_seconds(void) {
     return ts.tv_sec + (ts.tv_nsec / 1000000000.0);
 }
 
+double assignment_thread_cpu_seconds(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return ts.tv_sec + (ts.tv_nsec / 1000000000.0);
+}
+
 void *assignment_malloc(size_t size, const char *what) {
     void *memory = malloc(size > 0 ? size : 1);
     if (!memory) {

@@ -176,6 +176,14 @@ A potência de cada AP segue o modelo de Dembélé et al. (2023): a potência m�
 
 Configurações fora da tabela (160 MHz e 6 GHz) não têm valor no modelo e ficam fora das somas. Cada nó de `graph_data.nodes` traz `power_w` (configuração atual) e `proposed_power_w` (configuração proposta), nulos fora do modelo; `graph_data` traz `power_w`, o total da configuração exibida, e `power_unmodeled_nodes`. Em `execution.comparison` e em cada faixa de `execution.bands`, `power_before_w` e `power_after_w` dão o total antes e depois da otimização, e `power_unmodeled_before` e `power_unmodeled_after`, os APs fora do modelo. A conversão para energia e custo no período escolhido é feita pela interface.
 
+## Energia do Processamento
+
+Além do consumo dos APs, a resposta estima a energia gasta pelo processador para calcular a configuração (#124; investigação e método em [docs/energy](../../docs/energy/README.pt-BR.md)). O serviço mede o tempo de CPU de cada estratégia em cada faixa: o da *thread* que atende a requisição mais o das *threads* auxiliares que a estratégia cria (as do backtracking), sem misturar análises simultâneas. A energia estimada é o tempo de CPU multiplicado pela potência por núcleo.
+
+`execution.processing` (o total) e cada `execution.bands[].processing` trazem `cpu_seconds`, `core_power_w`, `max_core_power_w`, `energy_j` (tempo de CPU × `core_power_w`) e `max_energy_j` (tempo de CPU × `max_core_power_w`). A medição cobre a execução das estratégias, e não a montagem do grafo nem a serialização da resposta.
+
+A potência por núcleo vem das variáveis de ambiente `ANALYSIS_CORE_POWER_W` e `ANALYSIS_MAX_CORE_POWER_W` (no `.env`). Sem elas, valem os valores do Intel Core i7-14700 da máquina de desenvolvimento: a potência base dividida pelos núcleos (65 W / 20 = 3,25 W) e a potência turbo máxima dividida pelos núcleos (219 W / 20 = 10,95 W). Em outra máquina, informe os valores do processador dela. A energia é uma estimativa: não captura a frequência, o turbo, a diferença entre núcleos de desempenho e de eficiência, a memória nem o consumo em repouso; a proporção entre as estratégias não depende do coeficiente.
+
 ## Grafo por Faixa e Canais Disponíveis
 
 O raio de cobertura de cada AP vem do campo `raio` (em metros); sem ele, vale o padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz, os mesmos valores da interface e do gerador. `POST /graph-metrics` devolve as métricas desse grafo (nós, arestas, densidade, grau médio e grau máximo, no total e por faixa) sem executar estratégia.

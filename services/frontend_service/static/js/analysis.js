@@ -486,6 +486,9 @@ window.addEventListener('DOMContentLoaded', function() {
             const tabu = search.tabu_rejections != null
                 ? ` | ${Number(search.evaluated_moves).toLocaleString('pt-BR')} movimentos avaliados, ${Number(search.tabu_rejections).toLocaleString('pt-BR')} proibidos, ${Number(search.aspirations).toLocaleString('pt-BR')} por aspiração`
                 : '';
+            const processing = band.processing && band.processing.cpu_seconds != null
+                ? ` | CPU ${formatNumber(band.processing.cpu_seconds, 3)} s, ${formatNumber(band.processing.energy_j, 2)} J`
+                : '';
             const genetic = search.population_size != null
                 ? ` | população ${search.population_size}, ${Number(search.evaluations).toLocaleString('pt-BR')} avaliações`
                 : '';
@@ -495,7 +498,7 @@ window.addEventListener('DOMContentLoaded', function() {
             return `
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
-                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing}${tabu}${genetic}${hybrid} | ${describeSearchOutcome(strategy, search)}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing}${tabu}${genetic}${hybrid}${processing} | ${describeSearchOutcome(strategy, search)}</span>
                 </div>`;
         }).join('');
     }
@@ -560,6 +563,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Densidade de conflitos (antes / depois)</span>
                     <span class="analysis-execution-value">${comparison.conflict_density_before != null ? comparison.conflict_density_before : '-'} / ${comparison.conflict_density_after != null ? comparison.conflict_density_after : '-'}</span>
+                </div>
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label" title="Tempo de CPU da análise x potência por núcleo; é uma estimativa (ver docs/energy)">Processamento (energia estimada)</span>
+                    <span class="analysis-execution-value">${escapeHtml(describeProcessing(execution.processing))}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Parâmetros</span>
@@ -810,6 +817,16 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // Variacao de uma metrica em que menor e melhor (conflitos, interferencia, consumo): o sinal e a seta
     // acompanham a cor, para a leitura nao depender so dela.
+    // Energia estimada do processamento (tempo de CPU x potencia por nucleo; ver docs/energy).
+    function describeProcessing(processing) {
+        if (!processing || processing.cpu_seconds == null) {
+            return '-';
+        }
+        const digits = processing.energy_j < 10 ? 2 : 1;
+        return `${formatNumber(processing.cpu_seconds, 3)} s de CPU · ${formatNumber(processing.energy_j, digits)} J `
+            + `(até ${formatNumber(processing.max_energy_j, digits)} J no turbo; ${formatNumber(processing.core_power_w, 2)} W por núcleo)`;
+    }
+
     function formatInteger(value) {
         return value == null ? '-' : Number(value).toLocaleString('pt-BR');
     }
@@ -999,6 +1016,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 · ${escapeHtml(getObjectiveLabel(execution.objective || 'default'))}
                 · ${execution.duration_ms != null ? `${Number(execution.duration_ms).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ms` : '-'}
                 · ${escapeHtml(solution)}
+                ${execution.processing ? `· processamento ≈ ${formatNumber(execution.processing.energy_j, execution.processing.energy_j < 10 ? 2 : 1)} J <span class="analysis-summary-unit" title="Tempo de CPU da análise x potência por núcleo; é uma estimativa">(estimativa)</span>` : ''}
             </p>
             <div class="analysis-summary-cards">
                 <div class="panel panel-muted panel-compact analysis-summary-item">

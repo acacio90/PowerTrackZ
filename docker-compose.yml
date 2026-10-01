@@ -12,6 +12,8 @@ services:
       - PORT=5002
       - ACCESS_POINT_SERVICE_URL=${ACCESS_POINT_SERVICE_URL}
       - ANALYSIS_HTTP_TIMEOUT=${ANALYSIS_HTTP_TIMEOUT}
+      - ANALYSIS_CORE_POWER_W=${ANALYSIS_CORE_POWER_W:-}
+      - ANALYSIS_MAX_CORE_POWER_W=${ANALYSIS_MAX_CORE_POWER_W:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 10s
