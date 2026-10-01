@@ -403,7 +403,7 @@ class AnalysisServiceBacktrackingTests(AnalysisServiceTestCase):
         self.assertIn("genetic", families)
         self.assertEqual(set(families.values()), {"metaheuristic"})
         self.assertEqual(details["greedy"]["parameters"], [])
-        self.assertFalse(details["genetic"]["implemented"])
+        self.assertTrue(details["genetic"]["implemented"])
         self.assertTrue(details["backtracking"]["exact"])
         self.assertFalse(details["greedy"]["exact"])
         self.assertFalse(details["genetic"]["exact"])

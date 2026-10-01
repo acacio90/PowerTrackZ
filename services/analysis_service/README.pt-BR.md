@@ -13,7 +13,7 @@ Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a c
 | `local_search` | Busca local sobre a base comum das metaheurísticas (seção abaixo): a cada iteração, troca o perfil de um AP sorteado e aceita a troca se ela não piorar a solução no critério de otimização. Não garante o ótimo; serve de referência para as metaheurísticas. |
 | `simulated_annealing` | Simulated Annealing sobre a base comum: aceita pioras com a probabilidade de Metropolis, que diminui com a temperatura (seção abaixo). Não garante o ótimo. |
 | `tabu_search` | Busca Tabu sobre a base comum: aplica a melhor troca de perfil não proibida, mesmo que pior, e proíbe por um tempo desfazê-la (seção abaixo). Não garante o ótimo. |
-| `genetic` | Ainda não implementada (retorna um *placeholder*). |
+| `genetic` | Algoritmo Genético sobre a base comum: seleção por torneio, cruzamento, mutação e elitismo (seção abaixo). Não garante o ótimo. |
 
 ## Parâmetros
 
@@ -29,7 +29,7 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 | `local_search` | `max_iterations_without_improvement` | inteiro | `100000` | 0 a 10⁹ | Para a busca na faixa depois deste número de iterações sem melhorar a melhor solução. `0` desativa o critério. |
 | `local_search` | `initial_solution` | escolha | `greedy` | `greedy`, `random` | Solução inicial: a do guloso ou um perfil aleatório para cada AP. |
 
-As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Os parâmetros do `simulated_annealing` e da `tabu_search` estão nas seções de cada uma. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
+A estratégia `greedy` não tem parâmetros configuráveis. Os parâmetros do `simulated_annealing`, da `tabu_search` e do `genetic` estão nas seções de cada um. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
 
 `GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo, e `optional_label` diz o que acontece sem valor, como `Sorteada` ou `Estimada`). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
 
@@ -107,6 +107,33 @@ Cada faixa de `execution.bands` traz em `search`: `evaluated_moves` (movimentos 
 | `candidate_nodes` | inteiro | `20` | 1 a 10.000 | APs sorteados a cada iteração, cujas trocas de perfil são todas avaliadas. |
 
 Além desses, a Busca Tabu aceita os parâmetros comuns das metaheurísticas. Cada iteração avalia dezenas de movimentos, então, com os padrões, a busca costuma parar pelo limite de tempo.
+
+## Algoritmo Genético
+
+A estratégia `genetic` (`src/strategies/genetic.c`) evolui uma população de soluções. Cada indivíduo é uma solução da base comum (um perfil por AP), e a aptidão é o custo do critério de otimização, comparado pela ordem lexicográfica do objetivo, sem converter os componentes num número. Na base comum, cada iteração é uma geração: `generations` é o limite de iterações, e `max_iterations_without_improvement` conta gerações.
+
+- **População inicial.** O guloso, cópias dele mutadas (até a fração `greedy_fraction` da população, para que não sejam idênticas) e, no restante, soluções aleatórias.
+- **Seleção.** Por torneio: sorteia `tournament_size` indivíduos, com reposição, e vence o melhor. O torneio foi escolhido por usar só comparações entre custos, o que preserva a ordem lexicográfica; a roleta exigiria uma aptidão numérica.
+- **Cruzamento.** Com probabilidade `crossover_rate`, o filho vem do cruzamento de dois pais; sem ele, copia o primeiro. No uniforme (`uniform`, padrão), cada AP herda o perfil de um dos pais, ao acaso; no de um ponto (`one_point`), os APs antes de um corte, na ordem do grafo, vêm do primeiro pai, e os demais, do segundo. O uniforme é o padrão porque a ordem dos APs no grafo não reflete a vizinhança entre eles, e o de um ponto separa APs vizinhos ao acaso.
+- **Mutação.** Cada AP móvel do filho troca, com probabilidade `mutation_rate`, para outro perfil permitido da sua faixa.
+- **Elitismo.** Os `elitism` melhores indivíduos passam intactos para a geração seguinte; com elite, a melhor aptidão de uma geração nunca piora.
+- **APs travados.** Ficam iguais em todos os indivíduos: os dois pais têm o mesmo perfil neles, e a mutação só altera APs móveis.
+
+A melhor solução encontrada é devolvida. Cada faixa de `execution.bands` traz em `search`: `population_size`, `evaluations` (soluções avaliadas, a população inicial mais os filhos de cada geração) e `generation_best_worsened` (gerações em que a melhor da população piorou em relação à anterior; zero com elite).
+
+| Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+|---|---|---|---|---|
+| `population_size` | inteiro | `50` | 4 a 10.000 | Indivíduos em cada geração. |
+| `generations` | inteiro | `1000` | 0 a 10⁷ | Número máximo de gerações em cada faixa; `0` desativa o limite. |
+| `max_iterations_without_improvement` | inteiro | `200` | 0 a 10⁷ | Gerações sem melhorar a melhor solução; `0` desativa o critério. |
+| `greedy_fraction` | número | `0.1` | 0 a 1 | Fração da população inicial que parte do guloso. |
+| `crossover` | escolha | `uniform` | `uniform`, `one_point` | Tipo de cruzamento. |
+| `crossover_rate` | número | `0.9` | 0 a 1 | Probabilidade de cruzamento. |
+| `mutation_rate` | número | `0.02` | 0 a 1 | Probabilidade de mutação de cada AP. |
+| `tournament_size` | inteiro | `3` | 1 a 10.000 | Indivíduos por torneio; não pode passar da população. |
+| `elitism` | inteiro | `2` | 0 a 9.999 | Indivíduos da elite; precisa ser menor que a população. |
+
+Além desses, o AG aceita a semente (`seed`) e o limite de tempo (`time_limit_seconds`); pelo menos um dos critérios de parada (tempo, gerações ou gerações sem melhora) precisa estar ativo.
 
 ## Interferência
 

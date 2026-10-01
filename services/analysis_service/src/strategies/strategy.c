@@ -6,6 +6,7 @@
 #include "metaheuristic.h"
 #include "simulated_annealing.h"
 #include "tabu_search.h"
+#include "genetic.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -209,6 +210,26 @@ static const StrategyParameter TABU_SEARCH_PARAMETERS[] = {
     META_INITIAL_SOLUTION_PARAMETER,
 };
 
+static ProposedConfig *run_genetic(
+    const Graph *graph,
+    const AnalysisExecutionContext *context,
+    AssignmentStats *stats
+) {
+    return build_genetic_proposals(graph, context, stats);
+}
+
+static const StrategyParameterOption CROSSOVER_OPTIONS[] = {
+    {"uniform", "Uniforme"},
+    {"one_point", "Um ponto"},
+};
+
+// Parametros do Algoritmo Genetico, compartilhados com o AG hibrido.
+#define GENETIC_PARAMETERS     META_SEED_PARAMETER,     META_TIME_LIMIT_PARAMETER,     {         .name = "population_size",         .label = "População",         .description = "Número de indivíduos (soluções) em cada geração.",         .type = STRATEGY_PARAMETER_INTEGER,         .default_value = 50,         .min_value = 4,         .max_value = 10000,         .advanced = false,     },     {         .name = "generations",         .label = "Gerações",         .description = "Número máximo de gerações em cada faixa.",         .type = STRATEGY_PARAMETER_INTEGER,         .default_value = 1000,         .min_value = 0,         .max_value = 10000000,         .zero_disables = true,         .advanced = true,     },     {         .name = "max_iterations_without_improvement",         .label = "Gerações sem melhora",         .description = "Para a busca na faixa depois deste número de gerações sem melhorar a melhor solução.",         .type = STRATEGY_PARAMETER_INTEGER,         .default_value = 200,         .min_value = 0,         .max_value = 10000000,         .zero_disables = true,         .advanced = true,     },     {         .name = "greedy_fraction",         .label = "Fração gulosa da população inicial",         .description = "Fração da população inicial que parte do guloso (ele e cópias mutadas dele); o restante é aleatório.",         .type = STRATEGY_PARAMETER_NUMBER,         .default_value = 0.1,         .min_value = 0,         .max_value = 1,         .advanced = true,     },     {         .name = "crossover",         .label = "Cruzamento",         .description = "Uniforme: cada AP herda o perfil de um dos pais, ao acaso; um ponto: os APs antes de um corte vêm de um pai e os demais, do outro.",         .type = STRATEGY_PARAMETER_CHOICE,         .advanced = true,         .options = CROSSOVER_OPTIONS,         .option_count = 2,         .default_option = "uniform",     },     {         .name = "crossover_rate",         .label = "Taxa de cruzamento",         .description = "Probabilidade de um filho vir do cruzamento de dois pais; sem cruzamento, ele copia o primeiro pai.",         .type = STRATEGY_PARAMETER_NUMBER,         .default_value = 0.9,         .min_value = 0,         .max_value = 1,         .advanced = true,     },     {         .name = "mutation_rate",         .label = "Taxa de mutação",         .description = "Probabilidade de cada AP de um filho trocar de perfil.",         .type = STRATEGY_PARAMETER_NUMBER,         .default_value = 0.02,         .min_value = 0,         .max_value = 1,         .advanced = true,     },     {         .name = "tournament_size",         .label = "Tamanho do torneio",         .description = "Indivíduos sorteados em cada torneio de seleção; vence o melhor.",         .type = STRATEGY_PARAMETER_INTEGER,         .default_value = 3,         .min_value = 1,         .max_value = 10000,         .advanced = true,     },     {         .name = "elitism",         .label = "Elite",         .description = "Melhores indivíduos que passam intactos para a geração seguinte.",         .type = STRATEGY_PARAMETER_INTEGER,         .default_value = 2,         .min_value = 0,         .max_value = 9999,         .advanced = true,     }
+
+static const StrategyParameter GENETIC_PARAMETERS_LIST[] = {
+    GENETIC_PARAMETERS,
+};
+
 #define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
 
 static const AnalysisStrategy STRATEGIES[] = {
@@ -267,13 +288,14 @@ static const AnalysisStrategy STRATEGIES[] = {
     },
     {
         .name = "genetic",
-        .description = "Algoritmo genético; ainda não implementado no serviço em C.",
-        .mode = "placeholder",
+        .description = "Algoritmo genético: evolui uma população de soluções por seleção em torneio, cruzamento, mutação e elitismo.",
+        .mode = "sequential",
         .family = "metaheuristic",
         .exact = false,
-        .parameters = NULL,
-        .parameter_count = 0,
-        .run = NULL,
+        .parameters = GENETIC_PARAMETERS_LIST,
+        .parameter_count = PARAMETER_COUNT(GENETIC_PARAMETERS_LIST),
+        .run = run_genetic,
+        .validate = validate_genetic_parameters,
     },
 };
 

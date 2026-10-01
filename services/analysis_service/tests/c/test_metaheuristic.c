@@ -6,6 +6,7 @@
 #include "../../src/strategies/backtracking.h"
 #include "../../src/strategies/metaheuristic.h"
 #include "../../src/strategies/tabu_search.h"
+#include "../../src/strategies/genetic.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -248,7 +249,64 @@ static void test_conflict_set_follows_the_moves(void) {
     analysis_free_graph(&graph);
 }
 
+// Operadores do AG: cruzamento e mutacao nunca mudam APs fixos e so usam perfis permitidos da faixa do AP.
+static void test_genetic_operators_preserve_fixed_access_points(void) {
+    Graph graph;
+    build_test_graph(&graph, 50, 23);
+    MetaProblem problem;
+    meta_problem_init(&problem, &graph, default_search_profiles(), OBJECTIVE_DEFAULT);
+    const ProfileSet *profile_set = problem.setup.profiles;
+    MetaRng rng;
+    meta_rng_seed(&rng, 8, 0);
+    int n = graph.node_count;
+    int *left = malloc(sizeof(int) * (size_t) n);
+    int *right = malloc(sizeof(int) * (size_t) n);
+    int *child = malloc(sizeof(int) * (size_t) n);
+    meta_initial_solution(&problem, &rng, META_INITIAL_RANDOM, left);
+    meta_initial_solution(&problem, &rng, META_INITIAL_RANDOM, right);
+    int changed_total = 0;
+    for (int round = 0; round < 500; round++) {
+        genetic_crossover(&problem, &rng, round % 2 == 0, left, right, child);
+        int changed = genetic_mutate(&problem, &rng, 0.3, child);
+        changed_total += changed;
+        for (int node_index = 0; node_index < n; node_index++) {
+            if (graph.nodes[node_index].locked) {
+                CHECK(child[node_index] == problem.setup.base_profiles[node_index], "AP travado %s mudou no filho", graph.nodes[node_index].id);
+            }
+            if (child[node_index] >= 0) {
+                CHECK(assignment_same_band(profile_set->items[child[node_index]].frequency, graph.nodes[node_index].frequency),
+                      "filho com perfil de outra faixa no AP %s", graph.nodes[node_index].id);
+            }
+        }
+    }
+    CHECK(changed_total > 0, "a mutacao deveria alterar algum AP");
+    int unchanged = genetic_mutate(&problem, &rng, 0.0, child);
+    CHECK(unchanged == 0, "mutacao com taxa zero alterou %d APs", unchanged);
+    free(left);
+    free(right);
+    free(child);
+    meta_problem_free(&problem);
+    analysis_free_graph(&graph);
+}
+
+// Torneio de 3 (com reposicao) favorece os melhores: o pior so vence quando os tres sorteados sao ele (1/64).
+static void test_genetic_tournament_prefers_better_individuals(void) {
+    AssignmentCost costs[4] = {{5, 0, 0, 0}, {1, 0, 0, 0}, {3, 0, 0, 0}, {9, 0, 0, 0}};
+    GeneticPopulation population = {.size = 4, .node_count = 0, .genes = NULL, .costs = costs, .elite_count = 0};
+    MetaRng rng;
+    meta_rng_seed(&rng, 5, 0);
+    int wins[4] = {0};
+    for (int round = 0; round < 4000; round++) {
+        wins[genetic_tournament(&population, &rng, 3, OBJECTIVE_DEFAULT)]++;
+    }
+    CHECK(wins[1] > wins[2] && wins[2] > wins[0] && wins[0] > wins[3], "torneio nao favorece os melhores: %d %d %d %d",
+          wins[0], wins[1], wins[2], wins[3]);
+    CHECK(wins[3] == 0 || wins[3] < 100, "o pior venceu %d torneios de 3", wins[3]);
+}
+
 int main(void) {
+    test_genetic_operators_preserve_fixed_access_points();
+    test_genetic_tournament_prefers_better_individuals();
     test_tabu_list_forbids_for_the_tenure();
     test_tabu_aspiration();
     test_conflict_set_follows_the_moves();
