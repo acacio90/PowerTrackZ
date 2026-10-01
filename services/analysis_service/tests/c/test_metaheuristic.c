@@ -7,6 +7,7 @@
 #include "../../src/strategies/metaheuristic.h"
 #include "../../src/strategies/tabu_search.h"
 #include "../../src/strategies/genetic.h"
+#include "../../src/strategies/local_search.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -304,7 +305,34 @@ static void test_genetic_tournament_prefers_better_individuals(void) {
     CHECK(wins[3] == 0 || wins[3] < 100, "o pior venceu %d torneios de 3", wins[3]);
 }
 
+// A descida da busca local (usada pelo AG hibrido) nunca piora a solucao a que e aplicada.
+static void test_local_search_descent_never_worsens(void) {
+    Graph graph;
+    build_test_graph(&graph, 60, 29);
+    MetaProblem problem;
+    meta_problem_init(&problem, &graph, default_search_profiles(), OBJECTIVE_DEFAULT);
+    MetaRun run;
+    memset(&run, 0, sizeof(run));
+    meta_rng_seed(&run.rng, 13, 0);
+    int *profiles = malloc(sizeof(int) * (size_t) graph.node_count);
+    int improved = 0;
+    for (int round = 0; round < 50; round++) {
+        AssignmentCost before = meta_initial_solution(&problem, &run.rng, META_INITIAL_RANDOM, profiles);
+        AssignmentCost after = before;
+        local_search_descent(&problem, &run, profiles, &after, 300);
+        AssignmentCost full = meta_full_cost(&problem, profiles);
+        CHECK(compare_assignment_costs(OBJECTIVE_DEFAULT, &after, &before) <= 0, "a busca local piorou a solucao na rodada %d", round);
+        CHECK(same_cost(&after, &full), "custo devolvido pela busca local difere do recalculo completo");
+        improved += compare_assignment_costs(OBJECTIVE_DEFAULT, &after, &before) < 0;
+    }
+    CHECK(improved > 40, "a busca local melhorou so %d de 50 solucoes aleatorias", improved);
+    free(profiles);
+    meta_problem_free(&problem);
+    analysis_free_graph(&graph);
+}
+
 int main(void) {
+    test_local_search_descent_never_worsens();
     test_genetic_operators_preserve_fixed_access_points();
     test_genetic_tournament_prefers_better_individuals();
     test_tabu_list_forbids_for_the_tenure();

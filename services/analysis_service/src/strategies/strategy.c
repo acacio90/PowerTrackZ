@@ -7,6 +7,7 @@
 #include "simulated_annealing.h"
 #include "tabu_search.h"
 #include "genetic.h"
+#include "hybrid_genetic.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -230,6 +231,63 @@ static const StrategyParameter GENETIC_PARAMETERS_LIST[] = {
     GENETIC_PARAMETERS,
 };
 
+static ProposedConfig *run_hybrid_genetic(
+    const Graph *graph,
+    const AnalysisExecutionContext *context,
+    AssignmentStats *stats
+) {
+    return build_hybrid_genetic_proposals(graph, context, stats);
+}
+
+static const StrategyParameterOption LOCAL_SEARCH_TARGET_OPTIONS[] = {
+    {"children", "Descendentes"},
+    {"best", "Melhores da geração"},
+};
+
+static const StrategyParameter HYBRID_GENETIC_PARAMETERS[] = {
+    GENETIC_PARAMETERS,
+    {
+        .name = "local_search_target",
+        .label = "Busca local em",
+        .description = "Descendentes: filhos sorteados de cada geração; melhores da geração: os melhores indivíduos, inclusive a elite.",
+        .type = STRATEGY_PARAMETER_CHOICE,
+        .advanced = true,
+        .options = LOCAL_SEARCH_TARGET_OPTIONS,
+        .option_count = 2,
+        .default_option = "children",
+    },
+    {
+        .name = "local_search_count",
+        .label = "Indivíduos refinados",
+        .description = "Quantos indivíduos recebem a busca local em cada geração em que ela é aplicada.",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 5,
+        .min_value = 1,
+        .max_value = 10000,
+        .advanced = true,
+    },
+    {
+        .name = "local_search_frequency",
+        .label = "Frequência da busca local",
+        .description = "A busca local é aplicada a cada este número de gerações (1 = em todas).",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 1,
+        .min_value = 1,
+        .max_value = 100000,
+        .advanced = true,
+    },
+    {
+        .name = "local_search_depth",
+        .label = "Profundidade da busca local",
+        .description = "Vizinhos avaliados em cada indivíduo refinado; a busca aceita os que não pioram.",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 200,
+        .min_value = 1,
+        .max_value = 10000000,
+        .advanced = true,
+    },
+};
+
 #define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
 
 static const AnalysisStrategy STRATEGIES[] = {
@@ -295,6 +353,17 @@ static const AnalysisStrategy STRATEGIES[] = {
         .parameters = GENETIC_PARAMETERS_LIST,
         .parameter_count = PARAMETER_COUNT(GENETIC_PARAMETERS_LIST),
         .run = run_genetic,
+        .validate = validate_genetic_parameters,
+    },
+    {
+        .name = "hybrid_genetic",
+        .description = "Algoritmo genético híbrido: o algoritmo genético com uma busca local aplicada a alguns indivíduos de cada geração.",
+        .mode = "sequential",
+        .family = "metaheuristic",
+        .exact = false,
+        .parameters = HYBRID_GENETIC_PARAMETERS,
+        .parameter_count = PARAMETER_COUNT(HYBRID_GENETIC_PARAMETERS),
+        .run = run_hybrid_genetic,
         .validate = validate_genetic_parameters,
     },
 };

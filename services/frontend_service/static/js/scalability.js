@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await requestJson('/api/analysis/strategies');
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
-            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', local_search: 'Busca local', simulated_annealing: 'Simulated Annealing', tabu_search: 'Busca Tabu', genetic: 'Algoritmo genético' };
+            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', local_search: 'Busca local', simulated_annealing: 'Simulated Annealing', tabu_search: 'Busca Tabu', genetic: 'Algoritmo genético', hybrid_genetic: 'Algoritmo genético híbrido' };
             const objectives = Array.isArray(data.objectives) ? data.objectives : [];
             if (objectives.length) {
                 objectiveLabels = objectives.reduce((byName, objective) => ({ ...byName, [objective.name]: objective.label }), {});

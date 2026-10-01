@@ -14,6 +14,7 @@ Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a c
 | `simulated_annealing` | Simulated Annealing sobre a base comum: aceita pioras com a probabilidade de Metropolis, que diminui com a temperatura (seção abaixo). Não garante o ótimo. |
 | `tabu_search` | Busca Tabu sobre a base comum: aplica a melhor troca de perfil não proibida, mesmo que pior, e proíbe por um tempo desfazê-la (seção abaixo). Não garante o ótimo. |
 | `genetic` | Algoritmo Genético sobre a base comum: seleção por torneio, cruzamento, mutação e elitismo (seção abaixo). Não garante o ótimo. |
+| `hybrid_genetic` | Algoritmo Genético híbrido: o AG com uma busca local aplicada a alguns indivíduos de cada geração (seção abaixo). Não garante o ótimo. |
 
 ## Parâmetros
 
@@ -29,7 +30,7 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 | `local_search` | `max_iterations_without_improvement` | inteiro | `100000` | 0 a 10⁹ | Para a busca na faixa depois deste número de iterações sem melhorar a melhor solução. `0` desativa o critério. |
 | `local_search` | `initial_solution` | escolha | `greedy` | `greedy`, `random` | Solução inicial: a do guloso ou um perfil aleatório para cada AP. |
 
-A estratégia `greedy` não tem parâmetros configuráveis. Os parâmetros do `simulated_annealing`, da `tabu_search` e do `genetic` estão nas seções de cada um. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
+A estratégia `greedy` não tem parâmetros configuráveis. Os parâmetros do `simulated_annealing`, da `tabu_search`, do `genetic` e do `hybrid_genetic` estão nas seções de cada um. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
 
 `GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo, e `optional_label` diz o que acontece sem valor, como `Sorteada` ou `Estimada`). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
 
@@ -134,6 +135,25 @@ A melhor solução encontrada é devolvida. Cada faixa de `execution.bands` traz
 | `elitism` | inteiro | `2` | 0 a 9.999 | Indivíduos da elite; precisa ser menor que a população. |
 
 Além desses, o AG aceita a semente (`seed`) e o limite de tempo (`time_limit_seconds`); pelo menos um dos critérios de parada (tempo, gerações ou gerações sem melhora) precisa estar ativo.
+
+## Algoritmo Genético Híbrido
+
+A estratégia `hybrid_genetic` (`src/strategies/hybrid_genetic.c`) é o Algoritmo Genético com uma busca local aplicada a alguns indivíduos de cada geração (algoritmo memético). Ela reutiliza o AG por inteiro: `genetic_run` aceita um gancho chamado a cada geração recém-formada, e o híbrido só implementa esse gancho, sem duplicar os operadores. A busca local é a descida de `local_search.c` (`local_search_descent`): avalia até `local_search_depth` vizinhos sorteados (trocas de perfil de um AP, pelo custo incremental da base comum) e aceita os que não pioram, então nunca piora o indivíduo; ao fim, o custo do indivíduo é recalculado por completo.
+
+- **Em quem.** Nos descendentes (`children`, padrão): `local_search_count` filhos distintos, sorteados entre os que não são elite; ou nos melhores da geração (`best`): os `local_search_count` melhores, inclusive a elite.
+- **Com que frequência.** A cada `local_search_frequency` gerações (1 = em todas).
+- **Tempo.** A busca local confere o limite de tempo e o cancelamento a cada 64 vizinhos, e o tempo dela conta para o limite da estratégia.
+
+Cada faixa de `execution.bands` traz em `search`, além dos contadores do AG: `local_search_applied` (indivíduos refinados), `local_search_improved` (os que melhoraram), `local_search_worsened` (sempre zero) e `local_search_moves` (vizinhos avaliados pela busca local).
+
+| Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+|---|---|---|---|---|
+| `local_search_target` | escolha | `children` | `children`, `best` | Indivíduos que recebem a busca local. |
+| `local_search_count` | inteiro | `5` | 1 a 10.000 | Indivíduos refinados em cada geração em que a busca local é aplicada. |
+| `local_search_frequency` | inteiro | `1` | 1 a 100.000 | A busca local é aplicada a cada este número de gerações. |
+| `local_search_depth` | inteiro | `200` | 1 a 10⁷ | Vizinhos avaliados em cada indivíduo refinado. |
+
+Além desses, o híbrido aceita todos os parâmetros do Algoritmo Genético, com os mesmos padrões, para que a comparação com o AG puro mude só a busca local.
 
 ## Interferência
 
