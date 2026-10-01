@@ -14,6 +14,7 @@ C service that builds the conflict graph between access points and suggests the 
 | `simulated_annealing` | Simulated Annealing on the common base: accepts worsenings with the Metropolis probability, which decreases with the temperature (section below). It does not guarantee the optimum. |
 | `tabu_search` | Tabu Search on the common base: applies the best non-forbidden profile change, even if worse, and forbids undoing it for a while (section below). It does not guarantee the optimum. |
 | `genetic` | Genetic Algorithm on the common base: tournament selection, crossover, mutation and elitism (section below). It does not guarantee the optimum. |
+| `hybrid_genetic` | Hybrid Genetic Algorithm: the GA with a local search applied to some individuals of each generation (section below). It does not guarantee the optimum. |
 
 ## Parameters
 
@@ -29,7 +30,7 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 | `local_search` | `max_iterations_without_improvement` | integer | `100000` | 0 to 10⁹ | Stops the search in the band after this number of iterations without improving the best solution. `0` disables the criterion. |
 | `local_search` | `initial_solution` | choice | `greedy` | `greedy`, `random` | Initial solution: the greedy one or a random profile for each AP. |
 
-The `greedy` strategy has no configurable parameters. The `simulated_annealing`, `tabu_search` and `genetic` parameters are in each one's section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
+The `greedy` strategy has no configurable parameters. The `simulated_annealing`, `tabu_search`, `genetic` and `hybrid_genetic` parameters are in each one's section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
 
 `GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null, and `optional_label` tells what happens without a value, such as `Sorteada` or `Estimada`). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
@@ -134,6 +135,25 @@ The best solution found is returned. Each band in `execution.bands` reports in `
 | `elitism` | integer | `2` | 0 to 9,999 | Elite individuals; must be smaller than the population. |
 
 Besides these, the GA accepts the seed (`seed`) and the time limit (`time_limit_seconds`); at least one of the stopping criteria (time, generations or generations without improvement) must be active.
+
+## Hybrid Genetic Algorithm
+
+The `hybrid_genetic` strategy (`src/strategies/hybrid_genetic.c`) is the Genetic Algorithm with a local search applied to some individuals of each generation (memetic algorithm). It reuses the GA as a whole: `genetic_run` accepts a hook called on each newly formed generation, and the hybrid only implements that hook, without duplicating the operators. The local search is the descent in `local_search.c` (`local_search_descent`): it evaluates up to `local_search_depth` drawn neighbors (profile changes of one AP, with the common base's incremental cost) and accepts those that do not worsen, so it never worsens the individual; at the end, the individual's cost is fully recomputed.
+
+- **On whom.** On the offspring (`children`, default): `local_search_count` distinct children, drawn among those that are not elite; or on the best of the generation (`best`): the `local_search_count` best ones, including the elite.
+- **How often.** Every `local_search_frequency` generations (1 = in all of them).
+- **Time.** The local search checks the time limit and cancellation every 64 neighbors, and its time counts toward the strategy's limit.
+
+Each band in `execution.bands` reports in `search`, besides the GA counters: `local_search_applied` (individuals refined), `local_search_improved` (those that improved), `local_search_worsened` (always zero) and `local_search_moves` (neighbors evaluated by the local search).
+
+| Parameter | Type | Default | Range | Description |
+|---|---|---|---|---|
+| `local_search_target` | choice | `children` | `children`, `best` | Individuals that receive the local search. |
+| `local_search_count` | integer | `5` | 1 to 10,000 | Individuals refined in each generation in which the local search is applied. |
+| `local_search_frequency` | integer | `1` | 1 to 100,000 | The local search is applied every this number of generations. |
+| `local_search_depth` | integer | `200` | 1 to 10⁷ | Neighbors evaluated in each refined individual. |
+
+Besides these, the hybrid accepts all the Genetic Algorithm parameters, with the same defaults, so that the comparison with the pure GA changes only the local search.
 
 ## Interference
 

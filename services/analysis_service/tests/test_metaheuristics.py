@@ -473,5 +473,66 @@ class GeneticAlgorithmTests(AnalysisServiceTestCase):
                     self.assertIn(expected, json.loads(error.read().decode("utf-8"))["error"])
 
 
+
+class HybridGeneticTests(AnalysisServiceTestCase):
+    """AG hibrido (#85): o AG com a busca local da base comum. A descida tem teste em C (tests/c)."""
+
+    def hybrid(self, aps, timeout=60, **parameters):
+        return self.post_json("/analyze-graph", {"aps": aps, "strategy": "hybrid_genetic", "parameters": parameters}, timeout=timeout)
+
+    def dense_aps(self, count, seed):
+        return AnalysisServiceMetaheuristicTests.dense_aps(self, count, seed)
+
+    def test_is_declared_with_the_genetic_and_local_search_parameters(self):
+        details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
+        hybrid = {parameter["name"]: parameter for parameter in details["hybrid_genetic"]["parameters"]}
+        genetic = {parameter["name"] for parameter in details["genetic"]["parameters"]}
+
+        self.assertEqual(details["hybrid_genetic"]["family"], "metaheuristic")
+        self.assertTrue(genetic <= set(hybrid))
+        self.assertTrue({"local_search_target", "local_search_count", "local_search_frequency", "local_search_depth"} <= set(hybrid))
+        self.assertEqual([option["value"] for option in hybrid["local_search_target"]["options"]], ["children", "best"])
+
+    def test_same_seed_gives_the_same_result(self):
+        aps = self.dense_aps(60, seed=70)
+        parameters = {"seed": 31, "time_limit_seconds": 0, "generations": 30, "population_size": 20}
+        first = self.hybrid(aps, **parameters)
+        second = self.hybrid(aps, **parameters)
+
+        self.assertEqual(self.proposals(first), self.proposals(second))
+        self.assertEqual(
+            [band["search"]["local_search_moves"] for band in first["execution"]["bands"]],
+            [band["search"]["local_search_moves"] for band in second["execution"]["bands"]],
+        )
+
+    def test_local_search_never_worsens_the_refined_individuals(self):
+        aps = self.dense_aps(60, seed=71)
+        for target in ("children", "best"):
+            with self.subTest(target=target):
+                result = self.hybrid(
+                    aps, seed=2, time_limit_seconds=0, generations=20, population_size=20,
+                    local_search_target=target, local_search_count=4, local_search_frequency=2, local_search_depth=100,
+                )
+                for band in result["execution"]["bands"]:
+                    search = band["search"]
+                    # Busca local nas geracoes 2, 4, ..., 20: 10 geracoes x 4 individuos.
+                    self.assertEqual(search["local_search_applied"], 40)
+                    self.assertEqual(search["local_search_worsened"], 0)
+                    self.assertGreater(search["local_search_improved"], 0)
+                    self.assertLessEqual(search["conflicts"], search["greedy_conflicts"])
+
+    def test_local_search_time_counts_for_the_time_limit(self):
+        aps = self.dense_aps(300, seed=72)
+        started = time.time()
+        result = self.hybrid(
+            aps, timeout=60, seed=3, time_limit_seconds=1, generations=0, max_iterations_without_improvement=0,
+            local_search_count=50, local_search_depth=10000000,
+        )
+        elapsed = time.time() - started
+
+        self.assertEqual(result["execution"]["search"]["stop_reason"], "time_limit")
+        self.assertLess(elapsed, len(result["execution"]["bands"]) * 1 + 5)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -131,7 +131,8 @@ window.addEventListener('DOMContentLoaded', function() {
             local_search: 'Busca local',
             simulated_annealing: 'Simulated Annealing',
             tabu_search: 'Busca Tabu',
-            genetic: 'Algoritmo genético'
+            genetic: 'Algoritmo genético',
+            hybrid_genetic: 'Algoritmo genético híbrido'
         }[strategy] || strategy || 'Nenhuma estratégia';
     }
 
@@ -488,10 +489,13 @@ window.addEventListener('DOMContentLoaded', function() {
             const genetic = search.population_size != null
                 ? ` | população ${search.population_size}, ${Number(search.evaluations).toLocaleString('pt-BR')} avaliações`
                 : '';
+            const hybrid = search.local_search_applied != null
+                ? ` | busca local em ${Number(search.local_search_applied).toLocaleString('pt-BR')} indivíduos (${Number(search.local_search_improved).toLocaleString('pt-BR')} melhorados)`
+                : '';
             return `
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
-                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing}${tabu}${genetic} | ${describeSearchOutcome(strategy, search)}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing}${tabu}${genetic}${hybrid} | ${describeSearchOutcome(strategy, search)}</span>
                 </div>`;
         }).join('');
     }
@@ -2205,7 +2209,7 @@ window.addEventListener('DOMContentLoaded', function() {
         { id: 'constructive', label: 'Construtiva' },
         { id: 'metaheuristic', label: 'Metaheurísticas' }
     ];
-    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', simulated_annealing: 'fa-temperature-arrow-down', tabu_search: 'fa-ban', genetic: 'fa-dna' };
+    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', simulated_annealing: 'fa-temperature-arrow-down', tabu_search: 'fa-ban', genetic: 'fa-dna', hybrid_genetic: 'fa-shuffle' };
     const strategyList = document.getElementById('analysis-strategy-list');
 
     function renderStrategyCard(detail) {
