@@ -31,7 +31,8 @@ OBJECTIVES = ["default", "energy_tiebreak", "energy_first"]
 STRATEGIES = [
     {"name": "backtracking", "implemented": True, "exact": True},
     {"name": "greedy", "implemented": True, "exact": False},
-    {"name": "genetic", "implemented": False, "exact": False},
+    {"name": "local_search", "implemented": True, "exact": False, "family": "metaheuristic"},
+    {"name": "genetic", "implemented": False, "exact": False, "family": "metaheuristic"},
 ]
 
 
@@ -180,7 +181,7 @@ class ScalabilityTests(unittest.TestCase):
 
     def test_rejects_invalid_parameters_and_concurrent_runs(self):
         invalid = (
-            {"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"seed": -1},
+            {"max_nodes": 1001}, {"step": 0}, {"time_limit_seconds": 0}, {"strategies": ["genetic"]}, {"strategies": ["local_search"]}, {"seed": -1},
             {"objective": "energia"},
         )
         for body in invalid:

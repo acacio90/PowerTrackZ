@@ -10,6 +10,7 @@ Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a c
 |---|---|
 | `backtracking` | Busca exata por *branch-and-bound*. Minimiza o custo do critério de otimização (seção abaixo); no padrão, nesta ordem, o número de conflitos, a interferência total e o inverso da largura de banda somada. |
 | `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor custo incremental no critério de otimização (no padrão, o de menor interferência local). É também a solução inicial da busca exata. |
+| `local_search` | Busca local sobre a base comum das metaheurísticas (seção abaixo): a cada iteração, troca o perfil de um AP sorteado e aceita a troca se ela não piorar a solução no critério de otimização. Não garante o ótimo; serve de referência para as metaheurísticas. |
 | `genetic` | Ainda não implementada (retorna um *placeholder*). |
 
 ## Parâmetros
@@ -20,14 +21,19 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 |---|---|---|---|---|---|
 | `backtracking` | `thread_count` | inteiro | `1` | 1 a 256 | Número de *threads* da busca. |
 | `backtracking` | `time_limit_seconds` | número | `60` | 0 a 3600 | Tempo máximo da busca em cada faixa, em segundos. `0` desativa o limite. |
+| `local_search` | `seed` | inteiro, opcional | sorteada | 0 a 4294967295 | Semente do gerador aleatório. Sem valor, o serviço sorteia uma e a devolve em `execution.seed`. |
+| `local_search` | `time_limit_seconds` | número | `10` | 0 a 3600 | Tempo máximo da busca em cada faixa, em segundos. `0` desativa o limite. |
+| `local_search` | `max_iterations` | inteiro | `1000000` | 0 a 10⁹ | Número máximo de iterações em cada faixa. `0` desativa o limite. |
+| `local_search` | `max_iterations_without_improvement` | inteiro | `100000` | 0 a 10⁹ | Para a busca na faixa depois deste número de iterações sem melhorar a melhor solução. `0` desativa o critério. |
+| `local_search` | `initial_solution` | escolha | `greedy` | `greedy`, `random` | Solução inicial: a do guloso ou um perfil aleatório para cada AP. |
 
-As estratégias `greedy` e `genetic` não têm parâmetros configuráveis.
+As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Na `local_search`, pelo menos um dos três critérios de parada precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
 
-`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo, padrão, limites, unidade, se o valor `0` desativa o recurso e se ele é avançado (`advanced`, exibido recolhido na interface). Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
+`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
 
-Valores fora do tipo ou do intervalo declarado são recusados com HTTP 400 e uma mensagem como `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo.
+Valores fora do tipo ou do intervalo declarado, e opções que não estão na lista, são recusados com HTTP 400 e uma mensagem como `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo, e a semente é a usada (informada ou sorteada).
 
-A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada (`completed`, `time_limit` ou `cancelled`), os nós explorados, os conflitos da solução gulosa e da final e os componentes do custo da solução (`interference_score`, `bandwidth_score` e `power_score_w`).
+A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada, os nós explorados, os conflitos da solução inicial e da final (`greedy_conflicts` e `conflicts`) e os componentes do custo da solução (`interference_score`, `bandwidth_score` e `power_score_w`). Os motivos da parada são `completed` (a busca terminou), `no_improvement` (iterações sem melhora), `iteration_limit` (limite de iterações), `time_limit` (limite de tempo) e `cancelled` (cancelamento); ao consolidar as faixas, vale o motivo de maior precedência, nesta mesma ordem. Nas metaheurísticas, `iterations` informa as iterações executadas, `nodes_explored` é igual a elas e `greedy_conflicts` são os conflitos da solução inicial, que pode ser a aleatória.
 
 ## Critério de Otimização
 
@@ -46,6 +52,21 @@ A avaliação de custo fica em um ponto único, `src/strategies/objective.c`: o 
 No modelo de consumo, larguras maiores gastam menos potência. Por isso, `energy_tiebreak` costuma coincidir com `default` num AP isolado, mas diverge nas somas: dois APs sem conflito a 40 + 40 MHz somam 80 MHz e 20,6 W; a 80 + 20 MHz, 100 MHz e 21,0 W. `default` fica com a segunda solução, e `energy_tiebreak`, com a primeira. `energy_first` aceita conflitos para reduzir a potência.
 
 **Configurações fora do modelo de consumo.** No critério de otimização, uma configuração sem valor no modelo (160 MHz) vale a maior potência modelada da sua faixa (11,1 W em 5 GHz), para que uma configuração sem estimativa nunca seja favorecida pela energia. Numa faixa sem nenhum valor no modelo (6 GHz), todos os perfis valem zero, e a energia deixa de diferenciá-los. A regra vale só para a otimização: os totais de potência da resposta continuam deixando essas configurações de fora.
+
+## Base Comum das Metaheurísticas
+
+As metaheurísticas usam as mesmas peças, em `src/strategies/metaheuristic.c`, para que a comparação com o backtracking e com o guloso dependa só do método, e não de diferenças de implementação. A busca local (`local_search.c`) é a referência que exercita essa base.
+
+- **Representação.** A solução é um índice de perfil por AP, como no backtracking. Em cada faixa, só mudam os APs que não estão fixos e têm perfis da sua faixa; os APs travados num perfil disponível ficam fixos, com as mesmas regras do backtracking (`assignment.c`).
+- **Custo.** O custo é o do critério de otimização (`AssignmentCost` e `compare_assignment_costs`, em `objective.c`), com as mesmas regras do custo incremental do backtracking e do guloso: conta as arestas em conflito com os dois lados definidos, exceto entre dois APs fixos, e soma a largura e a potência de cada AP atribuído. `meta_full_cost` recalcula o custo completo, e `meta_move_delta` calcula a variação ao trocar o perfil de um AP, em O(grau). Como a interferência é real, a soma incremental pode acumular erro de arredondamento ao longo de milhões de movimentos; por isso, o custo atual é recalculado por completo a cada 4.096 iterações, e uma solução só vira a melhor depois de o seu custo ser recalculado. Os testes em C conferem que a variação incremental coincide com o recálculo completo em 20.000 movimentos aleatórios, nos três objetivos.
+- **Vizinhança.** O movimento básico é trocar o perfil de um AP; `meta_random_move` sorteia um AP móvel e um perfil permitido diferente do atual.
+- **Solução inicial.** A do guloso (`greedy`, padrão) ou um perfil permitido aleatório para cada AP (`random`).
+- **Parada.** A busca para pelo limite de tempo, pelo número máximo de iterações ou por um número de iterações sem melhorar a melhor solução, o que vier primeiro, e informa o motivo em `stop_reason`. Cada faixa tem os próprios limites.
+- **Reprodutibilidade.** A aleatoriedade vem de um gerador próprio (xoshiro256\*\*, inicializado por splitmix64), e não do `rand()` da biblioteca C. A semente é a informada em `seed` ou uma sorteada, devolvida em `execution.seed` e em `execution.parameters.seed`; cada faixa usa uma sequência derivada da semente e do índice da faixa. A mesma semente, com os mesmos APs, canais, objetivo e parâmetros, produz o mesmo resultado. O limite de tempo é a exceção: uma busca que para pelo tempo depende da velocidade da máquina, então, para reproduzir uma execução, use o limite de iterações ou o de iterações sem melhora.
+- **Curva de convergência.** Cada faixa de `execution.bands` traz em `convergence` a melhor solução ao longo da busca: um ponto na solução inicial, um a cada melhora e um no fim, com `iteration`, `time_ms`, `conflicts`, `interference`, `bandwidth` e `power_w`. A curva guarda no máximo 500 pontos por faixa; ao enchê-la, um ponto a cada dois é descartado, mantendo o primeiro.
+- **Progresso e cancelamento.** Na rota com *streaming*, o progresso (`iteration`, `best_conflicts` e a fração concluída, a do critério de parada mais adiantado) é enviado a cada 0,2 s, e o cancelamento é conferido a cada 256 iterações.
+
+Para criar uma metaheurística, declare os parâmetros comuns com as macros `META_SEED_PARAMETER`, `META_TIME_LIMIT_PARAMETER`, `META_MAX_ITERATIONS_PARAMETER`, `META_STAGNATION_PARAMETER` e `META_INITIAL_SOLUTION_PARAMETER`, use `meta_validate_parameters` na validação e siga o laço de `local_search.c`: `meta_run_begin`, `meta_run_next` a cada iteração, `meta_run_offer` quando a solução atual mudar e `meta_run_end` no fim. As comparações usam a ordem lexicográfica do objetivo (`compare_assignment_costs`); uma metaheurística que precise de uma diferença numérica de custo (como a aceitação do Simulated Annealing) deve documentar como a obtém sem violar essa ordem.
 
 ## Interferência
 
@@ -112,5 +133,6 @@ Em empate de custo, vence a tarefa de menor índice. Como as tarefas seguem a or
 
 - O problema é NP-difícil. Em grafos grandes e densos, a busca exata não termina e para no limite de tempo, devolvendo a melhor solução encontrada (`optimal: false`).
 - O ganho com mais *threads* depende do número de tarefas e da eficácia da poda. Com poucos perfis por faixa, os dois primeiros níveis geram no máximo 25 tarefas em 2,4 GHz e 100 em 5 GHz.
-- O progresso enviado ao *frontend* é a fração de tarefas concluídas, e não uma estimativa do tempo restante.
+- No backtracking, o progresso enviado ao *frontend* é a fração de tarefas concluídas, e não uma estimativa do tempo restante.
+- As metaheurísticas ainda não participam do teste de escalabilidade: o ponto de quebra dos métodos sem garantia de ótimo (limite de tempo excedido) não descreve uma busca que para pelo tempo, e a comparação precisa de repetições por semente.
 - Conflitos entre dois APs travados não entram no custo, pois não dependem da atribuição.

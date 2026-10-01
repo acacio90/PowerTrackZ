@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "backtracking.h"
+#include "assignment.h"
 
 #include <limits.h>
 #include <math.h>
@@ -40,27 +41,6 @@ static const ProfileSet DEFAULT_PROFILE_SET = {
     CONFIG_PROFILES,
     (int) (sizeof(CONFIG_PROFILES) / sizeof(CONFIG_PROFILES[0])),
 };
-
-// Perfil candidato para um AP e o custo incremental de atribui-lo, frente aos vizinhos ja definidos.
-typedef struct {
-    int profile_index;
-    AssignmentCost delta;
-} ProfileCandidate;
-
-// Dados comuns as estrategias: objetivo, perfis disponiveis, ordem de visita, perfis fixos e, por
-// profundidade, os limites otimistas do que falta atribuir (maior banda e menor potencia possiveis).
-typedef struct {
-    const Graph *graph;
-    const ProfileSet *profiles;
-    OptimizationObjective objective;
-    int *order;
-    int order_count;
-    int *base_profiles;
-    double base_bandwidth;
-    long long base_power_mw;
-    double *remaining_bandwidth;
-    long long *remaining_min_power_mw;
-} SearchSetup;
 
 // Prefixo de atribuicoes que define uma tarefa independente da busca paralela.
 typedef struct {
@@ -104,285 +84,6 @@ typedef struct {
     long long visits;
 } WorkerState;
 
-static double monotonic_seconds(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + (ts.tv_nsec / 1000000000.0);
-}
-
-static void *checked_malloc(size_t size, const char *what) {
-    void *memory = malloc(size > 0 ? size : 1);
-    if (!memory) {
-        perror(what);
-        exit(1);
-    }
-    return memory;
-}
-
-// Ordena nos de maior grau primeiro para priorizar os mais restritivos na busca.
-static int compare_node_degree_desc(const Graph *graph, int left, int right) {
-    int left_degree = graph->nodes[left].neighbor_count;
-    int right_degree = graph->nodes[right].neighbor_count;
-    if (left_degree != right_degree) {
-        return right_degree - left_degree;
-    }
-    return strcmp(graph->nodes[left].id, graph->nodes[right].id);
-}
-
-// Aplica uma ordenacao simples em funcao do grau dos nos.
-static void sort_indices_by_degree(const Graph *graph, int *items, int count) {
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = i + 1; j < count; j++) {
-            if (compare_node_degree_desc(graph, items[i], items[j]) > 0) {
-                int temp = items[i];
-                items[i] = items[j];
-                items[j] = temp;
-            }
-        }
-    }
-}
-
-// Converte a largura de banda textual em um valor numerico comparavel.
-static double bandwidth_score(const char *bandwidth) {
-    if (!bandwidth || bandwidth[0] == '\0') {
-        return 0.0;
-    }
-    double score = atof(bandwidth);
-    return score > 0.0 ? score : 0.0;
-}
-
-// Compara faixas pelo valor numerico ("2.4 GHz" e "2.4GHz" sao a mesma faixa).
-static bool same_band(const char *left, const char *right) {
-    double left_band = left ? atof(left) : 0.0;
-    double right_band = right ? atof(right) : 0.0;
-    return left_band > 0.0 && fabs(left_band - right_band) < 1e-9;
-}
-
-static bool same_profile(const ProposedConfig *profile, const Node *node) {
-    return same_band(profile->frequency, node->frequency)
-        && atoi(profile->channel) == atoi(node->channel)
-        && bandwidth_score(profile->bandwidth) == bandwidth_score(node->bandwidth);
-}
-
-static bool node_is_fixed(const Graph *graph, const int *profiles, int node_index) {
-    return graph->nodes[node_index].locked && profiles[node_index] >= 0;
-}
-
-// Calcula o custo incremental de aplicar um perfil ao no atual frente aos vizinhos ja definidos.
-static int node_conflict_delta(
-    const SearchSetup *setup,
-    int node_index,
-    int profile_index,
-    const int *assigned_profiles,
-    double *interference_score
-) {
-    const Graph *graph = setup->graph;
-    int conflicts = 0;
-    double total_interference = 0.0;
-    const ProposedConfig *profile = &setup->profiles->items[profile_index];
-    const Node *node = &graph->nodes[node_index];
-
-    for (int neighbor_pos = 0; neighbor_pos < node->neighbor_count; neighbor_pos++) {
-        int neighbor_index = node->neighbors[neighbor_pos];
-        int neighbor_profile_index = assigned_profiles[neighbor_index];
-        if (neighbor_profile_index < 0) {
-            continue;
-        }
-
-        const ProposedConfig *neighbor_profile = &setup->profiles->items[neighbor_profile_index];
-        double interference = interference_percentage_for_config(
-            node,
-            profile->channel,
-            profile->bandwidth,
-            profile->frequency,
-            &graph->nodes[neighbor_index],
-            neighbor_profile->channel,
-            neighbor_profile->bandwidth,
-            neighbor_profile->frequency
-        );
-        if (interference > 0.0) {
-            conflicts++;
-            total_interference += interference;
-        }
-    }
-
-    *interference_score = total_interference;
-    return conflicts;
-}
-
-// Ordena os candidatos pelo custo incremental no objetivo (o melhor primeiro); em empate, pela ordem dos
-// perfis. E a ordem de visita da busca exata e a escolha do guloso.
-static void sort_candidates(OptimizationObjective objective, ProfileCandidate *candidates, int count) {
-    for (int i = 1; i < count; i++) {
-        ProfileCandidate current = candidates[i];
-        int j = i - 1;
-        while (j >= 0) {
-            int comparison = compare_assignment_costs(objective, &candidates[j].delta, &current.delta);
-            if (comparison < 0 || (comparison == 0 && candidates[j].profile_index < current.profile_index)) {
-                break;
-            }
-            candidates[j + 1] = candidates[j];
-            j--;
-        }
-        candidates[j + 1] = current;
-    }
-}
-
-// Lista os perfis compativeis com a frequencia do no, ja ordenados pela prioridade de busca.
-static int collect_candidates(
-    const SearchSetup *setup,
-    int node_index,
-    const int *assigned_profiles,
-    ProfileCandidate *candidates
-) {
-    int candidate_count = 0;
-    const Node *node = &setup->graph->nodes[node_index];
-    for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
-        const ProposedConfig *profile = &setup->profiles->items[profile_index];
-        if (!same_band(profile->frequency, node->frequency)) {
-            continue;
-        }
-        double delta_interference = 0.0;
-        int delta_conflicts = node_conflict_delta(setup, node_index, profile_index, assigned_profiles, &delta_interference);
-        candidates[candidate_count++] = (ProfileCandidate){
-            .profile_index = profile_index,
-            .delta = {
-                .conflicts = delta_conflicts,
-                .interference = delta_interference,
-                .bandwidth = bandwidth_score(profile->bandwidth),
-                .power_mw = objective_power_mw(profile->frequency, profile->bandwidth),
-            },
-        };
-    }
-    sort_candidates(setup->objective, candidates, candidate_count);
-    return candidate_count;
-}
-
-static void apply_candidate(AssignmentCost *cost, const ProfileCandidate *candidate) {
-    add_assignment_cost(cost, &candidate->delta);
-}
-
-static double max_bandwidth_for_frequency(const ProfileSet *profiles, const char *frequency) {
-    double best = 0.0;
-    for (int profile_index = 0; profile_index < profiles->count; profile_index++) {
-        if (same_band(profiles->items[profile_index].frequency, frequency)) {
-            double score = bandwidth_score(profiles->items[profile_index].bandwidth);
-            if (score > best) {
-                best = score;
-            }
-        }
-    }
-    return best;
-}
-
-// Menor potencia (no criterio de otimizacao) entre os perfis da faixa; zero se a faixa nao tem perfis.
-static long long min_power_for_frequency(const ProfileSet *profiles, const char *frequency) {
-    long long best = -1;
-    for (int profile_index = 0; profile_index < profiles->count; profile_index++) {
-        if (same_band(profiles->items[profile_index].frequency, frequency)) {
-            long long power = objective_power_mw(profiles->items[profile_index].frequency, profiles->items[profile_index].bandwidth);
-            if (best < 0 || power < best) {
-                best = power;
-            }
-        }
-    }
-    return best < 0 ? 0 : best;
-}
-
-// Prepara ordem de visita, perfis dos APs travados e, por profundidade, os limites otimistas de banda
-// (a maior possivel) e de potencia (a menor possivel) do que falta atribuir.
-static void setup_search(const Graph *graph, const ProfileSet *profiles, OptimizationObjective objective, SearchSetup *setup) {
-    int node_count = graph->node_count;
-    setup->graph = graph;
-    setup->profiles = profiles && profiles->count > 0 ? profiles : &DEFAULT_PROFILE_SET;
-    setup->objective = objective;
-    setup->order = checked_malloc(sizeof(int) * node_count, "malloc search order");
-    setup->base_profiles = checked_malloc(sizeof(int) * node_count, "malloc base profiles");
-    setup->remaining_bandwidth = checked_malloc(sizeof(double) * (node_count + 1), "malloc remaining bandwidth");
-    setup->remaining_min_power_mw = checked_malloc(sizeof(long long) * (node_count + 1), "malloc remaining power");
-    setup->order_count = node_count;
-    setup->base_bandwidth = 0.0;
-    setup->base_power_mw = 0;
-
-    for (int node_index = 0; node_index < node_count; node_index++) {
-        setup->order[node_index] = node_index;
-        setup->base_profiles[node_index] = -1;
-        const Node *node = &graph->nodes[node_index];
-        if (!node->locked) {
-            continue;
-        }
-        setup->base_bandwidth += bandwidth_score(node->bandwidth);
-        setup->base_power_mw += objective_power_mw(node->frequency, node->bandwidth);
-        for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
-            if (same_profile(&setup->profiles->items[profile_index], node)) {
-                setup->base_profiles[node_index] = profile_index;
-                break;
-            }
-        }
-    }
-    sort_indices_by_degree(graph, setup->order, node_count);
-
-    setup->remaining_bandwidth[node_count] = 0.0;
-    setup->remaining_min_power_mw[node_count] = 0;
-    for (int depth = node_count - 1; depth >= 0; depth--) {
-        int node_index = setup->order[depth];
-        bool fixed = node_is_fixed(graph, setup->base_profiles, node_index);
-        const char *frequency = graph->nodes[node_index].frequency;
-        double bandwidth_bound = fixed ? 0.0 : max_bandwidth_for_frequency(setup->profiles, frequency);
-        long long power_bound = fixed ? 0 : min_power_for_frequency(setup->profiles, frequency);
-        setup->remaining_bandwidth[depth] = setup->remaining_bandwidth[depth + 1] + bandwidth_bound;
-        setup->remaining_min_power_mw[depth] = setup->remaining_min_power_mw[depth + 1] + power_bound;
-    }
-}
-
-static void free_setup(SearchSetup *setup) {
-    free(setup->order);
-    free(setup->base_profiles);
-    free(setup->remaining_bandwidth);
-    free(setup->remaining_min_power_mw);
-}
-
-// Atribui a cada no, na ordem de grau, o melhor perfil local; e a primeira folha da busca exata.
-static AssignmentCost greedy_assign(const SearchSetup *setup, int *profiles) {
-    const Graph *graph = setup->graph;
-    ProfileCandidate candidates[setup->profiles->count];
-    AssignmentCost cost = {0, 0.0, setup->base_bandwidth, setup->base_power_mw};
-    memcpy(profiles, setup->base_profiles, sizeof(int) * graph->node_count);
-
-    for (int depth = 0; depth < setup->order_count; depth++) {
-        int node_index = setup->order[depth];
-        if (node_is_fixed(graph, profiles, node_index)) {
-            continue;
-        }
-        int candidate_count = collect_candidates(setup, node_index, profiles, candidates);
-        if (candidate_count == 0) {
-            continue;
-        }
-        profiles[node_index] = candidates[0].profile_index;
-        apply_candidate(&cost, &candidates[0]);
-    }
-    return cost;
-}
-
-static ProposedConfig *proposals_from_profiles(const SearchSetup *setup, const int *profiles) {
-    const Graph *graph = setup->graph;
-    ProposedConfig *proposals = calloc((size_t) (graph->node_count > 0 ? graph->node_count : 1), sizeof(ProposedConfig));
-    if (!proposals) {
-        perror("calloc proposals");
-        exit(1);
-    }
-    for (int node_index = 0; node_index < graph->node_count; node_index++) {
-        int chosen_profile = profiles[node_index];
-        const Node *node = &graph->nodes[node_index];
-        if (chosen_profile < 0) {
-            proposals[node_index] = (ProposedConfig){node->channel, node->bandwidth, node->frequency};
-            continue;
-        }
-        proposals[node_index] = setup->profiles->items[chosen_profile];
-    }
-    return proposals;
-}
-
 static void push_task(SearchTask **tasks, int *count, int *capacity, const SearchTask *task) {
     if (*count >= *capacity) {
         *capacity = *capacity > 0 ? *capacity * 2 : 16;
@@ -410,12 +111,12 @@ static void enumerate_tasks(
     const Graph *graph = setup->graph;
     while (depth < setup->order_count) {
         int node_index = setup->order[depth];
-        if (node_is_fixed(graph, profiles, node_index)) {
+        if (assignment_node_is_fixed(graph, profiles, node_index)) {
             depth++;
             continue;
         }
         ProfileCandidate candidates[setup->profiles->count];
-        int candidate_count = collect_candidates(setup, node_index, profiles, candidates);
+        int candidate_count = assignment_collect_candidates(setup, node_index, profiles, candidates);
         if (candidate_count == 0) {
             depth++;
             continue;
@@ -427,7 +128,7 @@ static void enumerate_tasks(
             next.profile_indexes[next.length] = candidates[candidate_index].profile_index;
             next.length++;
             next.start_depth = depth + 1;
-            apply_candidate(&next.cost, &candidates[candidate_index]);
+            add_assignment_cost(&next.cost, &candidates[candidate_index].delta);
 
             int previous_profile = profiles[node_index];
             profiles[node_index] = candidates[candidate_index].profile_index;
@@ -443,19 +144,6 @@ static void enumerate_tasks(
 
     prefix.start_depth = setup->order_count;
     push_task(tasks, count, capacity, &prefix);
-}
-
-static bool stream_event(int fd, pthread_mutex_t *lock, const char *type, cJSON *payload) {
-    cJSON *event = cJSON_CreateObject();
-    cJSON_AddStringToObject(event, "type", type);
-    cJSON_AddItemToObject(event, "payload", payload);
-    char *text = cJSON_PrintUnformatted(event);
-    cJSON_Delete(event);
-    pthread_mutex_lock(lock);
-    int written = dprintf(fd, "%s\n", text);
-    pthread_mutex_unlock(lock);
-    free(text);
-    return written >= 0;
 }
 
 // Envia o andamento da busca exata: a solucao gulosa ja existe e as tarefas restantes validam alternativas.
@@ -484,7 +172,7 @@ static void emit_search_progress(ParallelSearch *search, int completed_tasks) {
     if (search->band_label) {
         cJSON_AddStringToObject(payload, "band", search->band_label);
     }
-    if (!stream_event(search->stream_fd, search->stream_lock, "progress", payload)) {
+    if (!assignment_stream_event(search->stream_fd, search->stream_lock, "progress", payload)) {
         atomic_store(&search->job->cancelled, 1);
     }
 }
@@ -505,7 +193,7 @@ static bool should_stop(WorkerState *worker) {
             request_stop(search, ASSIGNMENT_STOP_CANCELLED);
             return true;
         }
-        if (search->deadline > 0.0 && monotonic_seconds() >= search->deadline) {
+        if (search->deadline > 0.0 && assignment_monotonic_seconds() >= search->deadline) {
             request_stop(search, ASSIGNMENT_STOP_TIME_LIMIT);
             return true;
         }
@@ -570,13 +258,13 @@ static void search_depth(WorkerState *worker, int depth) {
 
     const Graph *graph = setup->graph;
     int node_index = setup->order[depth];
-    if (node_is_fixed(graph, worker->profiles, node_index)) {
+    if (assignment_node_is_fixed(graph, worker->profiles, node_index)) {
         search_depth(worker, depth + 1);
         return;
     }
 
     ProfileCandidate candidates[setup->profiles->count];
-    int candidate_count = collect_candidates(setup, node_index, worker->profiles, candidates);
+    int candidate_count = assignment_collect_candidates(setup, node_index, worker->profiles, candidates);
     if (candidate_count == 0) {
         search_depth(worker, depth + 1);
         return;
@@ -586,7 +274,7 @@ static void search_depth(WorkerState *worker, int depth) {
     int previous_profile = worker->profiles[node_index];
     for (int candidate_index = 0; candidate_index < candidate_count; candidate_index++) {
         worker->profiles[node_index] = candidates[candidate_index].profile_index;
-        apply_candidate(&worker->current, &candidates[candidate_index]);
+        add_assignment_cost(&worker->current, &candidates[candidate_index].delta);
         search_depth(worker, depth + 1);
         worker->current = previous_cost;
         worker->profiles[node_index] = previous_profile;
@@ -603,7 +291,7 @@ static void *search_worker(void *arg) {
     int node_count = setup->graph->node_count;
     WorkerState worker = {
         .search = search,
-        .profiles = checked_malloc(sizeof(int) * node_count, "malloc worker profiles"),
+        .profiles = assignment_malloc(sizeof(int) * node_count, "malloc worker profiles"),
         .best_version_seen = UINT_MAX,
     };
 
@@ -638,10 +326,10 @@ ProposedConfig *build_greedy_proposals(
     AssignmentStats *stats
 ) {
     SearchSetup setup;
-    setup_search(graph, profile_set, objective, &setup);
-    int *profiles = checked_malloc(sizeof(int) * graph->node_count, "malloc greedy profiles");
-    AssignmentCost cost = greedy_assign(&setup, profiles);
-    ProposedConfig *proposals = proposals_from_profiles(&setup, profiles);
+    assignment_setup(graph, profile_set, objective, &setup);
+    int *profiles = assignment_malloc(sizeof(int) * graph->node_count, "malloc greedy profiles");
+    AssignmentCost cost = assignment_greedy(&setup, profiles);
+    ProposedConfig *proposals = assignment_proposals(&setup, profiles);
 
     if (stats) {
         *stats = (AssignmentStats){
@@ -659,7 +347,7 @@ ProposedConfig *build_greedy_proposals(
     analysis_log(ANALYSIS_LOG_INFO, job ? job->id : NULL, "guloso concluido nodes=%d conflicts=%d", graph->node_count, cost.conflicts);
 
     free(profiles);
-    free_setup(&setup);
+    assignment_free_setup(&setup);
     return proposals;
 }
 
@@ -684,11 +372,11 @@ ProposedConfig *build_backtracking_proposals(
     );
 
     SearchSetup setup;
-    setup_search(graph, options ? options->profiles : NULL, options ? options->objective : OBJECTIVE_DEFAULT, &setup);
-    int *best_profiles = checked_malloc(sizeof(int) * graph->node_count, "malloc best profiles");
-    AssignmentCost initial = greedy_assign(&setup, best_profiles);
+    assignment_setup(graph, options ? options->profiles : NULL, options ? options->objective : OBJECTIVE_DEFAULT, &setup);
+    int *best_profiles = assignment_malloc(sizeof(int) * graph->node_count, "malloc best profiles");
+    AssignmentCost initial = assignment_greedy(&setup, best_profiles);
 
-    int *profiles = checked_malloc(sizeof(int) * graph->node_count, "malloc task profiles");
+    int *profiles = assignment_malloc(sizeof(int) * graph->node_count, "malloc task profiles");
     memcpy(profiles, setup.base_profiles, sizeof(int) * graph->node_count);
     SearchTask *tasks = NULL;
     int task_count = 0;
@@ -704,7 +392,7 @@ ProposedConfig *build_backtracking_proposals(
         .best_cost = initial,
         .best_task = 0,
         .best_profiles = best_profiles,
-        .deadline = time_limit > 0.0 ? monotonic_seconds() + time_limit : 0.0,
+        .deadline = time_limit > 0.0 ? assignment_monotonic_seconds() + time_limit : 0.0,
         .job = job,
         .stream_fd = options ? options->stream_fd : -1,
         .stream_lock = options ? options->stream_lock : NULL,
@@ -726,7 +414,7 @@ ProposedConfig *build_backtracking_proposals(
     }
     analysis_log(ANALYSIS_LOG_DEBUG, job ? job->id : NULL, "busca paralela tasks=%d workers=%d greedy_conflicts=%d", task_count, worker_count, initial.conflicts);
 
-    pthread_t *workers = checked_malloc(sizeof(pthread_t) * worker_count, "malloc search workers");
+    pthread_t *workers = assignment_malloc(sizeof(pthread_t) * worker_count, "malloc search workers");
     int started = 0;
     for (int worker_index = 0; worker_index < worker_count; worker_index++) {
         if (pthread_create(&workers[worker_index], NULL, search_worker, &search) != 0) {
@@ -766,11 +454,11 @@ ProposedConfig *build_backtracking_proposals(
         (long long) atomic_load(&search.nodes_explored)
     );
 
-    ProposedConfig *proposals = proposals_from_profiles(&setup, best_profiles);
+    ProposedConfig *proposals = assignment_proposals(&setup, best_profiles);
     free(workers);
     free(tasks);
     free(best_profiles);
-    free_setup(&setup);
+    assignment_free_setup(&setup);
     return proposals;
 }
 

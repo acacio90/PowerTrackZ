@@ -10,6 +10,7 @@ C service that builds the conflict graph between access points and suggests the 
 |---|---|
 | `backtracking` | Exact *branch-and-bound* search. Minimizes the cost of the optimization criterion (section below); by default, in this order, the number of conflicts, the total interference and the inverse of the summed bandwidth. |
 | `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest incremental cost in the optimization criterion (by default, the lowest local interference). It is also the initial solution of the exact search. |
+| `local_search` | Local search on the common metaheuristic base (section below): at each iteration, it changes the profile of a random AP and accepts the change if it does not worsen the solution under the optimization criterion. It does not guarantee the optimum; it is the reference for the metaheuristics. |
 | `genetic` | Not implemented yet (returns a *placeholder*). |
 
 ## Parameters
@@ -20,14 +21,19 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 |---|---|---|---|---|---|
 | `backtracking` | `thread_count` | integer | `1` | 1 to 256 | Number of search *threads*. |
 | `backtracking` | `time_limit_seconds` | number | `60` | 0 to 3600 | Maximum search time in each band, in seconds. `0` disables the limit. |
+| `local_search` | `seed` | integer, optional | drawn | 0 to 4294967295 | Seed of the random generator. Without a value, the service draws one and returns it in `execution.seed`. |
+| `local_search` | `time_limit_seconds` | number | `10` | 0 to 3600 | Maximum search time in each band, in seconds. `0` disables the limit. |
+| `local_search` | `max_iterations` | integer | `1000000` | 0 to 10⁹ | Maximum number of iterations in each band. `0` disables the limit. |
+| `local_search` | `max_iterations_without_improvement` | integer | `100000` | 0 to 10⁹ | Stops the search in the band after this number of iterations without improving the best solution. `0` disables the criterion. |
+| `local_search` | `initial_solution` | choice | `greedy` | `greedy`, `random` | Initial solution: the greedy one or a random profile for each AP. |
 
-The `greedy` and `genetic` strategies have no configurable parameters.
+The `greedy` and `genetic` strategies have no configurable parameters. In `local_search`, at least one of the three stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
 
-`GET /strategies` describes these parameters in `strategy_details`, with name, label, type, default, limits, unit, whether the value `0` disables the feature and whether it is advanced (`advanced`, shown collapsed in the interface). Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
+`GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
-Values outside the declared type or range are rejected with HTTP 400 and a message such as `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph.
+Values outside the declared type or range, and options that are not in the list, are rejected with HTTP 400 and a message such as `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph, and the seed is the one used (given or drawn).
 
-The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped (`completed`, `time_limit` or `cancelled`), the explored nodes, the conflicts of the greedy and final solutions and the components of the solution cost (`interference_score`, `bandwidth_score` and `power_score_w`).
+The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped, the explored nodes, the conflicts of the initial and final solutions (`greedy_conflicts` and `conflicts`) and the components of the solution cost (`interference_score`, `bandwidth_score` and `power_score_w`). The stop reasons are `completed` (the search finished), `no_improvement` (iterations without improvement), `iteration_limit` (iteration limit), `time_limit` (time limit) and `cancelled` (cancellation); when the bands are consolidated, the reason with the highest precedence wins, in this same order. In the metaheuristics, `iterations` reports the iterations run, `nodes_explored` equals them and `greedy_conflicts` are the conflicts of the initial solution, which may be the random one.
 
 ## Optimization Criterion
 
@@ -46,6 +52,21 @@ The cost evaluation lives in a single place, `src/strategies/objective.c`: the c
 In the consumption model, wider bandwidths use less power. That is why `energy_tiebreak` usually matches `default` for an isolated AP, but differs on sums: two conflict-free APs at 40 + 40 MHz add up to 80 MHz and 20.6 W; at 80 + 20 MHz, 100 MHz and 21.0 W. `default` keeps the second solution and `energy_tiebreak` the first. `energy_first` accepts conflicts to reduce power.
 
 **Configurations outside the consumption model.** In the optimization criterion, a configuration with no value in the model (160 MHz) counts as the highest modeled power of its band (11.1 W in 5 GHz), so a configuration without an estimate is never favored by energy. In a band with no value in the model (6 GHz), every profile counts as zero, and energy no longer tells them apart. The rule applies only to the optimization: the power totals in the response still leave these configurations out.
+
+## Common Metaheuristic Base
+
+The metaheuristics share the same pieces, in `src/strategies/metaheuristic.c`, so that the comparison with backtracking and greedy depends only on the method, not on implementation differences. Local search (`local_search.c`) is the reference that exercises this base.
+
+- **Representation.** The solution is one profile index per AP, as in backtracking. In each band, only the APs that are not fixed and have profiles of their band change; the APs locked on an available profile stay fixed, with the same rules as backtracking (`assignment.c`).
+- **Cost.** The cost is the optimization criterion's (`AssignmentCost` and `compare_assignment_costs`, in `objective.c`), with the same rules as the incremental cost of backtracking and greedy: it counts the conflicting edges with both ends defined, except between two fixed APs, and adds the bandwidth and power of each assigned AP. `meta_full_cost` recomputes the full cost, and `meta_move_delta` computes the change when the profile of one AP changes, in O(degree). Since interference is a real number, the incremental sum may accumulate rounding error over millions of moves; therefore, the current cost is fully recomputed every 4,096 iterations, and a solution only becomes the best one after its cost is recomputed. The C tests check that the incremental change matches the full recomputation over 20,000 random moves, in the three objectives.
+- **Neighborhood.** The basic move is changing the profile of one AP; `meta_random_move` draws a mobile AP and an allowed profile different from the current one.
+- **Initial solution.** The greedy one (`greedy`, default) or a random allowed profile for each AP (`random`).
+- **Stopping.** The search stops at the time limit, at the maximum number of iterations or after a number of iterations without improving the best solution, whichever comes first, and reports the reason in `stop_reason`. Each band has its own limits.
+- **Reproducibility.** Randomness comes from the service's own generator (xoshiro256\*\*, seeded by splitmix64), not from the C library's `rand()`. The seed is the one given in `seed` or a drawn one, returned in `execution.seed` and in `execution.parameters.seed`; each band uses a sequence derived from the seed and the band index. The same seed, with the same APs, channels, objective and parameters, produces the same result. The time limit is the exception: a search that stops on time depends on the speed of the machine, so, to reproduce a run, use the iteration limit or the iterations-without-improvement limit.
+- **Convergence curve.** Each band in `execution.bands` reports in `convergence` the best solution along the search: one point at the initial solution, one at each improvement and one at the end, with `iteration`, `time_ms`, `conflicts`, `interference`, `bandwidth` and `power_w`. The curve keeps at most 500 points per band; when it fills up, every other point is dropped, keeping the first one.
+- **Progress and cancellation.** On the *streaming* route, progress (`iteration`, `best_conflicts` and the completed fraction, that of the most advanced stopping criterion) is sent every 0.2 s, and cancellation is checked every 256 iterations.
+
+To create a metaheuristic, declare the common parameters with the macros `META_SEED_PARAMETER`, `META_TIME_LIMIT_PARAMETER`, `META_MAX_ITERATIONS_PARAMETER`, `META_STAGNATION_PARAMETER` and `META_INITIAL_SOLUTION_PARAMETER`, use `meta_validate_parameters` for validation and follow the loop in `local_search.c`: `meta_run_begin`, `meta_run_next` at each iteration, `meta_run_offer` when the current solution changes and `meta_run_end` at the end. Comparisons use the objective's lexicographic order (`compare_assignment_costs`); a metaheuristic that needs a numeric cost difference (such as Simulated Annealing's acceptance) must document how it obtains one without violating that order.
 
 ## Interference
 
@@ -112,5 +133,6 @@ On a cost tie, the task with the lowest index wins. Since the tasks follow the o
 
 - The problem is NP-hard. On large and dense graphs, the exact search does not finish and stops at the time limit, returning the best solution found (`optimal: false`).
 - The gain from more *threads* depends on the number of tasks and on how effective the pruning is. With few profiles per band, the first two levels produce at most 25 tasks in 2.4 GHz and 100 in 5 GHz.
-- The progress sent to the *frontend* is the fraction of completed tasks, not an estimate of the remaining time.
+- In backtracking, the progress sent to the *frontend* is the fraction of completed tasks, not an estimate of the remaining time.
+- The metaheuristics are not part of the scalability test yet: the break point of methods without an optimality guarantee (time limit exceeded) does not describe a search that stops on time, and the comparison needs repetitions per seed.
 - Conflicts between two locked APs are not counted in the cost, since they do not depend on the assignment.

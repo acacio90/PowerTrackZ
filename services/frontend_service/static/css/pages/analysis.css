@@ -978,3 +978,120 @@
     50% { transform: translateX(120%); }
     100% { transform: translateX(-120%); }
 }
+
+/* Aba Convergência: uma curva por faixa, em degraus, com dica ao passar o mouse e a tabela dos pontos */
+.convergence-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.convergence-axis-choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.convergence-axis-choice select {
+    width: auto;
+}
+
+.convergence-band + .convergence-band {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.convergence-title {
+    margin: 0 0 var(--space-1);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
+}
+
+.convergence-chart {
+    position: relative;
+    margin-top: var(--space-2);
+}
+
+.convergence-chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+}
+
+.convergence-grid {
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.convergence-axis {
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.convergence-tick,
+.convergence-axis-label {
+    fill: var(--color-text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.convergence-line {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.convergence-marker {
+    fill: var(--color-accent);
+    stroke: var(--color-surface);
+    stroke-width: 2;
+}
+
+.convergence-cursor {
+    stroke: var(--color-text-muted);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.convergence-hit {
+    fill: transparent;
+    cursor: crosshair;
+}
+
+.convergence-tooltip {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.convergence-tooltip[hidden] {
+    display: none;
+}
+
+.convergence-points {
+    margin-top: var(--space-2);
+}
+
+.convergence-points summary {
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}

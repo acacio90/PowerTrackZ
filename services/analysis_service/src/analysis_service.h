@@ -54,6 +54,9 @@ typedef enum {
 } AnalysisLogLevel;
 
 int run_analysis_service(void);
+// Monta o grafo de uma requisicao (lista "aps"), como nas rotas de analise; usada tambem pelos testes em C.
+bool analysis_build_graph(cJSON *payload, Graph *graph, char **error_message);
+void analysis_free_graph(Graph *graph);
 bool is_cancelled(const Job *job);
 AnalysisLogLevel analysis_log_level(void);
 void analysis_log(AnalysisLogLevel level, const char *job_id, const char *fmt, ...);

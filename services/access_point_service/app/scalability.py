@@ -96,7 +96,13 @@ def _integer(data, name, minimum, maximum):
 def validate_parameters(data, strategy_details, objectives=("default",)):
     """Valida os parametros do teste e devolve-os completos, com a semente resolvida."""
     data = data or {}
-    implemented = [detail["name"] for detail in strategy_details if detail.get("implemented")]
+    # As metaheuristicas ficam de fora ate o teste ter repeticoes por semente: o ponto de quebra dos metodos
+    # sem garantia de otimo (limite de tempo excedido) nao descreve uma busca que para pelo tempo.
+    implemented = [
+        detail["name"]
+        for detail in strategy_details
+        if detail.get("implemented") and detail.get("family") != "metaheuristic"
+    ]
     max_nodes = _integer(data, "max_nodes", 2, MAX_NODE_COUNT)
     step = _integer(data, "step", 1, max_nodes)
     min_degree = _integer(data, "min_degree", 1, max_nodes - 1)

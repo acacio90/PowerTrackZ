@@ -105,10 +105,16 @@ POST /graph-metrics
   "exact": true,
   "family": "exact",
   "parameters": [
-    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true},
-    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false}
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true, "optional": false},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false, "optional": false}
   ]
 }
+```
+
+Um parâmetro opcional (`optional: true`) não tem padrão (`default` nulo): é a semente das metaheurísticas, que o serviço sorteia quando ela não é informada. Um parâmetro de escolha (`type: "choice"`) traz as opções em `options`, com `value` e `label`, e a opção padrão em `default`, sem `min` e `max`:
+
+```json
+{"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
 ```
 
 Na mesma resposta, `objectives` lista os critérios de otimização aceitos, e `default_objective`, o padrão:
@@ -119,7 +125,20 @@ Na mesma resposta, `objectives` lista os critérios de otimização aceitos, e `
 
 As rotas de análise recebem o critério no campo `objective` (`default`, `energy_tiebreak` ou `energy_first`; sem o campo, `default`) e o informam em `execution.objective`. Um objetivo desconhecido retorna HTTP 400.
 
-As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado, e opções fora da lista, retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+
+Nas metaheurísticas (família `metaheuristic`, hoje a `local_search`), a resposta traz também:
+
+- `execution.seed`: a semente usada, informada em `parameters.seed` ou sorteada; repetir a requisição com ela reproduz o resultado (exceto quando a busca para pelo limite de tempo);
+- `execution.search.iterations` e, em cada faixa, `search.iterations`: as iterações executadas;
+- `stop_reason`: além de `completed`, `time_limit` e `cancelled`, os motivos `iteration_limit` (limite de iterações) e `no_improvement` (iterações sem melhora);
+- `execution.bands[].convergence`: a curva de convergência da faixa, com a melhor solução na solução inicial, a cada melhora e no fim:
+
+```json
+[{"iteration": 0, "time_ms": 0.2, "conflicts": 10, "interference": 241.4, "bandwidth": 240, "power_w": 111.0}, {"iteration": 11, "time_ms": 0.3, "conflicts": 9, "interference": 230.9, "bandwidth": 240, "power_w": 111.0}]
+```
+
+Na rota com *streaming*, o progresso das metaheurísticas inclui `iteration`.
 
 `POST /graph-metrics` recebe `aps`, como as rotas de análise, e devolve as métricas do grafo que a análise montaria (`nodes`, `edges`, `density`, `average_degree` e `max_degree`), no total e em `bands`, sem executar estratégia. APs sem `raio` usam o raio padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz.
 

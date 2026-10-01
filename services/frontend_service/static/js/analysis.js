@@ -128,6 +128,7 @@ window.addEventListener('DOMContentLoaded', function() {
         return {
             backtracking: 'Backtracking',
             greedy: 'Guloso',
+            local_search: 'Busca local',
             genetic: 'Algoritmo genético'
         }[strategy] || strategy || 'Nenhuma estratégia';
     }
@@ -193,8 +194,19 @@ window.addEventListener('DOMContentLoaded', function() {
     function renderParameterField(parameter) {
         const inputId = parameterInputId(parameter.name);
         const unit = parameter.unit ? ` (${escapeHtml(parameter.unit)})` : '';
+        if (parameter.type === 'choice') {
+            const options = (parameter.options || []).map(option => `
+                <option value="${escapeHtml(option.value)}" ${option.value === parameter.default ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('');
+            return `
+            <div class="analysis-parameter">
+                <label for="${inputId}">${escapeHtml(parameter.label)}</label>
+                <select id="${inputId}">${options}</select>
+                <p class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>
+            </div>`;
+        }
         const startsDisabled = parameter.zero_disables && parameter.default === 0;
-        const value = startsDisabled ? '' : parameter.default;
+        const value = startsDisabled || parameter.default == null ? '' : parameter.default;
+        const placeholder = parameter.optional ? ' placeholder="Sorteada"' : '';
         const meta = parameter.name === 'thread_count'
             ? `<p id="analysis-thread-availability" class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`
             : `<p class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`;
@@ -208,7 +220,7 @@ window.addEventListener('DOMContentLoaded', function() {
             <div class="analysis-parameter">
                 <label for="${inputId}">${escapeHtml(parameter.label)}${unit}</label>
                 <input id="${inputId}" type="number" min="${parameter.min}" max="${parameter.max}"
-                       step="${parameter.type === 'integer' ? '1' : 'any'}" value="${value}">
+                       step="${parameter.type === 'integer' ? '1' : 'any'}" value="${value}"${placeholder}>
                 ${toggle}
                 ${meta}
             </div>`;
@@ -297,9 +309,16 @@ window.addEventListener('DOMContentLoaded', function() {
             }
 
             const input = document.getElementById(inputId);
+            if (parameter.type === 'choice') {
+                values[parameter.name] = input ? input.value : parameter.default;
+                continue;
+            }
             const raw = input ? String(input.value).trim().replace(',', '.') : '';
             if (raw === '') {
-                values[parameter.name] = parameter.default;
+                // Opcional em branco (a semente): o servico sorteia o valor e o informa no resultado.
+                if (!parameter.optional) {
+                    values[parameter.name] = parameter.default;
+                }
                 continue;
             }
 
@@ -363,6 +382,10 @@ window.addEventListener('DOMContentLoaded', function() {
                 return `${key}: ${value}`;
             }
             const label = parameter.label.toLowerCase();
+            if (parameter.type === 'choice') {
+                const option = (parameter.options || []).find(item => item.value === value);
+                return `${label}: ${option ? option.label.toLowerCase() : value}`;
+            }
             if (parameter.zero_disables && Number(value) === 0) {
                 return `${label}: nenhum`;
             }
@@ -370,8 +393,21 @@ window.addEventListener('DOMContentLoaded', function() {
         }).join(' | ');
     }
 
-    // Traduz o resultado da busca: otima, interrompida pelo limite ou cancelada; o guloso nao garante otimo.
+    function isMetaheuristic(strategy) {
+        return (strategyDetails[strategy] || {}).family === 'metaheuristic';
+    }
+
+    // Traduz o resultado da busca: otima, interrompida pelo limite ou cancelada; o guloso nao garante otimo,
+    // e nas metaheuristicas o motivo da parada vem junto.
     function describeSearchOutcome(strategy, search) {
+        if (isMetaheuristic(strategy)) {
+            return {
+                time_limit: 'Sem garantia de ótimo; parou no limite de tempo',
+                iteration_limit: 'Sem garantia de ótimo; parou no limite de iterações',
+                no_improvement: 'Sem garantia de ótimo; parou por falta de melhora',
+                cancelled: 'Melhor encontrada até o cancelamento'
+            }[search.stop_reason] || 'Sem garantia de ótimo';
+        }
         if (strategy !== 'backtracking') {
             return 'Heurística (sem garantia de ótimo)';
         }
@@ -410,6 +446,18 @@ window.addEventListener('DOMContentLoaded', function() {
                     <span class="analysis-execution-value">${search.nodes_explored != null ? Number(search.nodes_explored).toLocaleString('pt-BR') : '-'}</span>
                 </div>`);
         }
+        if (isMetaheuristic(strategy)) {
+            items.push(`
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Conflitos (solução inicial / final)</span>
+                    <span class="analysis-execution-value">${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}</span>
+                </div>`);
+            items.push(`
+                <div class="analysis-execution-item">
+                    <span class="analysis-execution-label">Iterações</span>
+                    <span class="analysis-execution-value">${search.iterations != null ? Number(search.iterations).toLocaleString('pt-BR') : '-'}</span>
+                </div>`);
+        }
 
         return items.join('');
     }
@@ -418,13 +466,14 @@ window.addEventListener('DOMContentLoaded', function() {
     function renderBandsMetadata(strategy, bands) {
         return (bands || []).map(band => {
             const search = band.search || {};
-            const conflicts = strategy === 'backtracking'
+            const conflicts = strategy === 'backtracking' || isMetaheuristic(strategy)
                 ? `conflitos ${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}`
                 : `conflitos ${search.conflicts ?? '-'}`;
+            const iterations = search.iterations != null ? ` | ${Number(search.iterations).toLocaleString('pt-BR')} iterações` : '';
             return `
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
-                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts} | ${describeSearchOutcome(strategy, search)}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations} | ${describeSearchOutcome(strategy, search)}</span>
                 </div>`;
         }).join('');
     }
@@ -444,7 +493,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
         const graphSnapshot = execution.graph_snapshot || {};
         const comparison = execution.comparison || {};
-        const seed = execution.parameters && execution.parameters.seed != null ? execution.parameters.seed : null;
+        const seed = execution.seed ?? (execution.parameters && execution.parameters.seed != null ? execution.parameters.seed : null);
         setEmptyMessage('analysis-execution-empty', false);
         container.hidden = false;
         container.innerHTML = `
@@ -511,22 +560,225 @@ window.addEventListener('DOMContentLoaded', function() {
         criarAnaliseOtimizada({ payload });
     }
 
-    // Aba Convergencia: so as estrategias iterativas (metaheuristicas) produzem a curva.
+    // Aba Convergencia: so as estrategias iterativas (metaheuristicas) produzem a curva. Uma curva por faixa,
+    // com o melhor valor do primeiro criterio do objetivo (conflitos ou potencia) ao longo das iteracoes ou do tempo.
+    let lastConvergenceExecution = null;
+    let convergenceAxis = 'iteration_log';
+
+    // Eixos horizontais da curva; a escala logaritmica mostra as melhoras do inicio, onde costumam se concentrar.
+    const CONVERGENCE_AXES = {
+        iteration: { key: 'iteration', label: 'Iterações', log: false, format: value => Math.round(value).toLocaleString('pt-BR') },
+        iteration_log: { key: 'iteration', label: 'Iterações (escala logarítmica)', log: true, format: value => Math.round(value).toLocaleString('pt-BR') },
+        time_ms: { key: 'time_ms', label: 'Tempo (ms)', log: false, format: value => formatNumber(value, value < 10 ? 1 : 0) }
+    };
+
+    // Posicao relativa (0 a 1) de um valor no eixo; na escala logaritmica, log10(1 + valor), para incluir o zero.
+    function axisPosition(axis, value, max) {
+        const transform = axis.log ? (v => Math.log10(1 + v)) : (v => v);
+        return transform(max) > 0 ? transform(value) / transform(max) : 0;
+    }
+
+    function axisValueAt(axis, position, max) {
+        return axis.log ? Math.pow(10, position * Math.log10(1 + max)) - 1 : position * max;
+    }
+
+    function axisTicks(axis, max) {
+        if (axis.log) {
+            const ticks = [0];
+            for (let value = 1; value <= max; value *= 10) {
+                ticks.push(value);
+            }
+            return ticks;
+        }
+        return niceTicks(0, max, axis.key === 'iteration').filter(tick => tick <= max);
+    }
+
+    function convergenceMetric(objective) {
+        return objective === 'energy_first'
+            ? { key: 'power_w', label: 'Potência (W)', format: value => formatNumber(value, 1) }
+            : { key: 'conflicts', label: 'Conflitos', format: value => Math.round(value).toLocaleString('pt-BR') };
+    }
+
+    // Ate seis marcas "redondas" (1, 2 ou 5 vezes uma potencia de 10) cobrindo [min, max].
+    function niceTicks(min, max, integer) {
+        if (max <= min) {
+            max = min + 1;
+        }
+        const rough = (max - min) / 5;
+        const power = Math.pow(10, Math.floor(Math.log10(rough)));
+        const step = Math.max([1, 2, 5, 10].map(factor => factor * power).find(candidate => candidate >= rough), integer ? 1 : 0);
+        const ticks = [];
+        for (let value = Math.floor(min / step) * step; value <= max + step * 1e-9; value += step) {
+            ticks.push(Number(value.toPrecision(12)));
+        }
+        if (ticks[ticks.length - 1] < max) {
+            ticks.push(Number((ticks[ticks.length - 1] + step).toPrecision(12)));
+        }
+        return ticks;
+    }
+
+    function renderConvergenceChart(band, bandIndex, metric) {
+        const points = band.convergence || [];
+        const axis = CONVERGENCE_AXES[convergenceAxis];
+        const width = 640;
+        const height = 240;
+        const margin = { top: 16, right: 20, bottom: 44, left: 56 };
+        const xs = points.map(point => Number(point[axis.key]) || 0);
+        const ys = points.map(point => Number(point[metric.key]) || 0);
+        // O eixo termina no ultimo ponto (o fim da busca), sem espaco vazio depois dele.
+        const xMax = Math.max(...xs, 1);
+        const xTicks = axisTicks(axis, xMax);
+        const yTicks = niceTicks(Math.min(...ys), Math.max(...ys), metric.key === 'conflicts');
+        const [yMin, yMax] = [yTicks[0], yTicks[yTicks.length - 1]];
+        const plotWidth = width - margin.left - margin.right;
+        const plotHeight = height - margin.top - margin.bottom;
+        const sx = value => margin.left + axisPosition(axis, value, xMax) * plotWidth;
+        const sy = value => margin.top + plotHeight - ((value - yMin) / (yMax - yMin || 1)) * plotHeight;
+
+        // Degraus: o melhor valor so muda quando a busca encontra uma solucao melhor.
+        let path = '';
+        points.forEach((point, index) => {
+            const x = sx(xs[index]).toFixed(1);
+            const y = sy(ys[index]).toFixed(1);
+            path += index === 0 ? `M${x},${y}` : `H${x}V${y}`;
+        });
+        const markers = points.slice(0, -1).map((point, index) => `<circle class="convergence-marker" cx="${sx(xs[index]).toFixed(1)}" cy="${sy(ys[index]).toFixed(1)}" r="3"></circle>`).join('');
+        const grid = yTicks.map(tick => `
+            <line class="convergence-grid" x1="${margin.left}" x2="${width - margin.right}" y1="${sy(tick).toFixed(1)}" y2="${sy(tick).toFixed(1)}"></line>
+            <text class="convergence-tick" x="${margin.left - 8}" y="${sy(tick).toFixed(1)}" text-anchor="end" dominant-baseline="middle">${metric.format(tick)}</text>`).join('');
+        const xLabels = xTicks.map(tick => `
+            <text class="convergence-tick" x="${sx(tick).toFixed(1)}" y="${height - margin.bottom + 18}" text-anchor="middle">${axis.format(tick)}</text>`).join('');
+        const first = points[0] || {};
+        const last = points[points.length - 1] || {};
+        const search = band.search || {};
+        const rows = points.map(point => `
+            <tr>
+                <td>${Number(point.iteration).toLocaleString('pt-BR')}</td>
+                <td>${formatNumber(point.time_ms, 1)}</td>
+                <td>${point.conflicts}</td>
+                <td>${formatNumber(point.interference, 1)}</td>
+                <td>${formatNumber(point.power_w, 1)}</td>
+            </tr>`).join('');
+
+        return `
+            <section class="convergence-band" data-band="${bandIndex}">
+                <h3 class="convergence-title">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</h3>
+                <p class="analysis-parameter-meta">
+                    ${metric.label}: ${metric.format(Number(first[metric.key]) || 0)} → ${metric.format(Number(last[metric.key]) || 0)}
+                    em ${Number(search.iterations || 0).toLocaleString('pt-BR')} iterações · ${escapeHtml(describeSearchOutcome(lastConvergenceExecution.strategy, search))}
+                </p>
+                <div class="convergence-chart">
+                    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(`${metric.label} da melhor solução por ${axis.label.toLowerCase()}, faixa ${band.frequency}`)}">
+                        ${grid}
+                        <line class="convergence-axis" x1="${margin.left}" x2="${width - margin.right}" y1="${margin.top + plotHeight}" y2="${margin.top + plotHeight}"></line>
+                        ${xLabels}
+                        <text class="convergence-axis-label" x="${margin.left + plotWidth / 2}" y="${height - 6}" text-anchor="middle">${axis.label}</text>
+                        <text class="convergence-axis-label" transform="translate(14 ${margin.top + plotHeight / 2}) rotate(-90)" text-anchor="middle">${metric.label}</text>
+                        <path class="convergence-line" d="${path}"></path>
+                        ${markers}
+                        <line class="convergence-cursor" y1="${margin.top}" y2="${margin.top + plotHeight}" visibility="hidden"></line>
+                        <rect class="convergence-hit" x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}"
+                              data-x-max="${xMax}" data-left="${margin.left}" data-plot-width="${plotWidth}"></rect>
+                    </svg>
+                    <div class="convergence-tooltip panel panel-floating" hidden></div>
+                </div>
+                <details class="convergence-points">
+                    <summary>Ver os ${points.length} pontos da curva</summary>
+                    <div class="app-table-wrap">
+                        <table class="app-table app-table-compact">
+                            <thead>
+                                <tr><th scope="col">Iteração</th><th scope="col">Tempo (ms)</th><th scope="col">Conflitos</th><th scope="col">Interferência</th><th scope="col">Potência (W)</th></tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </details>
+            </section>`;
+    }
+
+    // Dica ao passar o mouse: o ponto vigente (o ultimo melhor encontrado ate a posicao do cursor).
+    function bindConvergenceTooltips(container, bands) {
+        container.querySelectorAll('.convergence-band').forEach(section => {
+            const band = bands[Number(section.dataset.band)];
+            const points = band.convergence || [];
+            const svg = section.querySelector('svg');
+            const hit = section.querySelector('.convergence-hit');
+            const cursor = section.querySelector('.convergence-cursor');
+            const tooltip = section.querySelector('.convergence-tooltip');
+            const xMax = Number(hit.dataset.xMax);
+            const left = Number(hit.dataset.left);
+            const plotWidth = Number(hit.dataset.plotWidth);
+            const axis = CONVERGENCE_AXES[convergenceAxis];
+            const hide = () => {
+                tooltip.hidden = true;
+                cursor.setAttribute('visibility', 'hidden');
+            };
+            hit.addEventListener('mousemove', event => {
+                const box = svg.getBoundingClientRect();
+                const viewX = ((event.clientX - box.left) / box.width) * svg.viewBox.baseVal.width;
+                const value = axisValueAt(axis, Math.min(Math.max((viewX - left) / plotWidth, 0), 1), xMax);
+                let current = points[0];
+                points.forEach(point => {
+                    if (Number(point[axis.key]) <= value) {
+                        current = point;
+                    }
+                });
+                if (!current) {
+                    hide();
+                    return;
+                }
+                cursor.setAttribute('x1', viewX);
+                cursor.setAttribute('x2', viewX);
+                cursor.setAttribute('visibility', 'visible');
+                tooltip.innerHTML = `
+                    <strong>Iteração ${Number(current.iteration).toLocaleString('pt-BR')}</strong>
+                    <span>${formatNumber(current.time_ms, 1)} ms</span>
+                    <span>Conflitos: ${current.conflicts}</span>
+                    <span>Interferência: ${formatNumber(current.interference, 1)}</span>
+                    <span>Potência: ${formatNumber(current.power_w, 1)} W</span>`;
+                tooltip.hidden = false;
+                const chartBox = section.querySelector('.convergence-chart').getBoundingClientRect();
+                const x = event.clientX - chartBox.left;
+                tooltip.style.left = `${Math.min(x + 12, chartBox.width - tooltip.offsetWidth - 4)}px`;
+                tooltip.style.top = `${event.clientY - chartBox.top + 12}px`;
+            });
+            hit.addEventListener('mouseleave', hide);
+        });
+    }
+
     function renderConvergence(execution) {
         const container = document.getElementById('analysis-convergence');
         if (!container) {
             return;
         }
+        lastConvergenceExecution = execution;
         if (!execution) {
             container.innerHTML = '<p class="analysis-empty">Execute uma análise para ver a convergência.</p>';
             return;
         }
-        if (!Array.isArray(execution.convergence) || !execution.convergence.length) {
+        const bands = (execution.bands || []).filter(band => Array.isArray(band.convergence) && band.convergence.length);
+        if (!bands.length) {
             const name = escapeHtml(getStrategyDisplayName(execution.strategy));
             container.innerHTML = `<p class="analysis-empty"><i class="fa-solid fa-circle-info"></i> ${name} não produz curva de convergência: a curva mostra a melhor solução encontrada ao longo das iterações das metaheurísticas.</p>`;
             return;
         }
-        container.innerHTML = '<p class="analysis-empty">A curva de convergência desta estratégia será exibida aqui.</p>';
+        const metric = convergenceMetric(execution.objective);
+        const seed = execution.seed != null ? ` · semente ${escapeHtml(String(execution.seed))}` : '';
+        container.innerHTML = `
+            <div class="convergence-toolbar">
+                <p class="analysis-parameter-meta">Melhor solução encontrada ao longo da busca, pelo primeiro critério do objetivo (${escapeHtml(getObjectiveLabel(execution.objective || 'default'))}: ${metric.label.toLowerCase()})${seed}.</p>
+                <label class="convergence-axis-choice" for="convergence-axis">Eixo horizontal
+                    <select id="convergence-axis">
+                        ${Object.entries(CONVERGENCE_AXES).map(([key, axis]) => `<option value="${key}" ${key === convergenceAxis ? 'selected' : ''}>${axis.label}</option>`).join('')}
+                    </select>
+                </label>
+            </div>
+            ${bands.map((band, index) => renderConvergenceChart(band, index, metric)).join('')}`;
+        container.querySelector('#convergence-axis').addEventListener('change', event => {
+            convergenceAxis = event.target.value;
+            renderConvergence(lastConvergenceExecution);
+        });
+        bindConvergenceTooltips(container, bands);
     }
 
     function formatNumber(value, digits = 1) {
@@ -1781,7 +2033,9 @@ window.addEventListener('DOMContentLoaded', function() {
                                 ? ` | Melhor conflito: ${progress.best_conflicts}`
                                 : '';
                             description = 'Atribuindo configurações aos APs para minimizar a interferência.';
-                            stepText = completeAssignmentFound
+                            stepText = Number.isFinite(progress.iteration)
+                                ? `Iteração ${progress.iteration.toLocaleString('pt-BR')}${bestConflicts}`
+                                : completeAssignmentFound
                                 ? `Atribuição completa encontrada, conferindo alternativas${bestConflicts}`
                                 : `${assignedNodes}/${totalNodes} APs com configuração atribuída${bestConflicts}`;
                         } else {
@@ -1932,7 +2186,7 @@ window.addEventListener('DOMContentLoaded', function() {
         { id: 'constructive', label: 'Construtiva' },
         { id: 'metaheuristic', label: 'Metaheurísticas' }
     ];
-    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', genetic: 'fa-dna' };
+    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', genetic: 'fa-dna' };
     const strategyList = document.getElementById('analysis-strategy-list');
 
     function renderStrategyCard(detail) {
