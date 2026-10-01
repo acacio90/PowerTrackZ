@@ -141,6 +141,12 @@ Nas metaheurísticas (família `metaheuristic`: `local_search`, `simulated_annea
 
 Na rota com *streaming*, o progresso das metaheurísticas inclui `iteration`.
 
+Em todas as estratégias, `execution.processing` e cada `execution.bands[].processing` informam a energia estimada do processamento: o tempo de CPU da estratégia (`cpu_seconds`), a potência por núcleo usada (`core_power_w`, e `max_core_power_w` no turbo) e a energia estimada (`energy_j` e `max_energy_j`). A potência por núcleo é configurada por `ANALYSIS_CORE_POWER_W` e `ANALYSIS_MAX_CORE_POWER_W`; o método está em [docs/energy/README.pt-BR.md](../energy/README.pt-BR.md).
+
+```json
+"processing": {"cpu_seconds": 0.394, "core_power_w": 3.25, "max_core_power_w": 10.95, "energy_j": 1.28, "max_energy_j": 4.31}
+```
+
 `POST /graph-metrics` recebe `aps`, como as rotas de análise, e devolve as métricas do grafo que a análise montaria (`nodes`, `edges`, `density`, `average_degree` e `max_degree`), no total e em `bands`, sem executar estratégia. APs sem `raio` usam o raio padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz.
 
 `GET /channel-plan` devolve os canais que a interface oferece na edição de uma configuração, agrupados por frequência e largura de banda:

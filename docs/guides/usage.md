@@ -64,7 +64,7 @@ The details of the strategies and of the parameters accepted by the API are in [
 
 The result is split into five tabs. The page opens on the **Resumo** tab, which, before the first analysis, shows the current configuration: number of APs and bands, overlaps (graph edges), conflicts, total interference and consumption over the period, in total and per band, with the same definitions used in the result. The **Grafos** tab already shows the graph of the original configuration, framed when it is opened.
 
-- **Resumo** (summary): the opening line shows the strategy, the criterion, the execution time and whether the solution is optimal; the cards show the values computed by analysis_service:
+- **Resumo** (summary): the opening line shows the strategy, the criterion, the execution time, whether the solution is optimal and the estimated processing energy (the analysis's CPU time multiplied by the power per core; see [docs/energy](../energy/README.md)); the cards show the values computed by analysis_service:
   - *Conflitos*: conflicting edges (in red) before and after the optimization;
   - *Interferência total*: sum of the interference (w·s) of the conflicting edges, before and after;
   - *APs alterados*: how many APs had their channel, bandwidth or band changed;
@@ -89,6 +89,7 @@ The result is split into five tabs. The page opens on the **Resumo** tab, which,
   - *Conflitos (guloso / final)*: in backtracking, conflicts of the initial greedy solution and of the final solution; in the metaheuristics, *Conflitos (solução inicial / final)*;
   - *Nós explorados*: size of the search performed;
   - *Iterações*: in the metaheuristics, iterations run, added up over the bands;
+  - *Processamento (energia estimada)* (processing, estimated energy): the analysis's CPU time and estimated energy, with the power per core used and the value at maximum turbo; each band reports its own;
   - *Parâmetros*: the parameters used, with the seed in the metaheuristics;
   - *Faixa*: one line per band, with APs, edges, number of profiles (k), conflicts and whether the band's solution is optimal. The other metadata add up the bands.
 
@@ -104,6 +105,6 @@ The **Teste de escalabilidade** page (card on the home screen, `/scalability`) m
 2. Click **Executar teste**. The progress shows the size and the strategy being analyzed, and the run can be cancelled. Only one run executes at a time, so the measured times do not mix.
 3. For each size, the exact strategies run first. A strategy **breaks** at the first size at which it no longer solves the problem: an exact method (backtracking), when it does not find the optimum within the time limit, which applies to each band; a method without an optimality guarantee (greedy), when it exceeds the time limit. After breaking, it is no longer run at the following sizes, and the test ends when every strategy has broken or the maximum size is reached.
 
-The result shows the break point of each strategy and two charts as a function of the number of APs: the execution time, on a logarithmic scale, with the time-limit line, and the conflicts after the optimization. The break point is shown as an X. The **Tabela dos pontos medidos** lists, for each size and strategy, the edges, the density, the time, the conflicts, the distance to the optimum (while the exact method finds it), the interference, the power, the explored nodes and the stop reason.
+The result shows the break point of each strategy and two charts as a function of the number of APs: the execution time, on a logarithmic scale, with the time-limit line, and the conflicts after the optimization. The break point is shown as an X. The **Tabela dos pontos medidos** lists, for each size and strategy, the edges, the density, the time, the conflicts, the distance to the optimum (while the exact method finds it), the interference, the power, the explored nodes, the estimated processing energy and the stop reason. The CSV also has, in the last columns, the CPU time (`cpu_seconds`) and the estimated energy (`processing_energy_j` and `processing_max_energy_j`).
 
 Each run is kept in the **Histórico de execuções** with its date, parameters and PowerTrackZ version (commit, branch and, when there is one, the tag), which allows repeating the test in another version and comparing the results. **Ver** opens a run's charts, **CSV** and **JSON** download the measured points, and **Excluir** removes the run. A run interrupted by a service restart is recorded as **Interrompida**.

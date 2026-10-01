@@ -141,6 +141,12 @@ In the metaheuristics (`metaheuristic` family: `local_search`, `simulated_anneal
 
 On the *streaming* route, the metaheuristics' progress includes `iteration`.
 
+In every strategy, `execution.processing` and each `execution.bands[].processing` report the estimated processing energy: the strategy's CPU time (`cpu_seconds`), the power per core used (`core_power_w`, and `max_core_power_w` at turbo) and the estimated energy (`energy_j` and `max_energy_j`). The power per core is set by `ANALYSIS_CORE_POWER_W` and `ANALYSIS_MAX_CORE_POWER_W`; the method is in [docs/energy/README.md](../energy/README.md).
+
+```json
+"processing": {"cpu_seconds": 0.394, "core_power_w": 3.25, "max_core_power_w": 10.95, "energy_j": 1.28, "max_energy_j": 4.31}
+```
+
 `POST /graph-metrics` takes `aps`, like the analysis routes, and returns the metrics of the graph the analysis would build (`nodes`, `edges`, `density`, `average_degree` and `max_degree`), in total and in `bands`, without running a strategy. APs without `raio` use the band's default radius: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz.
 
 `GET /channel-plan` returns the channels that the interface offers when editing a configuration, grouped by frequency and bandwidth:

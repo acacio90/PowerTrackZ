@@ -893,6 +893,40 @@ static void free_band_subgraph(Graph *subgraph) {
 }
 
 // Consolida as faixas: somas de conflitos, interferencia, banda e busca; a solucao e otima so se todas forem.
+// Energia estimada do processamento (#124, docs/energy): tempo de CPU da analise x potencia por nucleo. Os
+// padroes sao os do i7-14700 da maquina de desenvolvimento: potencia base / nucleos (65 W / 20) e potencia turbo
+// maxima / nucleos (219 W / 20); outra maquina informa os seus em ANALYSIS_CORE_POWER_W e ANALYSIS_MAX_CORE_POWER_W.
+#define DEFAULT_CORE_POWER_W (65.0 / 20.0)
+#define DEFAULT_MAX_CORE_POWER_W (219.0 / 20.0)
+
+static double positive_env(const char *name, double fallback) {
+    const char *text = getenv(name);
+    char *end = NULL;
+    double value = text ? strtod(text, &end) : 0.0;
+    return text && end != text && value > 0.0 ? value : fallback;
+}
+
+static double thread_cpu_seconds(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return ts.tv_sec + (ts.tv_nsec / 1000000000.0);
+}
+
+static cJSON *build_processing_json(double cpu_seconds) {
+    double core_power = positive_env("ANALYSIS_CORE_POWER_W", DEFAULT_CORE_POWER_W);
+    double max_core_power = positive_env("ANALYSIS_MAX_CORE_POWER_W", DEFAULT_MAX_CORE_POWER_W);
+    if (max_core_power < core_power) {
+        max_core_power = core_power;
+    }
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, "cpu_seconds", cpu_seconds);
+    cJSON_AddNumberToObject(json, "core_power_w", core_power);
+    cJSON_AddNumberToObject(json, "max_core_power_w", max_core_power);
+    cJSON_AddNumberToObject(json, "energy_j", cpu_seconds * core_power);
+    cJSON_AddNumberToObject(json, "max_energy_j", cpu_seconds * max_core_power);
+    return json;
+}
+
 static void accumulate_band_stats(AssignmentStats *total, const AssignmentStats *band) {
     total->power_score_w += band->power_score_w;
     total->nodes_explored += band->nodes_explored;
@@ -954,6 +988,7 @@ static cJSON *build_strategy_response_json(
     double bands[MAX_BANDS];
     int band_count = collect_bands(graph, bands);
     AssignmentStats total = {.stop_reason = ASSIGNMENT_STOP_COMPLETED, .optimal = band_count > 0};
+    double total_cpu_seconds = 0.0;
     cJSON *bands_json = cJSON_CreateArray();
 
     // Cada faixa e um problema independente, resolvido em sequencia com o proprio limite de tempo.
@@ -992,7 +1027,11 @@ static cJSON *build_strategy_response_json(
             .objective = objective,
         };
         AssignmentStats band_stats = {0};
+        // Tempo de CPU da estrategia na faixa: o desta thread mais o das threads auxiliares que ela criou.
+        double cpu_started = thread_cpu_seconds();
         ProposedConfig *band_proposals = strategy->run(&subgraph, &context, &band_stats);
+        double band_cpu_seconds = thread_cpu_seconds() - cpu_started + band_stats.worker_cpu_seconds;
+        total_cpu_seconds += band_cpu_seconds;
         for (int index = 0; index < subgraph.node_count; index++) {
             proposals[original_indexes[index]] = band_proposals[index];
         }
@@ -1010,6 +1049,7 @@ static cJSON *build_strategy_response_json(
             cJSON_AddItemToObject(band_json, "convergence", band_stats.convergence);
         }
         cJSON_Delete(band_stats.details);
+        cJSON_AddItemToObject(band_json, "processing", build_processing_json(band_cpu_seconds));
         cJSON_AddItemToArray(bands_json, band_json);
 
         free(band_proposals);
@@ -1030,6 +1070,7 @@ static cJSON *build_strategy_response_json(
     }
     add_strategy_comparison_to_execution(execution, graph, proposals);
     add_search_stats_to_execution(execution, &total);
+    cJSON_AddItemToObject(execution, "processing", build_processing_json(total_cpu_seconds));
     cJSON_AddItemToObject(execution, "bands", bands_json);
     cJSON_AddItemToObject(json, "execution", execution);
     cJSON_AddItemToObject(json, "graph_data", build_graph_json(graph, proposals));

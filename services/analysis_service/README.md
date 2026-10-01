@@ -176,6 +176,14 @@ The power of each AP follows the Dembélé et al. (2023) model: the average powe
 
 Configurations outside the table (160 MHz and 6 GHz) have no value in the model and are left out of the sums. Each node in `graph_data.nodes` has `power_w` (current configuration) and `proposed_power_w` (proposed configuration), null outside the model; `graph_data` has `power_w`, the total of the displayed configuration, and `power_unmodeled_nodes`. In `execution.comparison` and in each band of `execution.bands`, `power_before_w` and `power_after_w` give the total before and after the optimization, and `power_unmodeled_before` and `power_unmodeled_after`, the APs outside the model. The conversion into energy and cost for the chosen period is done by the interface.
 
+## Processing Energy
+
+Besides the APs' consumption, the response estimates the energy spent by the processor to compute the configuration (#124; investigation and method in [docs/energy](../../docs/energy/README.md)). The service measures the CPU time of each strategy in each band: that of the thread serving the request plus that of the helper threads the strategy creates (backtracking's), without mixing simultaneous analyses. The estimated energy is the CPU time multiplied by the power per core.
+
+`execution.processing` (the total) and each `execution.bands[].processing` report `cpu_seconds`, `core_power_w`, `max_core_power_w`, `energy_j` (CPU time × `core_power_w`) and `max_energy_j` (CPU time × `max_core_power_w`). The measurement covers the execution of the strategies, not the graph construction or the serialization of the response.
+
+The power per core comes from the environment variables `ANALYSIS_CORE_POWER_W` and `ANALYSIS_MAX_CORE_POWER_W` (in `.env`). Without them, the values of the development machine's Intel Core i7-14700 apply: the base power divided by the cores (65 W / 20 = 3.25 W) and the maximum turbo power divided by the cores (219 W / 20 = 10.95 W). On another machine, set the values of its processor. The energy is an estimate: it does not capture frequency, turbo, the difference between performance and efficiency cores, memory or idle consumption; the ratio between strategies does not depend on the coefficient.
+
 ## Per-Band Graph and Available Channels
 
 The coverage radius of each AP comes from the `raio` field (in meters); without it, the band's default applies: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz, the same values as the interface and the generator. `POST /graph-metrics` returns the metrics of this graph (nodes, edges, density, average degree and maximum degree, in total and per band) without running a strategy.

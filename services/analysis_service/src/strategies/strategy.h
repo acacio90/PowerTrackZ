@@ -66,6 +66,9 @@ typedef struct {
     cJSON *convergence;
     // Contadores proprios da estrategia (objeto JSON), acrescentados ao "search" da faixa.
     cJSON *details;
+    // Tempo de CPU (s) das threads auxiliares que a estrategia criou (as do backtracking); o da thread que
+    // chama a estrategia e medido por quem a chama.
+    double worker_cpu_seconds;
 } AssignmentStats;
 
 typedef ProposedConfig *(*AnalysisStrategyRun)(

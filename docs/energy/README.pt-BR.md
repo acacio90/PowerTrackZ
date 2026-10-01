@@ -65,7 +65,7 @@ O backtracking parou no limite de tempo nas duas faixas (10 s em cada), então g
 
 ## Integração ao PowerTrackZ
 
-A integração é viável sem dependências novas: o analysis_service mediria o tempo de CPU de cada análise (somando o das *threads* que a executam, para não misturar análises simultâneas) e o informaria na resposta, por faixa e no total, junto com a energia estimada pelo coeficiente configurado. O teste de escalabilidade e a comparação de estratégias passariam a registrar esses valores. A proposta está descrita na #124.
+Integrada na #124: o analysis_service mede o tempo de CPU de cada análise, somando o das *threads* que a executam (sem misturar análises simultâneas), e informa na resposta, por faixa e no total, o tempo de CPU e a energia estimada, com a potência por núcleo configurada em `ANALYSIS_CORE_POWER_W` e `ANALYSIS_MAX_CORE_POWER_W` (detalhes no README do analysis_service, seção Energia do Processamento). A página de Análise exibe a estimativa, e o teste de escalabilidade a registra em cada ponto e no CSV. O protótipo continua útil para medir de fora, pelo cgroup, e conferir a medição interna.
 
 ## Referências
 

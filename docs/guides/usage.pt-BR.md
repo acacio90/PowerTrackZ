@@ -62,7 +62,7 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 
 O resultado fica em cinco abas. A página abre na aba **Resumo**, que, antes da primeira análise, mostra a configuração atual: número de APs e de faixas, sobreposições (arestas do grafo), conflitos, interferência total e consumo no período, no total e por faixa, com as mesmas definições usadas no resultado. A aba **Grafos** já mostra o grafo da configuração original, enquadrado ao ser aberta.
 
-- **Resumo:** a linha de abertura traz a estratégia, o critério, o tempo de execução e se a solução é ótima; os cartões trazem os valores calculados pelo analysis_service:
+- **Resumo:** a linha de abertura traz a estratégia, o critério, o tempo de execução, se a solução é ótima e a energia estimada do processamento (o tempo de CPU da análise multiplicado pela potência por núcleo; ver [docs/energy](../energy/README.pt-BR.md)); os cartões trazem os valores calculados pelo analysis_service:
   - *Conflitos*: arestas em conflito (em vermelho) antes e depois da otimização;
   - *Interferência total*: soma da interferência (w·s) das arestas em conflito, antes e depois;
   - *APs alterados*: quantos APs tiveram canal, largura de banda ou faixa alterados;
@@ -87,6 +87,7 @@ O resultado fica em cinco abas. A página abre na aba **Resumo**, que, antes da 
   - *Conflitos (guloso / final)*: no backtracking, conflitos da solução inicial gulosa e da solução final; nas metaheurísticas, *Conflitos (solução inicial / final)*;
   - *Iterações*: nas metaheurísticas, iterações executadas, somadas as faixas;
   - *Nós explorados*: tamanho da busca realizada;
+  - *Processamento (energia estimada)*: o tempo de CPU da análise e a energia estimada, com a potência por núcleo usada e o valor no turbo máximo; cada faixa traz os seus;
   - *Parâmetros*: os parâmetros usados, com a semente nas metaheurísticas;
   - *Faixa*: uma linha por faixa, com APs, arestas, número de perfis (k), conflitos e se a solução da faixa é ótima. Os demais metadados somam as faixas.
 
@@ -102,6 +103,6 @@ A página **Teste de escalabilidade** (card na tela inicial, `/scalability`) med
 2. Clique em **Executar teste**. O progresso mostra o tamanho e a estratégia em análise, e a execução pode ser cancelada. Só uma execução roda por vez, para que os tempos medidos não se misturem.
 3. Para cada tamanho, as estratégias exatas rodam primeiro. Uma estratégia **quebra** no primeiro tamanho em que deixa de resolver o problema: um método exato (o backtracking), quando não encontra o ótimo dentro do limite de tempo, que vale para cada faixa; um método sem garantia de ótimo (o guloso), quando excede o limite de tempo. Depois de quebrar, ela não é mais executada nos tamanhos seguintes, e o teste termina quando todas quebram ou o tamanho máximo é atingido.
 
-O resultado mostra o ponto de quebra de cada estratégia e dois gráficos em função do número de APs: o tempo de execução, em escala logarítmica, com a linha do limite de tempo, e os conflitos após a otimização. O ponto de quebra aparece como um X. A **Tabela dos pontos medidos** traz, para cada tamanho e estratégia, as arestas, a densidade, o tempo, os conflitos, a distância até o ótimo (enquanto o método exato o encontra), a interferência, a potência, os nós explorados e o motivo da parada.
+O resultado mostra o ponto de quebra de cada estratégia e dois gráficos em função do número de APs: o tempo de execução, em escala logarítmica, com a linha do limite de tempo, e os conflitos após a otimização. O ponto de quebra aparece como um X. A **Tabela dos pontos medidos** traz, para cada tamanho e estratégia, as arestas, a densidade, o tempo, os conflitos, a distância até o ótimo (enquanto o método exato o encontra), a interferência, a potência, os nós explorados, a energia estimada do processamento e o motivo da parada. O CSV traz também, nas últimas colunas, o tempo de CPU (`cpu_seconds`) e a energia estimada (`processing_energy_j` e `processing_max_energy_j`).
 
 Cada execução fica no **Histórico de execuções** com a data, os parâmetros e a versão do PowerTrackZ (commit, branch e, quando houver, a tag), o que permite repetir o teste em outra versão e comparar os resultados. **Ver** abre os gráficos de uma execução, **CSV** e **JSON** baixam os pontos medidos, e **Excluir** remove a execução. Uma execução interrompida pela reinicialização do serviço fica registrada como **Interrompida**.

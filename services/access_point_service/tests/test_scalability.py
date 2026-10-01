@@ -77,6 +77,8 @@ class FakeAnalysisClient:
                     "interference_before": 500.0, "interference_after": conflicts * 50.0,
                     "power_after_w": size * 12.0,
                 },
+                "processing": {"cpu_seconds": duration_ms / 1000.0, "energy_j": duration_ms / 1000.0 * 3.25,
+                               "max_energy_j": duration_ms / 1000.0 * 10.95},
             },
         }
 
@@ -159,8 +161,11 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(csv_response.mimetype, "text/csv")
         self.assertIn("attachment", csv_response.headers["Content-Disposition"])
         self.assertTrue(lines[0].startswith("run_id,commit,tag,seed,min_degree,time_limit_seconds,thread_count,nodes,"))
-        self.assertTrue(lines[0].endswith(",objective"))
-        self.assertTrue(lines[1].endswith(",default"))
+        self.assertTrue(lines[0].endswith(",objective,cpu_seconds,processing_energy_j,processing_max_energy_j"))
+        self.assertIn(",default,", lines[1])
+        point = run["points"][0]
+        self.assertAlmostEqual(point["processing_energy_j"], point["cpu_seconds"] * 3.25)
+        self.assertTrue(lines[1].endswith(f",{point['cpu_seconds']},{point['processing_energy_j']},{point['processing_max_energy_j']}"))
         self.assertEqual(len(lines), 1 + len(run["points"]))
         self.assertEqual(json.loads(json_response.get_data())["id"], run["id"])
 
@@ -170,7 +175,8 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(run["parameters"]["objective"], "energy_first")
         self.assertEqual(self.fake.objectives_used, {"energy_first"})
         csv_text = self.client.get(f"/experiments/scalability/{run['id']}/export?format=csv").get_data(as_text=True)
-        self.assertTrue(csv_text.splitlines()[1].endswith(",energy_first"))
+        header, first = (line.split(",") for line in csv_text.splitlines()[:2])
+        self.assertEqual(first[header.index("objective")], "energy_first")
 
     def test_cancelling_stops_before_the_next_size(self):
         self.fake.cancel_at = 20

@@ -348,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${formatNumber(point.interference, 1)}</td>
                 <td>${formatNumber(point.power_w, 1)}</td>
                 <td>${formatNumber(point.nodes_explored)}</td>
+                <td>${point.processing_energy_j != null ? formatNumber(point.processing_energy_j, 2) : '-'}</td>
                 <td>${escapeHtml(STOP_LABELS[point.stop_reason] || point.stop_reason)}</td>
             </tr>`).join('');
         highlightSelected();

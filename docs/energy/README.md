@@ -65,7 +65,7 @@ Backtracking stopped at the time limit in both bands (10 s each), so it spends C
 
 ## Integration into PowerTrackZ
 
-The integration is feasible with no new dependencies: analysis_service would measure the CPU time of each analysis (adding up that of the threads that run it, so as not to mix simultaneous analyses) and report it in the response, per band and in total, together with the energy estimated with the configured coefficient. The scalability test and the strategy comparison would start recording these values. The proposal is described in #124.
+Integrated in #124: analysis_service measures the CPU time of each analysis, adding up that of the threads that run it (without mixing simultaneous analyses), and reports in the response, per band and in total, the CPU time and the estimated energy, with the power per core set in `ANALYSIS_CORE_POWER_W` and `ANALYSIS_MAX_CORE_POWER_W` (details in the analysis_service README, Processing Energy section). The Analysis page shows the estimate, and the scalability test records it at each point and in the CSV. The prototype is still useful to measure from outside, through the cgroup, and check the internal measurement.
 
 ## References
 
