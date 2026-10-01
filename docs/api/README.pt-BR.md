@@ -26,12 +26,14 @@ POST /api/access_points/generate
 GET /api/access_points/{id}
 PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
+GET /experiments
 GET /scalability
 GET /api/experiments/scalability
 POST /api/experiments/scalability
 GET /api/experiments/scalability/{id}
 DELETE /api/experiments/scalability/{id}
 POST /api/experiments/scalability/{id}/cancel
+GET /api/experiments/scalability/{id}/proposal?strategy=...
 GET /api/experiments/scalability/{id}/export?format=csv|json
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
@@ -69,12 +71,13 @@ POST /experiments/scalability
 GET /experiments/scalability/{id}
 DELETE /experiments/scalability/{id}
 POST /experiments/scalability/{id}/cancel
+GET /experiments/scalability/{id}/proposal?strategy=...
 GET /experiments/scalability/{id}/export?format=csv|json
 ```
 
 `POST /access_points/generate` recebe `node_count` (2 a 1000), `min_degree` (1 a `node_count` − 1; o nome anterior, `clique_factor`, continua aceito) e, opcionalmente, `seed` (inteiro de 0 a 4294967295), e devolve em `payload` os APs, as ligações e `metadata`, com a semente usada em `metadata.seed`. A mesma semente e os mesmos parâmetros geram a mesma topologia; sem `seed`, uma é sorteada.
 
-`POST /experiments/scalability` inicia o teste de escalabilidade em segundo plano e responde HTTP 202 com a execução criada. Recebe `max_nodes` (2 a 1000), `step`, `min_degree`, `seed` (opcional), `strategies` (estratégias implementadas; padrão: todas), `time_limit_seconds` (maior que 0 e até 3600) e `thread_count`; parâmetros inválidos retornam HTTP 400, e outra execução em andamento, HTTP 409. `GET /experiments/scalability/{id}` devolve a execução, com `status` (`running`, `completed`, `cancelled`, `failed` ou `interrupted`), `progress`, `version` (`commit`, `branch` e `tag`, lidos do repositório git montado em `/repo-git`), `parameters`, `strategies` (com `exact`), `breaks` (o tamanho de quebra de cada estratégia) e `points` (um ponto por tamanho e estratégia). A listagem omite `points`, e a exportação devolve o CSV ou o JSON como arquivo. O serviço chama o analysis_service pela `ANALYSIS_SERVICE_URL`.
+`POST /experiments/scalability` inicia um experimento em segundo plano e responde HTTP 202 com a execução criada. O campo `mode` escolhe o tipo: `scalability` (padrão), o teste de escalabilidade, ou `comparison`, a comparação das estratégias sobre os APs cadastrados com coordenadas, copiados no início da execução (sem APs com coordenadas, HTTP 400); na comparação, `max_nodes`, `step` e `min_degree` não se aplicam, não há pontos de quebra, e da melhor repetição de cada estratégia ficam guardadas a execução e a configuração proposta. No teste de escalabilidade, recebe `max_nodes` (2 a 1000), `step`, `min_degree`, `seed` (opcional), `strategies` (estratégias implementadas; padrão: todas), `time_limit_seconds` (maior que 0 e até 3600), `thread_count`, `objective` (critério de otimização, com os mesmos valores das rotas de análise; padrão: `default`), `repetitions` (1 a 100; padrão: 1), aplicado só às estratégias estocásticas, as que declaram `seed`, `strategy_parameters` (opcional, os parâmetros de cada estratégia, como `{"simulated_annealing": {"max_iterations": 20000}}`; a semente e o limite de tempo são os do teste) e `channels` (opcional, no formato de `channels` das rotas de análise; sem ele, os perfis padrão); parâmetros inválidos retornam HTTP 400, e outra execução em andamento, HTTP 409. `GET /experiments/scalability/{id}` devolve a execução, com `status` (`running`, `completed`, `cancelled`, `failed` ou `interrupted`), `progress`, `version` (`commit`, `branch` e `tag`, lidos do repositório git montado em `/repo-git`), `parameters`, `strategies` (com `exact`), `breaks` (o tamanho de quebra de cada estratégia) `points` (um ponto por tamanho, estratégia e repetição, com `repetition` e `seed`; as sementes das repetições são derivadas da semente do teste e são as mesmas em todas as estratégias e tamanhos) e `summaries` (por tamanho e estratégia, o número de repetições e a média, o desvio-padrão, o melhor e o pior de tempo, conflitos, interferência, potência e energia do processamento). A execução traz também `mode`, `instance_size` (o número de APs da comparação) e `proposals` (as estratégias com a proposta guardada, com a repetição e a semente). `GET /experiments/scalability/{id}/proposal?strategy=...` devolve a proposta guardada de uma estratégia comparada: a instância (`instance`, os APs copiados), a configuração proposta de cada AP (`proposal`), a execução da melhor repetição (`execution`), a repetição, a semente, o critério e os canais; a página de Análise a abre em `/analysis?experiment={id}&strategy=...`. A listagem omite `points`, e a exportação devolve o CSV ou o JSON como arquivo; o CSV traz uma linha por repetição e, depois das colunas originais, `objective` (execuções anteriores a ele aparecem como `default`), as colunas da energia do processamento, `repetition` e `seed`. O serviço chama o analysis_service pela `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` devolve o AP com os mesmos campos da listagem (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` e `last_update`) ou HTTP 404 quando o identificador não existe. A rota `GET /api/access_points/{id}` do frontend repassa a mesma resposta.
 
@@ -96,20 +99,56 @@ POST /collision-graph
 POST /graph-metrics
 ```
 
-`GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia e se ela é um método exato (`exact`):
+`GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia, se ela é um método exato (`exact`) e a sua família (`family`: `exact`, `constructive` ou `metaheuristic`), que a interface usa para agrupar as estratégias. Em cada parâmetro, `advanced` indica se a interface o mostra entre os parâmetros avançados:
 
 ```json
 {
   "name": "backtracking",
   "implemented": true,
+  "exact": true,
+  "family": "exact",
   "parameters": [
-    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false},
-    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true}
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true, "optional": false},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false, "optional": false}
   ]
 }
 ```
 
-As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+Um parâmetro opcional (`optional: true`) não tem padrão (`default` nulo), e `optional_label` diz o que acontece sem valor: a semente das metaheurísticas é sorteada (`Sorteada`), e a temperatura inicial do Simulated Annealing, estimada (`Estimada`). Um parâmetro de escolha (`type: "choice"`) traz as opções em `options`, com `value` e `label`, e a opção padrão em `default`, sem `min` e `max`:
+
+```json
+{"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
+```
+
+Na mesma resposta, `objectives` lista os critérios de otimização aceitos, e `default_objective`, o padrão:
+
+```json
+{"name": "energy_tiebreak", "label": "Energia no desempate", "description": "...", "order": ["conflicts", "interference", "power"]}
+```
+
+As rotas de análise recebem o critério no campo `objective` (`default`, `energy_tiebreak` ou `energy_first`; sem o campo, `default`) e o informam em `execution.objective`. Um objetivo desconhecido retorna HTTP 400.
+
+As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado, e opções fora da lista, retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
+
+Nas metaheurísticas (família `metaheuristic`: `local_search`, `simulated_annealing`, `tabu_search`, `genetic` e `hybrid_genetic`), a resposta traz também:
+
+- `execution.seed`: a semente usada, informada em `parameters.seed` ou sorteada; repetir a requisição com ela reproduz o resultado (exceto quando a busca para pelo limite de tempo);
+- `execution.search.iterations` e, em cada faixa, `search.iterations`: as iterações executadas;
+- `stop_reason`: além de `completed`, `time_limit` e `cancelled`, os motivos `iteration_limit` (limite de iterações), `no_improvement` (iterações sem melhora) e `min_temperature` (temperatura mínima do Simulated Annealing);
+- no Simulated Annealing, cada faixa traz em `search` a temperatura inicial e a final, se a inicial foi estimada, os patamares percorridos e as pioras aceitas, e, na Busca Tabu, os movimentos avaliados, proibidos, aceitos por aspiração e de piora, e, no Algoritmo Genético, a população, as avaliações e as gerações em que a melhor piorou (no AG, cada iteração é uma geração), e, no híbrido, também os indivíduos refinados pela busca local, os que melhoraram e os vizinhos avaliados;
+- `execution.bands[].convergence`: a curva de convergência da faixa, com a melhor solução na solução inicial, a cada melhora e no fim:
+
+```json
+[{"iteration": 0, "time_ms": 0.2, "conflicts": 10, "interference": 241.4, "bandwidth": 240, "power_w": 111.0}, {"iteration": 11, "time_ms": 0.3, "conflicts": 9, "interference": 230.9, "bandwidth": 240, "power_w": 111.0}]
+```
+
+Na rota com *streaming*, o progresso das metaheurísticas inclui `iteration`.
+
+Em todas as estratégias, `execution.processing` e cada `execution.bands[].processing` informam a energia estimada do processamento: o tempo de CPU da estratégia (`cpu_seconds`), a potência por núcleo usada (`core_power_w`, e `max_core_power_w` no turbo) e a energia estimada (`energy_j` e `max_energy_j`). A potência por núcleo é configurada por `ANALYSIS_CORE_POWER_W` e `ANALYSIS_MAX_CORE_POWER_W`; o método está em [docs/energy/README.pt-BR.md](../energy/README.pt-BR.md).
+
+```json
+"processing": {"cpu_seconds": 0.394, "core_power_w": 3.25, "max_core_power_w": 10.95, "energy_j": 1.28, "max_energy_j": 4.31}
+```
 
 `POST /graph-metrics` recebe `aps`, como as rotas de análise, e devolve as métricas do grafo que a análise montaria (`nodes`, `edges`, `density`, `average_degree` e `max_degree`), no total e em `bands`, sem executar estratégia. APs sem `raio` usam o raio padrão da faixa: 20 m em 2,4 GHz, 15 m em 5 GHz e 12 m em 6 GHz.
 

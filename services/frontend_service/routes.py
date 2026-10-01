@@ -1,4 +1,5 @@
 from flask import Blueprint, Response, jsonify, redirect, render_template, request, stream_with_context, url_for
+from urllib.parse import quote
 import logging
 import os
 import requests
@@ -97,9 +98,17 @@ def analysis():
     return render_template('pages/analysis.html', points=points)
 
 
+@routes.route('/experiments')
+def experiments():
+    # Pagina de Experimentos: modos Escalabilidade e Comparacao (#90).
+    mode = 'comparison' if request.args.get('mode') == 'comparison' else 'scalability'
+    return render_template('pages/scalability.html', mode=mode)
+
+
 @routes.route('/scalability')
 def scalability():
-    return render_template('pages/scalability.html')
+    # Endereco anterior a pagina de Experimentos: abre no modo Escalabilidade.
+    return render_template('pages/scalability.html', mode='scalability')
 
 
 @routes.route('/api/experiments/scalability', methods=['GET', 'POST'])
@@ -112,6 +121,13 @@ def scalability_runs_api():
 @routes.route('/api/experiments/scalability/<int:run_id>', methods=['GET', 'DELETE'])
 def scalability_run_api(run_id):
     response_data, status_code = make_api_request(f'/experiments/scalability/{run_id}', request.method)
+    return jsonify(response_data), status_code
+
+
+@routes.route('/api/experiments/scalability/<int:run_id>/proposal', methods=['GET'])
+def scalability_run_proposal_api(run_id):
+    strategy = quote(request.args.get('strategy', ''), safe='')
+    response_data, status_code = make_api_request(f'/experiments/scalability/{run_id}/proposal?strategy={strategy}')
     return jsonify(response_data), status_code
 
 
@@ -245,7 +261,9 @@ def analysis_analyze_graph_stream_api():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1):
+                # chunk_size=None repassa os dados conforme chegam (o progresso continua em tempo real), sem
+                # quebrar a resposta de varios MB em pedacos de 1 byte.
+                for chunk in response.iter_content(chunk_size=None):
                     if chunk:
                         yield chunk
             finally:
@@ -275,7 +293,9 @@ def analysis_backtracking_stream_api():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1):
+                # chunk_size=None repassa os dados conforme chegam (o progresso continua em tempo real), sem
+                # quebrar a resposta de varios MB em pedacos de 1 byte.
+                for chunk in response.iter_content(chunk_size=None):
                     if chunk:
                         yield chunk
             finally:

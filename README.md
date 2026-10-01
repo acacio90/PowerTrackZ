@@ -10,7 +10,7 @@ PowerTrackZ is a system for monitoring and analyzing Wi-Fi access points, focuse
 - Integration with an external Zabbix to load monitored APs
 - Interactive map in the frontend with Leaflet
 - Collision analysis and optimization by algorithms written in C
-- Scalability test of the strategies, with charts and a per-version history
+- Experiments page: comparison of the strategies on the registered infrastructure and scalability test, with repetitions per seed, charts and history per version
 - Runs with Docker Compose
 
 ## Architecture
@@ -75,4 +75,5 @@ http://localhost:3000
 - Installation: [docs/guides/installation.md](docs/guides/installation.md)
 - Usage: [docs/guides/usage.md](docs/guides/usage.md)
 - Design tokens: [docs/design/README.md](docs/design/README.md)
+- Processing energy of the strategies: [docs/energy/README.md](docs/energy/README.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)

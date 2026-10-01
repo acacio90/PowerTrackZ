@@ -11,6 +11,22 @@ logger = logging.getLogger(__name__)
 
 def create_tables():
     db.create_all()
+    add_missing_columns()
+
+
+# Colunas acrescentadas a tabelas que ja existem: o create_all so cria tabelas novas.
+MISSING_COLUMNS = {
+    "scalability_runs": {"proposals": "TEXT NOT NULL DEFAULT '{}'"},
+}
+
+
+def add_missing_columns():
+    with db.engine.begin() as connection:
+        for table, columns in MISSING_COLUMNS.items():
+            existing = {row[1] for row in connection.exec_driver_sql(f"PRAGMA table_info({table})")}
+            for name, definition in columns.items():
+                if name not in existing:
+                    connection.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 def extract_ap_info(item):
     """Extrai informações do AP do item do Zabbix"""

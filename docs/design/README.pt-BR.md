@@ -189,6 +189,10 @@ Dois tamanhos: padrão e `.btn-sm`. Os estados (hover, ativo, desabilitado e foc
 | `.panel-muted` | fundo neutro e sem sombra (indicadores, blocos dentro de outro painel) |
 | `.panel-floating` | elementos sobrepostos ao conteúdo (progresso da análise) |
 
+### Título de página
+
+`.page-title` é o título das páginas (Análise, Infraestrutura e Teste de escalabilidade): ícone na cor de destaque, seguido do título em negrito (`--font-size-xl`). `.page-subtitle` é a linha opcional logo abaixo, em `text-muted`. O título fica sempre dentro de um `.panel`, nunca solto no fundo da página. A página inicial mantém o seu título de apresentação.
+
 ### Tabelas
 
 `.app-table` é a tabela padrão (cabeçalho com fundo neutro, linhas separadas por borda, destaque no hover), dentro de `.app-table-shell` (contorno) e `.app-table-wrap` (rolagem horizontal). `.app-table-compact` é a versão densa, usada nas tabelas de dados e no histórico.

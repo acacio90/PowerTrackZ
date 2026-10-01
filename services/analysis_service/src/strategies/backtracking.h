@@ -12,12 +12,14 @@ typedef struct {
     const char *band_label;
     double progress_offset;
     double progress_scale;
+    OptimizationObjective objective;
 } AssignmentOptions;
 
 ProposedConfig *build_greedy_proposals(
     const Graph *graph,
     Job *job,
     const ProfileSet *profiles,
+    OptimizationObjective objective,
     AssignmentStats *stats
 );
 

@@ -1,4 +1,5 @@
-// Teste de escalabilidade: parametros, acompanhamento da execucao, graficos e historico. A execucao roda no
+// Pagina de Experimentos: modos Comparacao (estrategias sobre a infraestrutura cadastrada) e Escalabilidade (topologia
+// gerada de tamanho crescente); parametros, acompanhamento da execucao, resultados e historico. A execucao roda no
 // access_point_service; esta pagina so a inicia, consulta o andamento e le os resultados salvos.
 document.addEventListener('DOMContentLoaded', () => {
     const API = '/api/experiments/scalability';
@@ -19,10 +20,20 @@ document.addEventListener('DOMContentLoaded', () => {
         failed: 'Falhou',
         interrupted: 'Interrompida',
     };
-    const STOP_LABELS = { completed: 'concluída', time_limit: 'limite de tempo', cancelled: 'cancelada' };
+    const STOP_LABELS = {
+        completed: 'concluída',
+        time_limit: 'limite de tempo',
+        cancelled: 'cancelada',
+        iteration_limit: 'limite de iterações',
+        no_improvement: 'sem melhora',
+        min_temperature: 'temperatura mínima',
+    };
+    // A semente, o limite de tempo e as threads sao do teste (iguais para todas as estrategias); o resto e de cada uma.
+    const SHARED_PARAMETERS = new Set(['seed', 'time_limit_seconds', 'thread_count']);
 
     const form = document.getElementById('scal-form');
     const strategiesBox = document.getElementById('scal-strategies');
+    const objectiveSelect = document.getElementById('scal-objective');
     const errorBox = document.getElementById('scal-error');
     const startButton = document.getElementById('scal-start');
     const progressCard = document.getElementById('scal-progress');
@@ -33,8 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyBody = document.getElementById('scal-history');
     const historyEmpty = document.getElementById('scal-history-empty');
 
+    let mode = window.EXPERIMENT_MODE === 'comparison' ? 'comparison' : 'scalability';
     let strategyOrder = [];
+    let strategyDetails = {};
+    let channelSelector = null;
     let displayNames = {};
+    let objectiveLabels = {};
     let pollTimer = null;
     let selectedRunId = null;
     const charts = {};
@@ -76,16 +91,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return value < 1 ? `${formatNumber(value * 1000, value < 0.001 ? 2 : 0)} ms` : `${formatNumber(value)} s`;
     }
 
-    function describeParameters(parameters) {
-        return `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `
-            + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s)`;
+    // Execucoes anteriores ao criterio configuravel usaram o objetivo padrao.
+    function objectiveLabel(name) {
+        return objectiveLabels[name || 'default'] || name || 'Padrão';
+    }
+
+    function describeParameters(parameters, run = {}) {
+        const own = Object.entries(parameters.strategy_parameters || {})
+            .filter(([, values]) => Object.keys(values).length)
+            .map(([name, values]) => `${strategyName(name)}: ${Object.entries(values).map(([key, value]) => `${key} ${value}`).join(', ')}`);
+        const instance = parameters.mode === 'comparison'
+            ? `comparação sobre ${run.instance_size ?? '?'} APs cadastrados, `
+            : `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `;
+        return instance
+            + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s), `
+            + `critério ${objectiveLabel(parameters.objective)}`
+            + `${parameters.repetitions > 1 ? `, ${parameters.repetitions} repetições` : ''}`
+            + `${parameters.channels && parameters.channels !== 'padrao' ? ', canais escolhidos' : ''}`
+            + `${own.length ? `; ${own.join('; ')}` : ''}`;
     }
 
     function describeBreak(run, strategy) {
         const size = run.breaks[strategy.name];
         if (size != null) {
-            return strategy.exact
-                ? `quebra em ${size} APs (ótimo não encontrado no limite)`
+            if (strategy.exact) return `quebra em ${size} APs (ótimo não encontrado no limite)`;
+            return strategy.stochastic
+                ? `quebra em ${size} APs (maioria das repetições no limite de tempo)`
                 : `quebra em ${size} APs (limite de tempo excedido)`;
         }
         const tested = (run.points || []).filter(point => point.strategy === strategy.name).map(point => point.nodes);
@@ -113,40 +144,130 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await requestJson('/api/analysis/strategies');
             const details = data.strategy_details || [];
             strategyOrder = details.map(detail => detail.name);
-            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', genetic: 'Algoritmo genético' };
+            displayNames = { backtracking: 'Backtracking', greedy: 'Guloso', local_search: 'Busca local', simulated_annealing: 'Simulated Annealing', tabu_search: 'Busca Tabu', genetic: 'Algoritmo genético', hybrid_genetic: 'Algoritmo genético híbrido' };
+            const objectives = Array.isArray(data.objectives) ? data.objectives : [];
+            if (objectives.length) {
+                objectiveLabels = objectives.reduce((byName, objective) => ({ ...byName, [objective.name]: objective.label }), {});
+                objectiveSelect.innerHTML = objectives.map(objective => `
+                    <option value="${escapeHtml(objective.name)}" title="${escapeHtml(objective.description)}">${escapeHtml(objective.label)}</option>`).join('');
+                objectiveSelect.value = data.default_objective || objectives[0].name;
+            }
+            strategyDetails = details.reduce((byName, detail) => ({ ...byName, [detail.name]: detail }), {});
             const implemented = details.filter(detail => detail.implemented);
-            strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => `
-                <label>
-                    <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" checked>
-                    ${escapeHtml(strategyName(detail.name))}
-                    <span class="scal-kind">(${detail.exact ? 'exato' : 'sem garantia de ótimo'})</span>
-                </label>`).join('');
+            // Exatas e construtivas vem marcadas; as metaheuristicas, repetidas por semente, sao escolhidas pelo usuario.
+            strategiesBox.innerHTML = '<span class="scal-field-label">Estratégias:</span>' + implemented.map(detail => {
+                const own = (detail.parameters || []).filter(parameter => !SHARED_PARAMETERS.has(parameter.name));
+                const stochastic = (detail.parameters || []).some(parameter => parameter.name === 'seed');
+                return `
+                <div class="scal-strategy">
+                    <label>
+                        <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" ${mode === 'comparison' || detail.family !== 'metaheuristic' ? 'checked' : ''}>
+                        ${escapeHtml(strategyName(detail.name))}
+                        <span class="scal-kind">(${detail.exact ? 'exato' : stochastic ? 'estocástica' : 'sem garantia de ótimo'})</span>
+                    </label>
+                    ${own.length ? `
+                    <details class="scal-strategy-params">
+                        <summary>Parâmetros</summary>
+                        <div class="scal-param-grid">${own.map(parameter => renderParameter(detail.name, parameter)).join('')}</div>
+                    </details>` : ''}
+                </div>`;
+            }).join('');
         } catch (error) {
             strategiesBox.innerHTML = `<span class="scal-note">Não foi possível carregar as estratégias: ${escapeHtml(error.message)} Recarregue a página.</span>`;
         }
     }
 
+    function parameterId(strategy, name) {
+        return `scal-param-${strategy}-${name}`;
+    }
+
+    // Campo de um parametro da estrategia, a partir da descricao de /strategies; o padrao vem preenchido.
+    function renderParameter(strategy, parameter) {
+        const id = parameterId(strategy, parameter.name);
+        const unit = parameter.unit ? ` (${escapeHtml(parameter.unit)})` : '';
+        const hint = `${parameter.description || ''}${parameter.zero_disables ? ' 0 desativa.' : ''}`;
+        if (parameter.type === 'choice') {
+            return `<div><label for="${id}" title="${escapeHtml(hint)}">${escapeHtml(parameter.label)}</label>
+                <select id="${id}" data-strategy="${escapeHtml(strategy)}" data-parameter="${escapeHtml(parameter.name)}">
+                ${(parameter.options || []).map(option => `<option value="${escapeHtml(option.value)}" ${option.value === parameter.default ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+                </select></div>`;
+        }
+        const value = parameter.default == null ? '' : parameter.default;
+        return `<div><label for="${id}" title="${escapeHtml(hint)}">${escapeHtml(parameter.label)}${unit}</label>
+            <input type="number" id="${id}" data-strategy="${escapeHtml(strategy)}" data-parameter="${escapeHtml(parameter.name)}"
+                   min="${parameter.min}" max="${parameter.max}" step="${parameter.type === 'integer' ? '1' : 'any'}" value="${value}"
+                   placeholder="${escapeHtml(parameter.optional_label || '')}"></div>`;
+    }
+
+    // Parametros proprios das estrategias marcadas; so os que diferem do padrao vao na requisicao.
+    function readStrategyParameters(strategies) {
+        const result = {};
+        const errors = [];
+        strategies.forEach(name => {
+            const values = {};
+            (strategyDetails[name]?.parameters || []).filter(parameter => !SHARED_PARAMETERS.has(parameter.name)).forEach(parameter => {
+                const field = document.getElementById(parameterId(name, parameter.name));
+                if (!field) return;
+                if (parameter.type === 'choice') {
+                    if (field.value !== parameter.default) values[parameter.name] = field.value;
+                    return;
+                }
+                const raw = field.value.trim().replace(',', '.');
+                if (raw === '') return;
+                const value = Number(raw);
+                if (!Number.isFinite(value) || (parameter.type === 'integer' && !Number.isInteger(value))
+                    || value < parameter.min || value > parameter.max) {
+                    errors.push(`${strategyName(name)}, ${parameter.label}: informe um valor entre ${parameter.min} e ${parameter.max}.`);
+                    return;
+                }
+                if (value !== parameter.default) values[parameter.name] = value;
+            });
+            if (Object.keys(values).length) result[name] = values;
+        });
+        return { result, error: errors[0] || null };
+    }
+
+    function channelsChosen() {
+        if (!channelSelector) return null;
+        return channelSelector.resumo().every(band => band.padrao) ? null : channelSelector.selecao();
+    }
+
     function readForm() {
         const integer = id => Number.parseInt(document.getElementById(id).value, 10);
         const seedText = document.getElementById('scal-seed').value.trim();
+        if (mode === 'comparison') {
+            return {
+                mode,
+                seed: seedText === '' ? null : Number(seedText),
+                time_limit_seconds: Number(document.getElementById('scal-time-limit').value),
+                thread_count: integer('scal-threads'),
+                objective: objectiveSelect.value,
+                repetitions: integer('scal-repetitions'),
+                strategies: [...strategiesBox.querySelectorAll('input[name="strategy"]:checked')].map(input => input.value),
+            };
+        }
         return {
+            mode,
             max_nodes: integer('scal-max-nodes'),
             step: integer('scal-step'),
             min_degree: integer('scal-min-degree'),
             seed: seedText === '' ? null : Number(seedText),
             time_limit_seconds: Number(document.getElementById('scal-time-limit').value),
             thread_count: integer('scal-threads'),
+            objective: objectiveSelect.value,
+            repetitions: integer('scal-repetitions'),
             strategies: [...strategiesBox.querySelectorAll('input[name="strategy"]:checked')].map(input => input.value),
         };
     }
 
     function validateForm(parameters) {
-        if (!Number.isInteger(parameters.max_nodes) || parameters.max_nodes < 2 || parameters.max_nodes > 1000) return 'O tamanho máximo deve ser um inteiro entre 2 e 1000.';
-        if (!Number.isInteger(parameters.step) || parameters.step < 1 || parameters.step > parameters.max_nodes) return 'O passo deve ser um inteiro entre 1 e o tamanho máximo.';
-        if (!Number.isInteger(parameters.min_degree) || parameters.min_degree < 1 || parameters.min_degree >= parameters.max_nodes) return 'O grau mínimo deve ser um inteiro maior que 0 e menor que o tamanho máximo.';
+        if (parameters.mode !== 'comparison' && !Number.isInteger(parameters.max_nodes) || parameters.max_nodes < 2 || parameters.max_nodes > 1000) return 'O tamanho máximo deve ser um inteiro entre 2 e 1000.';
+        if (parameters.mode !== 'comparison' && (!Number.isInteger(parameters.step) || parameters.step < 1 || parameters.step > parameters.max_nodes)) return 'O passo deve ser um inteiro entre 1 e o tamanho máximo.';
+        if (parameters.mode !== 'comparison' && (!Number.isInteger(parameters.min_degree) || parameters.min_degree < 1 || parameters.min_degree >= parameters.max_nodes)) return 'O grau mínimo deve ser um inteiro maior que 0 e menor que o tamanho máximo.';
         if (parameters.seed !== null && (!Number.isInteger(parameters.seed) || parameters.seed < 0 || parameters.seed > 4294967295)) return 'A semente deve ser um inteiro entre 0 e 4294967295 ou ficar em branco.';
         if (!(parameters.time_limit_seconds > 0 && parameters.time_limit_seconds <= 3600)) return 'O limite de tempo deve ser maior que 0 e até 3600 s.';
         if (!Number.isInteger(parameters.thread_count) || parameters.thread_count < 1 || parameters.thread_count > 256) return 'As threads devem ser um inteiro entre 1 e 256.';
+        if (!Number.isInteger(parameters.repetitions) || parameters.repetitions < 1 || parameters.repetitions > 100) return 'As repetições devem ser um inteiro entre 1 e 100.';
         if (!parameters.strategies.length) return 'Selecione ao menos uma estratégia.';
         return null;
     }
@@ -194,9 +315,14 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async event => {
         event.preventDefault();
         const parameters = readForm();
-        const invalid = validateForm(parameters);
+        const own = readStrategyParameters(parameters.strategies);
+        const channelError = channelSelector ? channelSelector.validar() : null;
+        const invalid = validateForm(parameters) || own.error || channelError;
         showError(invalid);
         if (invalid) return;
+        parameters.strategy_parameters = own.result;
+        const channels = channelsChosen();
+        if (channels) parameters.channels = channels;
         startButton.disabled = true;
         try {
             const { run } = await requestJson(API, {
@@ -215,23 +341,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function chartDatasets(run, valueOf) {
-        return (run.strategies || []).map(strategy => {
+    // Uma serie por estrategia, pela media de cada tamanho (nas deterministicas, o proprio valor); nas estocasticas,
+    // uma faixa sombreada do pior ao melhor valor das repeticoes mostra a dispersao.
+    function summariesOf(run, strategy) {
+        if (Array.isArray(run.summaries) && run.summaries.length) {
+            return run.summaries.filter(summary => summary.strategy === strategy).sort((a, b) => a.nodes - b.nodes);
+        }
+        // Execucoes antigas, sem resumo: um ponto por tamanho.
+        return (run.points || []).filter(point => point.strategy === strategy).map(point => ({
+            nodes: point.nodes, strategy, repetitions: 1, broke: point.broke,
+            duration_seconds: { mean: point.duration_seconds, std: 0, min: point.duration_seconds, max: point.duration_seconds },
+            conflicts: { mean: point.conflicts, std: 0, min: point.conflicts, max: point.conflicts },
+        }));
+    }
+
+    // Cor da serie com transparencia, para a faixa de dispersao (as cores dos tokens sao hexadecimais).
+    function withAlpha(color, alpha) {
+        const hex = String(color).trim().replace('#', '');
+        if (!/^[0-9a-f]{6}$/i.test(hex)) return color;
+        const [r, g, b] = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16));
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function chartDatasets(run, field, transform = value => value) {
+        const datasets = [];
+        (run.strategies || []).forEach(strategy => {
             const style = strategyStyle(strategy.name);
-            const points = (run.points || []).filter(point => point.strategy === strategy.name);
-            return {
+            const summaries = summariesOf(run, strategy.name).filter(summary => summary[field] && summary[field].mean != null);
+            datasets.push({
                 label: strategyName(strategy.name),
-                data: points.map(point => ({ x: point.nodes, y: valueOf(point), point })),
+                data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].mean), summary })),
                 borderColor: style.color,
                 backgroundColor: style.color,
                 borderWidth: 2,
-                pointStyle: points.map(point => (point.broke ? 'crossRot' : style.marker)),
-                pointRadius: points.map(point => (point.broke ? 9 : 4)),
-                pointBorderWidth: points.map(point => (point.broke ? 3 : 1)),
+                pointStyle: summaries.map(summary => (summary.broke ? 'crossRot' : style.marker)),
+                pointRadius: summaries.map(summary => (summary.broke ? 9 : 4)),
+                pointBorderWidth: summaries.map(summary => (summary.broke ? 3 : 1)),
                 pointHoverRadius: 7,
                 tension: 0,
-            };
+            });
+            if (summaries.some(summary => summary.repetitions > 1)) {
+                const band = {
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    tension: 0,
+                    spread: true,
+                    backgroundColor: withAlpha(style.color, 0.18),
+                };
+                datasets.push({ ...band, label: `${strategyName(strategy.name)} (pior)`, data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].max) })), fill: false });
+                datasets.push({ ...band, label: `${strategyName(strategy.name)} (melhor)`, data: summaries.map(summary => ({ x: summary.nodes, y: transform(summary[field].min) })), fill: '-1' });
+            }
         });
+        return datasets;
+    }
+
+    function describeSummary(summary, field, format) {
+        const value = summary[field];
+        if (!value || value.mean == null) return '-';
+        if (summary.repetitions <= 1) return format(value.mean);
+        return `${format(value.mean)} ± ${format(value.std)} (melhor ${format(value.min)}, pior ${format(value.max)})`;
     }
 
     function renderChart(key, canvasId, datasets, yScale, tooltipLabel) {
@@ -258,8 +427,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                 },
                 plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, color: CHART_TEXT_STRONG } },
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, color: CHART_TEXT_STRONG, filter: item => !datasets[item.datasetIndex].spread },
+                    },
                     tooltip: {
+                        filter: item => !item.dataset.spread,
                         callbacks: {
                             title: items => `${items[0].parsed.x} APs`,
                             label: context => tooltipLabel(context),
@@ -270,16 +443,126 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Comparacao: uma linha por estrategia (media ± desvio nas estocasticas), com o melhor valor de cada metrica.
+    const COMPARISON_METRICS = [
+        { field: 'conflicts', digits: 0 },
+        { field: 'interference', digits: 1 },
+        { field: 'power_w', digits: 1 },
+        { field: 'changed_nodes', digits: 0 },
+        { field: 'duration_seconds', digits: 2, format: formatSeconds },
+        { field: 'processing_energy_j', digits: 2 },
+    ];
+
+    function renderComparison(run) {
+        const summaries = (run.strategies || [])
+            .map(strategy => ({ strategy, summary: summariesOf(run, strategy.name)[0] }))
+            .filter(item => item.summary);
+        const best = {};
+        COMPARISON_METRICS.forEach(metric => {
+            const means = summaries.map(item => item.summary[metric.field]?.mean).filter(value => value != null);
+            best[metric.field] = means.length ? Math.min(...means) : null;
+        });
+        document.getElementById('scal-comparison-rows').innerHTML = summaries.map(({ strategy, summary }) => {
+            const points = (run.points || []).filter(point => point.strategy === strategy.name);
+            const stops = points.reduce((counts, point) => ({ ...counts, [point.stop_reason]: (counts[point.stop_reason] || 0) + 1 }), {});
+            const stopText = Object.entries(stops)
+                .map(([reason, count]) => `${points.length > 1 ? `${count}× ` : ''}${STOP_LABELS[reason] || reason}`).join(', ');
+            const optimal = points.some(point => point.optimal);
+            const cells = COMPARISON_METRICS.map(metric => {
+                const value = summary[metric.field];
+                if (!value || value.mean == null) return '<td>-</td>';
+                const format = metric.format || (number => formatNumber(number, summary.repetitions > 1 ? Math.max(metric.digits, 1) : metric.digits));
+                const isBest = best[metric.field] != null && Math.abs(value.mean - best[metric.field]) < 1e-9;
+                const text = summary.repetitions > 1
+                    ? `${format(value.mean)} <span class="scal-spread">± ${format(value.std)}</span>`
+                    : format(value.mean);
+                return `<td class="${isBest ? 'scal-best' : ''}">${text}${isBest ? '<span class="visually-hidden"> (melhor)</span>' : ''}</td>`;
+            }).join('');
+            const proposal = run.proposals && run.proposals[strategy.name]
+                ? `<a class="btn btn-ghost btn-sm" href="/analysis?experiment=${run.id}&amp;strategy=${encodeURIComponent(strategy.name)}"
+                       title="Abre na página de Análise a configuração proposta da melhor repetição">Abrir na Análise</a>`
+                : '-';
+            return `
+                <tr>
+                    <th scope="row"><span class="scal-swatch" style="background:${strategyStyle(strategy.name).color}"></span> ${escapeHtml(strategyName(strategy.name))}</th>
+                    <td>${summary.repetitions}</td>
+                    ${cells}
+                    <td>${escapeHtml(stopText)}${optimal ? ' (ótima)' : ''}</td>
+                    <td>${proposal}</td>
+                </tr>`;
+        }).join('');
+        renderComparisonChart(run);
+    }
+
+    function renderComparisonChart(run) {
+        const field = document.getElementById('scal-comparison-metric').value;
+        const metric = COMPARISON_METRICS.find(item => item.field === field);
+        const option = document.querySelector(`#scal-comparison-metric option[value="${field}"]`);
+        const items = (run.strategies || [])
+            .map(strategy => ({ strategy, summary: summariesOf(run, strategy.name)[0] }))
+            .filter(item => item.summary && item.summary[field] && item.summary[field].mean != null);
+        if (charts.comparison) charts.comparison.destroy();
+        charts.comparison = new Chart(document.getElementById('scal-chart-comparison'), {
+            type: 'bar',
+            data: {
+                labels: items.map(item => strategyName(item.strategy.name)),
+                datasets: [
+                    {
+                        label: 'Média',
+                        data: items.map(item => item.summary[field].mean),
+                        backgroundColor: items.map(item => withAlpha(strategyStyle(item.strategy.name).color, 0.75)),
+                        borderColor: items.map(item => strategyStyle(item.strategy.name).color),
+                        borderWidth: 1,
+                        grouped: false,
+                    },
+                    {
+                        label: 'Melhor a pior',
+                        data: items.map(item => [item.summary[field].min, item.summary[field].max]),
+                        backgroundColor: CHART_TEXT_STRONG,
+                        barPercentage: 0.08,
+                        grouped: false,
+                    },
+                ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { ticks: { color: CHART_TEXT_MUTED }, grid: { display: false } },
+                    y: { beginAtZero: true, title: { display: true, text: option ? option.textContent : field, color: CHART_TEXT }, ticks: { color: CHART_TEXT_MUTED }, grid: { color: CHART_GRID } },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: context => {
+                                const summary = items[context.dataIndex].summary;
+                                const format = metric.format || (number => formatNumber(number, metric.digits || 1));
+                                return describeSummary(summary, field, format);
+                            },
+                        },
+                        filter: item => item.datasetIndex === 0,
+                    },
+                },
+            },
+        });
+    }
+
     function renderResult(run) {
         selectedRunId = run.id;
         resultCard.hidden = false;
-        document.getElementById('scal-result-title').textContent = `Execução #${run.id}`;
+        const comparison = run.mode === 'comparison';
+        document.getElementById('scal-result-title').textContent = `${comparison ? 'Comparação' : 'Escalabilidade'} · execução #${run.id}`;
+        document.getElementById('scal-comparison').hidden = !comparison;
+        document.getElementById('scal-scalability-charts').hidden = comparison;
+        document.getElementById('scal-points-details').hidden = comparison;
+        document.getElementById('scal-result-breaks').hidden = comparison;
         const created = run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-';
         document.getElementById('scal-result-meta').innerHTML = `
             <span><strong>Situação:</strong> ${escapeHtml(STATUS_LABELS[run.status] || run.status)}${run.error ? ` (${escapeHtml(run.error)})` : ''}</span>
             <span><strong>Data:</strong> ${escapeHtml(created)}</span>
             <span><strong>Versão:</strong> ${escapeHtml(describeVersion(run.version))}</span>
-            <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters))}</span>
+            <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters, run))}</span>
             <span class="scal-row-actions"><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a></span>`;
         document.getElementById('scal-result-breaks').innerHTML = (run.strategies || []).map(strategy => `
             <span class="tag tag-outline scal-break">
@@ -287,9 +570,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${escapeHtml(strategyName(strategy.name))}</strong> ${escapeHtml(describeBreak(run, strategy))}
             </span>`).join('');
 
+        if (comparison) {
+            renderComparison(run);
+            highlightSelected();
+            return;
+        }
         const limit = run.parameters.time_limit_seconds;
         const sizes = (run.points || []).map(point => point.nodes);
-        const timeDatasets = chartDatasets(run, point => Math.max(point.duration_seconds, 1e-5));
+        const timeDatasets = chartDatasets(run, 'duration_seconds', value => Math.max(value, 1e-5));
         if (sizes.length) {
             timeDatasets.push({
                 label: 'Limite de tempo',
@@ -306,33 +594,59 @@ document.addEventListener('DOMContentLoaded', () => {
             title: { display: true, text: 'Tempo (escala log)', color: CHART_TEXT },
             ticks: { callback: logTick, autoSkip: false },
         }, context => {
-            const point = context.raw.point;
-            if (!point) return `Limite de tempo: ${formatNumber(limit, 1)} s`;
-            return `${context.dataset.label}: ${formatSeconds(point.duration_seconds)}${point.broke ? ' (ponto de quebra)' : ''}`;
+            const summary = context.raw.summary;
+            if (!summary) return `Limite de tempo: ${formatNumber(limit, 1)} s`;
+            return `${context.dataset.label}: ${describeSummary(summary, 'duration_seconds', formatSeconds)}${summary.broke ? ' (ponto de quebra)' : ''}`;
         });
-        renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, point => point.conflicts), {
+        renderChart('conflicts', 'scal-chart-conflicts', chartDatasets(run, 'conflicts'), {
             beginAtZero: true,
             title: { display: true, text: 'Conflitos', color: CHART_TEXT },
         }, context => {
-            const point = context.raw.point;
-            const gap = point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';
-            return `${context.dataset.label}: ${formatNumber(point.conflicts)} conflitos${point.optimal ? ' (ótimo)' : gap}`;
+            const summary = context.raw.summary;
+            const point = (run.points || []).find(item => item.strategy === summary.strategy && item.nodes === summary.nodes) || {};
+            const gap = summary.repetitions <= 1 && point.gap_conflicts != null ? `, ${point.gap_conflicts >= 0 ? '+' : ''}${point.gap_conflicts} do ótimo` : '';
+            return `${context.dataset.label}: ${describeSummary(summary, 'conflicts', value => formatNumber(value, summary.repetitions > 1 ? 1 : 0))} conflitos${point.optimal ? ' (ótimo)' : gap}`;
         });
 
-        document.getElementById('scal-points').innerHTML = (run.points || []).map(point => `
-            <tr class="${point.broke ? 'is-broken' : ''}">
-                <td>${point.nodes}</td>
-                <td>${formatNumber(point.edges)}</td>
-                <td>${formatNumber(point.density, 3)}</td>
-                <td>${escapeHtml(strategyName(point.strategy))}${point.broke ? ' · quebra' : ''}</td>
-                <td>${formatSeconds(point.duration_seconds)}</td>
-                <td>${formatNumber(point.conflicts)}${point.optimal ? ' (ótimo)' : ''}</td>
-                <td>${point.gap_conflicts != null ? formatNumber(point.gap_conflicts) : '-'}</td>
-                <td>${formatNumber(point.interference, 1)}</td>
-                <td>${formatNumber(point.power_w, 1)}</td>
-                <td>${formatNumber(point.nodes_explored)}</td>
-                <td>${escapeHtml(STOP_LABELS[point.stop_reason] || point.stop_reason)}</td>
-            </tr>`).join('');
+        // Uma linha por tamanho e estrategia; nas estocasticas, a media ± o desvio-padrao das repeticoes.
+        const rows = [];
+        (run.strategies || []).forEach(strategy => summariesOf(run, strategy.name).forEach(summary => rows.push(summary)));
+        rows.sort((a, b) => a.nodes - b.nodes || strategyOrder.indexOf(a.strategy) - strategyOrder.indexOf(b.strategy));
+        const spread = (summary, field, digits, format) => {
+            const value = summary[field];
+            if (!value || value.mean == null) return '-';
+            const main = format ? format(value.mean) : formatNumber(value.mean, summary.repetitions > 1 ? Math.max(digits, 1) : digits);
+            return summary.repetitions > 1
+                ? `${main} <span class="scal-spread">± ${format ? format(value.std) : formatNumber(value.std, Math.max(digits, 1))}</span>`
+                : main;
+        };
+        document.getElementById('scal-points').innerHTML = rows.map(summary => {
+            const points = (run.points || []).filter(point => point.strategy === summary.strategy && point.nodes === summary.nodes);
+            const first = points[0] || {};
+            const stops = points.reduce((counts, point) => ({ ...counts, [point.stop_reason]: (counts[point.stop_reason] || 0) + 1 }), {});
+            const stopText = Object.entries(stops)
+                .map(([reason, count]) => `${points.length > 1 ? `${count}× ` : ''}${STOP_LABELS[reason] || reason}`).join(', ');
+            const mean = field => {
+                const values = points.map(point => point[field]).filter(value => value != null);
+                return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+            };
+            return `
+            <tr class="${summary.broke ? 'is-broken' : ''}">
+                <td>${summary.nodes}</td>
+                <td>${formatNumber(first.edges)}</td>
+                <td>${formatNumber(first.density, 3)}</td>
+                <td>${escapeHtml(strategyName(summary.strategy))}${summary.broke ? ' · quebra' : ''}</td>
+                <td>${summary.repetitions}</td>
+                <td>${spread(summary, 'duration_seconds', 2, formatSeconds)}</td>
+                <td>${spread(summary, 'conflicts', 0)}${first.optimal ? ' (ótimo)' : ''}</td>
+                <td>${summary.repetitions <= 1 && first.gap_conflicts != null ? formatNumber(first.gap_conflicts) : '-'}</td>
+                <td>${spread(summary, 'interference', 1)}</td>
+                <td>${spread(summary, 'power_w', 1)}</td>
+                <td>${formatNumber(mean('nodes_explored'))}</td>
+                <td>${spread(summary, 'processing_energy_j', 2)}</td>
+                <td>${escapeHtml(stopText)}</td>
+            </tr>`;
+        }).join('');
         highlightSelected();
     }
 
@@ -349,9 +663,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${run.id}</td>
                     <td>${escapeHtml(run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-')}</td>
                     <td title="${escapeHtml(describeVersion(run.version))}">${escapeHtml(describeVersion(run.version, false))}</td>
-                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters))}</td>
+                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters, run))}</td>
                     <td class="scal-status">${escapeHtml(STATUS_LABELS[run.status] || run.status)}</td>
-                    <td>${(run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
+                    <td>${run.mode === 'comparison'
+                        ? `Comparação: ${(run.strategies || []).map(strategy => escapeHtml(strategyName(strategy.name))).join(', ')}`
+                        : (run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
                     <td><div class="scal-row-actions">
                         <button type="button" class="btn btn-ghost btn-sm" data-action="view">Ver</button>
                         <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a>
@@ -392,5 +708,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Canais: o mesmo seletor da pagina de Analise, num modal; sem mudancas, o teste usa os perfis padrao.
+    const spectrumModal = document.getElementById('scal-spectrum-modal');
+    const openSpectrum = document.getElementById('scal-open-spectrum');
+    const channelsSummary = document.getElementById('scal-channels-summary');
+
+    function renderChannelsSummary() {
+        if (!channelSelector) return;
+        const bands = channelSelector.resumo().filter(band => band.k > 0);
+        const custom = bands.some(band => !band.padrao) || channelSelector.resumo().some(band => !band.padrao);
+        channelsSummary.textContent = `${custom ? 'Personalizados' : 'Perfis padrão'}: ${bands.map(band => `${band.rotulo} k = ${band.k}`).join(' · ')}`;
+    }
+
+    function setSpectrumModal(open) {
+        spectrumModal.style.display = open ? 'flex' : 'none';
+        (open ? document.getElementById('scal-spectrum-done') : openSpectrum).focus();
+        if (!open) renderChannelsSummary();
+    }
+
+    openSpectrum.addEventListener('click', () => setSpectrumModal(true));
+    document.getElementById('scal-spectrum-close').addEventListener('click', () => setSpectrumModal(false));
+    document.getElementById('scal-spectrum-done').addEventListener('click', () => setSpectrumModal(false));
+    spectrumModal.addEventListener('click', event => {
+        if (event.target === spectrumModal) setSpectrumModal(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && spectrumModal.style.display === 'flex') setSpectrumModal(false);
+    });
+    if (window.ChannelPlan) {
+        const container = document.getElementById('scal-channels');
+        window.ChannelPlan.carregar()
+            .then(plan => {
+                channelSelector = window.ChannelPlan.criarSeletor(container, plan);
+                container.addEventListener('channelplan:change', renderChannelsSummary);
+                renderChannelsSummary();
+                openSpectrum.disabled = false;
+            })
+            .catch(() => {
+                channelsSummary.textContent = 'Perfis padrão (não foi possível carregar o mapa do espectro; recarregue a página para escolher os canais).';
+            });
+    }
+
+    // Modos: os campos e textos marcados com data-mode so aparecem no modo correspondente.
+    function setMode(next) {
+        mode = next;
+        document.querySelectorAll('.scal-mode').forEach(button => {
+            const active = button.dataset.mode === mode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('.scal-mode-field, .scal-mode-text').forEach(element => {
+            element.hidden = element.dataset.mode !== mode;
+        });
+        document.getElementById('scal-form-title').textContent = mode === 'comparison' ? 'Parâmetros da comparação' : 'Parâmetros do teste de escalabilidade';
+        showError('');
+        try {
+            history.replaceState(null, '', `/experiments${mode === 'comparison' ? '?mode=comparison' : ''}`);
+        } catch (error) {
+            // Sem history (por exemplo, numa pre-visualizacao), o endereco so nao acompanha o modo.
+        }
+    }
+
+    document.querySelectorAll('.scal-mode').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
+
+    async function loadInstance() {
+        try {
+            const points = await requestJson('/api/access_points');
+            const positioned = (Array.isArray(points) ? points : []).filter(point => point.latitude != null && point.longitude != null);
+            document.getElementById('scal-instance').textContent = `${formatNumber(positioned.length)} APs com coordenadas`;
+        } catch (error) {
+            document.getElementById('scal-instance').textContent = 'não foi possível contar os APs';
+        }
+    }
+
+    document.getElementById('scal-comparison-metric').addEventListener('change', async () => {
+        if (!selectedRunId) return;
+        const { run } = await requestJson(`${API}/${selectedRunId}`);
+        if (run.mode === 'comparison') renderComparisonChart(run);
+    });
+
+    setMode(mode);
+    loadInstance();
     loadStrategies().then(loadHistory);
 });

@@ -15,8 +15,10 @@ scripts/
 │   ├── stop.sh           # Parar o projeto
 │   ├── start-local.ps1   # Executar sem Docker Compose (Windows)
 │   └── SCRIPTS.pt-BR.md  # Documentação dos scripts de gerenciamento
-└── maintenance/          # Scripts de manutenção e deploy
-    └── maintenance.sh    # Tarefas de manutenção e deploy completo
+├── maintenance/          # Scripts de manutenção e deploy
+│   └── maintenance.sh    # Tarefas de manutenção e deploy completo
+└── experiments/          # Experimentos da pesquisa
+    └── processing_energy.py  # Energia do processamento das estratégias (docs/energy)
 ```
 
 ## 🎯 Categorias de Scripts
@@ -60,6 +62,13 @@ Scripts para tarefas de manutenção, limpeza e deploy completo.
 - Atualização de código via Git
 - Rebuild de imagens Docker
 - Verificação de saúde dos serviços
+
+### 🔬 **Experiments** - Experimentos
+Scripts de medição usados na pesquisa, executados com os serviços no ar.
+
+**Localização:** `scripts/experiments/`
+
+- **`processing_energy.py`** - Mede o tempo de CPU de cada estratégia pelo cgroup do contêiner do analysis_service e estima a energia do processamento (método e resultados em [docs/energy/README.pt-BR.md](../docs/energy/README.pt-BR.md))
 
 ### 📊 **Monitor** - Monitoramento
 Scripts para monitoramento em tempo real.

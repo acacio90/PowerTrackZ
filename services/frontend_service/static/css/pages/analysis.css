@@ -1,103 +1,276 @@
-/* Página de Análise */
-.content-container {
-    position: relative;
-    flex: 1;
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 3.5rem;
-    border: none;
-}
-
-@media (max-width: 600px) {
-    .content-container {
-        gap: 2rem;
-    }
-}
-
-/* Estilos para os botões de estratégia de análise */
-.strategy-buttons-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin: 1rem 0;
-    justify-content: space-between;
-}
-
-.strategy-button-wrapper {
-    flex: 1;
-    min-width: 200px;
-    max-width: calc(33.333% - 0.67rem);
-}
-
-@media (max-width: 768px) {
-    .strategy-buttons-container {
-        flex-direction: column;
-    }
-    
-    .strategy-button-wrapper {
-        max-width: 100%;
-    }
-}
-
+/* Página de Análise: configuração em uma coluna lateral, em etapas, e resultado em abas */
 .page-analysis {
     padding: 0;
 }
 
-.analysis-shell {
+.analysis-header {
+    margin-bottom: var(--space-5);
+}
+
+.analysis-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+/* Proposta aberta a partir de uma comparação da página de Experimentos */
+.analysis-experiment-notice {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-soft);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.analysis-experiment-notice[hidden] {
+    display: none;
+}
+
+.analysis-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+/* Coluna lateral: acompanha a rolagem em telas largas e fica acima do resultado nas estreitas */
+.analysis-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-4));
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: var(--space-4);
+    max-height: calc(100vh - var(--navbar-height) - var(--space-6));
+    overflow-y: auto;
 }
 
-.analysis-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text);
-    margin-bottom: 0.65rem;
+@media (max-width: 1000px) {
+    .analysis-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .analysis-sidebar {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
 }
 
-.analysis-hero h1 {
+.analysis-steps {
+    list-style: none;
     margin: 0;
-    font-size: var(--font-size-display);
-    line-height: 1.05;
-    color: var(--color-text-strong);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
 }
 
-.analysis-subtitle {
-    margin: 0.85rem 0 0;
-    max-width: 780px;
-    font-size: var(--font-size-base);
-    line-height: 1.6;
-    color: var(--color-text-muted);
+.analysis-step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-.analysis-toolbar {
-    margin-top: 1.5rem;
-    padding-top: 1.25rem;
+.analysis-step + .analysis-step {
+    padding-top: var(--space-4);
     border-top: 1px solid var(--color-border);
 }
 
-.analysis-toolbar-label {
-    display: block;
-    margin-bottom: 0.85rem;
+/* Cada etapa recolhe pelo título; recolhida, mostra a escolha atual ao lado dele */
+.analysis-step-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
+    list-style: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.analysis-step-title::-webkit-details-marker {
+    display: none;
+}
+
+.analysis-step-title:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+}
+
+.analysis-step-name {
+    flex-shrink: 0;
+}
+
+.analysis-step-value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
     font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+    color: var(--color-text-muted);
+}
+
+.analysis-step-details[open] .analysis-step-value {
+    visibility: hidden;
+}
+
+.analysis-step-chevron {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    transition: transform 0.15s ease;
+}
+
+.analysis-step-details:not([open]) .analysis-step-chevron {
+    transform: rotate(-90deg);
+}
+
+.analysis-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.analysis-step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-size: var(--font-size-xs);
+}
+
+/* Etapa 1: estratégias agrupadas por família */
+.analysis-strategy-list,
+.analysis-family {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.analysis-strategy-list {
+    gap: var(--space-3);
+}
+
+.analysis-family-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-bold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-text-muted);
 }
 
+.analysis-strategy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.analysis-strategy:hover:not(:disabled) {
+    border-color: var(--color-accent);
+}
+
+.analysis-strategy.is-selected {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.analysis-strategy:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.analysis-strategy-name {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-strong);
+}
+
+.analysis-strategy-name i {
+    color: var(--color-accent);
+}
+
+.analysis-strategy-description {
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    color: var(--color-text);
+}
+
+.analysis-strategy-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+/* Etapa 3: resumo dos canais (o mapa do espectro abre em um modal) */
+.analysis-channel-summary {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.analysis-channel-band {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.analysis-channel-band strong {
+    margin-left: auto;
+    color: var(--color-text-strong);
+}
+
+#analysis-open-spectrum {
+    align-self: flex-start;
+}
+
+/* Etapa 4: parâmetros comuns e avançados */
 .analysis-parameters {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: 1fr;
     gap: 0.9rem;
-    margin: 1rem 0;
+}
+
+.analysis-advanced summary {
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}
+
+.analysis-advanced[open] summary {
+    margin-bottom: var(--space-2);
 }
 
 .analysis-parameter .analysis-parameter-toggle {
@@ -119,153 +292,83 @@
     margin: 0;
 }
 
-.analysis-channels {
-    margin: 0 0 1rem;
+.analysis-run-button {
+    width: 100%;
 }
 
-.spectrum-legend {
-    margin: 0.25rem 0 0;
-    font-size: var(--font-size-sm);
+/* Resultado em abas */
+.analysis-results {
+    min-width: 0;
+}
+
+.analysis-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.analysis-tab {
+    margin-bottom: -1px;
+    padding: 0.6rem 1rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
     color: var(--color-text-muted);
-}
-
-.spectrum-legend-overlap {
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-warning);
-}
-
-.spectrum-band {
-    margin-top: 0.5rem;
-}
-
-.spectrum-band summary {
-    cursor: pointer;
+    font-family: inherit;
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.analysis-tab:hover {
     color: var(--color-text-strong);
 }
 
-.spectrum-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0.6rem 0 0.4rem;
+.analysis-tab.is-active {
+    color: var(--color-accent-hover);
+    border-bottom-color: var(--color-accent);
 }
 
-.spectrum-actions-label {
-    align-self: center;
-    margin-left: 0.4rem;
-    font-size: var(--font-size-xs);
+.analysis-tab-panel {
+    min-width: 0;
+}
+
+.analysis-empty {
+    margin: 0;
+    font-size: var(--font-size-md);
     color: var(--color-text-muted);
 }
 
-.spectrum-body {
-    display: flex;
-    align-items: flex-start;
-}
-
-.spectrum-labels {
-    flex: 0 0 5.5rem;
-}
-
-.spectrum-label {
+.analysis-period {
     display: flex;
     align-items: center;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-muted);
-    border-bottom: 1px solid transparent;
-}
-
-.spectrum-label small {
-    margin-left: 0.2rem;
-    font-weight: var(--font-weight-regular);
-}
-
-.spectrum-axis-label {
-    height: 1.4rem;
-    font-weight: var(--font-weight-regular);
-}
-
-.spectrum-scroll {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow-x: auto;
-}
-
-.spectrum-canvas {
-    position: relative;
-}
-
-.spectrum-row {
-    position: relative;
-    border-bottom: 1px dashed var(--color-border);
-}
-
-.spectrum-bar {
-    position: absolute;
-    height: 22px;
-    padding: 0 2px;
-    overflow: hidden;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface-muted);
-    font-size: var(--font-size-xs);
-    line-height: 20px;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
     color: var(--color-text);
-    white-space: nowrap;
-    text-overflow: clip;
-    cursor: pointer;
 }
 
-.spectrum-bar:hover {
-    border-color: var(--color-accent);
+.analysis-period input {
+    width: 5rem;
+    text-align: center;
 }
 
-.spectrum-bar.is-selected {
-    border-color: var(--color-accent-hover);
-    background: var(--color-accent);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-on-accent);
-}
-
-.spectrum-bar.is-selected.is-overlapping {
-    border-color: var(--color-warning);
-    background: var(--color-warning);
-}
-
-.spectrum-bar:focus-visible {
-    outline: 2px solid var(--color-accent-hover);
-    outline-offset: 1px;
-}
-
-.spectrum-axis {
-    position: relative;
-    height: 1.4rem;
-    border-top: 1px solid var(--color-border-strong);
-}
-
-.spectrum-tick {
-    position: absolute;
-    top: 0.15rem;
-    transform: translateX(-50%);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    white-space: nowrap;
+.analysis-execution-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
 }
 
 .analysis-parameter-error {
     margin: 0 0 1rem;
     font-size: var(--font-size-sm);
     color: var(--color-danger);
-}
-
-.analysis-run-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
 }
 
 .analysis-display-options {
@@ -343,45 +446,6 @@
     color: var(--color-text-muted);
 }
 
-.page-analysis .strategy-buttons-container {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.9rem;
-    margin: 0;
-    justify-content: stretch;
-}
-
-.page-analysis .strategy-button-wrapper {
-    min-width: 0;
-    max-width: none;
-}
-
-.page-analysis .btn-server-analysis {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    width: 100%;
-    min-height: 54px;
-    border-radius: var(--radius-lg);
-    border-width: 1px;
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text);
-    border-color: var(--color-border-strong);
-    background: var(--color-surface-translucent);
-    backdrop-filter: blur(6px);
-}
-
-.page-analysis .btn-server-analysis i {
-    font-size: var(--font-size-md);
-}
-
-.page-analysis .btn-server-analysis:hover:not(.is-selected) {
-    background: var(--color-surface-sunken);
-    border-color: var(--color-border-strong);
-    color: var(--color-text);
-}
-
 .app-table.analysis-table col:nth-child(1) {
     width: 28%;
 }
@@ -447,11 +511,6 @@
 }
 
 @media (max-width: 900px) {
-    .page-analysis .strategy-buttons-container {
-        grid-template-columns: 1fr;
-    }
-
-    .analysis-hero,
     .analysis-changes {
         padding: var(--space-4);
     }
@@ -467,16 +526,17 @@
 
 /* Grafos, painel de resumo e progresso da execução */
 
-.page-container {
-    display: flex;
-    flex-direction: column;
-}
 .analysis-summary {
     margin-bottom: 1rem;
 }
+.analysis-summary-run {
+    margin: 0 0 var(--space-3);
+    font-size: var(--font-size-md);
+    color: var(--color-text);
+}
 .analysis-summary-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 0.75rem;
 }
 .analysis-summary-unit {
@@ -538,7 +598,7 @@
 .grafos-toolbar {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
     margin-bottom: 0.75rem;
@@ -551,19 +611,25 @@
     gap: 0.4rem;
     margin: 0;
 }
-.grafos-toolbar input {
-    width: 64px;
-    text-align: center;
+.grafos-toolbar input[type="checkbox"] {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
 }
 .grafos-comparacao {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
 }
+/* Os painéis compartilham as linhas da grade (cabeçalho, quadro e legenda), para os quadros ficarem
+   alinhados mesmo quando só um cabeçalho tem a linha de consumo. */
 .grafo-painel {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0.6rem;
+    align-content: start;
     min-width: 0;
 }
 .grafo-painel-header {
@@ -648,22 +714,16 @@
 #tabela-alteracoes-container {
     position: relative;
     z-index: 1;
-    margin: 30px 0 0;
 }
 .info-gasto {
     color: var(--color-accent-hover);
     font-size: var(--font-size-sm);
 }
-@media (max-width: 1100px) {
+/* Lado a lado só quando a coluna do resultado comporta os dois grafos; abaixo disso, empilhados. */
+@media (max-width: 1400px) {
     .grafos-comparacao {
         grid-template-columns: 1fr;
     }
-}
-.page-analysis .btn-server-analysis.is-selected {
-    color: var(--color-on-accent);
-    background-color: var(--color-accent);
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-focus);
 }
 .analysis-loading-overlay {
     position: absolute;
@@ -739,10 +799,7 @@
     margin-top: 1rem;
     width: 100%;
 }
-.analysis-execution-card {
-    margin-top: 1rem;
-}
-.analysis-execution-card[hidden] {
+.analysis-execution[hidden] {
     display: none;
 }
 .analysis-execution-title {
@@ -782,4 +839,143 @@
     0% { transform: translateX(-120%); }
     50% { transform: translateX(120%); }
     100% { transform: translateX(-120%); }
+}
+
+/* Aba Convergência: uma curva por faixa, em degraus, com dica ao passar o mouse e a tabela dos pontos */
+.convergence-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.convergence-axis-choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.convergence-axis-choice select {
+    width: auto;
+}
+
+.convergence-band + .convergence-band {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.convergence-title {
+    margin: 0 0 var(--space-1);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-strong);
+}
+
+.convergence-chart {
+    position: relative;
+    margin-top: var(--space-2);
+}
+
+.convergence-chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+}
+
+.convergence-grid {
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.convergence-axis {
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.convergence-tick,
+.convergence-axis-label {
+    fill: var(--color-text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.convergence-line {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.convergence-marker {
+    fill: var(--color-accent);
+    stroke: var(--color-surface);
+    stroke-width: 2;
+}
+
+.convergence-cursor {
+    stroke: var(--color-text-muted);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.convergence-hit {
+    fill: transparent;
+    cursor: crosshair;
+}
+
+.convergence-tooltip {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.convergence-tooltip[hidden] {
+    display: none;
+}
+
+.convergence-points {
+    margin-top: var(--space-2);
+}
+
+.convergence-points summary {
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}
+
+/* Aviso de rede grande na aba Grafos (exibicao simplificada ou completa) */
+.analysis-graphs-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 0.75rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-soft);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.analysis-graphs-notice[hidden] {
+    display: none;
+}
+
+.analysis-graphs-notice i {
+    color: var(--color-accent);
 }

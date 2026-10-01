@@ -8,48 +8,123 @@
 {% block content %}
 <section class="page-analysis">
     <div class="container">
-        <section class="analysis-shell">
-            <div class="analysis-hero panel">
-                <span class="analysis-kicker">
-                    <i class="fa-solid fa-chart-line"></i>
-                    Painel de análise
-                </span>
-                <h1>Análise dos pontos de acesso</h1>
-                <p class="analysis-subtitle">
-                    Compare estratégias de otimização, visualize os conflitos e acompanhe as configurações propostas
-                    para cada AP sem dispersar a leitura do grafo.
-                </p>
+        <header class="analysis-header panel">
+            <h1 class="page-title">
+                <i class="fa-solid fa-chart-line"></i>
+                Análise dos pontos de acesso
+            </h1>
+            <p class="page-subtitle">
+                Escolha a estratégia e o critério na coluna ao lado, execute a análise e compare a configuração
+                original com a proposta.
+            </p>
+            <div class="analysis-header-actions">
+                <a class="btn btn-secondary btn-sm" href="/experiments?mode=comparison">
+                    <i class="fa-solid fa-scale-balanced"></i> Comparar estratégias nesta infraestrutura
+                </a>
+            </div>
+            <p id="analysis-experiment-notice" class="analysis-experiment-notice" hidden></p>
+        </header>
 
-                <div class="analysis-toolbar">
-                    <span class="analysis-toolbar-label">Estratégia ativa</span>
-                    <div class="strategy-buttons-container">
-                        <div class="strategy-button-wrapper">
-                            <button class="btn btn-server-analysis" data-strategy="backtracking">
-                                <i class="fa-solid fa-sitemap"></i> Backtracking
-                            </button>
-                        </div>
-                        <div class="strategy-button-wrapper">
-                            <button class="btn btn-server-analysis" data-strategy="greedy">
-                                <i class="fa-solid fa-bolt"></i> Guloso
-                            </button>
-                        </div>
-                        <div class="strategy-button-wrapper">
-                            <button class="btn btn-server-analysis" data-strategy="genetic">
-                                <i class="fa-solid fa-dna"></i> Algoritmo genético
-                            </button>
-                        </div>
+        <div class="analysis-layout">
+            {# Configuracao em etapas recolhiveis (so a primeira comeca aberta); em telas estreitas, fica acima do resultado. #}
+            <aside class="analysis-sidebar panel" aria-label="Configuração da análise">
+                <ol class="analysis-steps">
+                    <li class="analysis-step">
+                        <details class="analysis-step-details" open>
+                            <summary class="analysis-step-title">
+                                <span class="analysis-step-number">1</span>
+                                <span class="analysis-step-name">Estratégia</span>
+                                <span id="analysis-step-value-strategy" class="analysis-step-value"></span>
+                                <i class="fa-solid fa-chevron-down analysis-step-chevron" aria-hidden="true"></i>
+                            </summary>
+                            <div class="analysis-step-body">
+                                <div id="analysis-strategy-list" class="analysis-strategy-list">
+                                    <p class="analysis-parameter-meta">Carregando estratégias…</p>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                    <li class="analysis-step">
+                        <details class="analysis-step-details">
+                            <summary class="analysis-step-title">
+                                <span class="analysis-step-number">2</span>
+                                <span class="analysis-step-name">Critério de otimização</span>
+                                <span id="analysis-step-value-objective" class="analysis-step-value"></span>
+                                <i class="fa-solid fa-chevron-down analysis-step-chevron" aria-hidden="true"></i>
+                            </summary>
+                            <div class="analysis-step-body">
+                                <label class="visually-hidden" for="analysis-objective">Critério de otimização</label>
+                                <select id="analysis-objective">
+                                    <option value="default">Padrão</option>
+                                </select>
+                                <p id="analysis-objective-description" class="analysis-parameter-meta">Menos conflitos, depois menor interferência e, no desempate, maior largura de banda.</p>
+                            </div>
+                        </details>
+                    </li>
+                    <li class="analysis-step">
+                        <details class="analysis-step-details">
+                            <summary class="analysis-step-title">
+                                <span class="analysis-step-number">3</span>
+                                <span class="analysis-step-name">Canais</span>
+                                <span id="analysis-step-value-channels" class="analysis-step-value"></span>
+                                <i class="fa-solid fa-chevron-down analysis-step-chevron" aria-hidden="true"></i>
+                            </summary>
+                            <div class="analysis-step-body">
+                                <ul id="analysis-channel-summary" class="analysis-channel-summary">
+                                    <li class="analysis-parameter-meta">Carregando canais…</li>
+                                </ul>
+                                <button type="button" id="analysis-open-spectrum" class="btn btn-secondary btn-sm" disabled>
+                                    <i class="fa-solid fa-sliders"></i> Escolher no mapa do espectro
+                                </button>
+                            </div>
+                        </details>
+                    </li>
+                    <li class="analysis-step">
+                        <details class="analysis-step-details">
+                            <summary class="analysis-step-title">
+                                <span class="analysis-step-number">4</span>
+                                <span class="analysis-step-name">Parâmetros</span>
+                                <i class="fa-solid fa-chevron-down analysis-step-chevron" aria-hidden="true"></i>
+                            </summary>
+                            <div class="analysis-step-body">
+                                <div id="analysis-parameters" class="analysis-parameters">
+                                    <p class="analysis-parameter-meta">Selecione uma estratégia para ver os parâmetros.</p>
+                                </div>
+                                <details id="analysis-advanced" class="analysis-advanced" hidden>
+                                    <summary>Parâmetros avançados</summary>
+                                    <div id="analysis-advanced-parameters" class="analysis-parameters"></div>
+                                </details>
+                            </div>
+                        </details>
+                    </li>
+                </ol>
+                <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
+                <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
+                    <i class="fa-solid fa-play"></i> Executar análise
+                </button>
+            </aside>
+
+            <div class="analysis-results">
+                <div class="analysis-tabs" role="tablist" aria-label="Resultado da análise">
+                    <button type="button" role="tab" class="analysis-tab" id="tab-resumo" aria-controls="panel-resumo" data-tab="resumo">Resumo</button>
+                    <button type="button" role="tab" class="analysis-tab" id="tab-grafos" aria-controls="panel-grafos" data-tab="grafos">Grafos</button>
+                    <button type="button" role="tab" class="analysis-tab" id="tab-convergencia" aria-controls="panel-convergencia" data-tab="convergencia">Convergência</button>
+                    <button type="button" role="tab" class="analysis-tab" id="tab-configuracoes" aria-controls="panel-configuracoes" data-tab="configuracoes">Configurações</button>
+                    <button type="button" role="tab" class="analysis-tab" id="tab-execucao" aria-controls="panel-execucao" data-tab="execucao">Execução</button>
+                </div>
+
+                <section class="analysis-tab-panel panel" role="tabpanel" id="panel-resumo" aria-labelledby="tab-resumo" hidden>
+                    <div class="analysis-period">
+                        <label for="input-dias">Dias da estimativa de consumo</label>
+                        <input id="input-dias" type="number" min="1" value="15">
                     </div>
-                    <div id="analysis-parameters" class="analysis-parameters">
-                        <p class="analysis-parameter-meta">Selecione uma estratégia para ver os parâmetros.</p>
-                    </div>
-                    <div class="analysis-channels">
-                        <span class="analysis-toolbar-label">Canais disponíveis por faixa</span>
-                        <div id="analysis-channels">
-                            <p class="analysis-parameter-meta">Carregando canais…</p>
-                        </div>
-                    </div>
-                    <p id="analysis-parameter-error" class="analysis-parameter-error" hidden></p>
-                    <div class="analysis-run-row">
+                    <p id="analysis-summary-empty" class="analysis-empty">Carregando a configuração atual…</p>
+                    <div id="analysis-current" class="analysis-summary" hidden></div>
+                    <div id="analysis-summary" class="analysis-summary" hidden></div>
+                </section>
+
+                <section class="analysis-tab-panel panel" role="tabpanel" id="panel-grafos" aria-labelledby="tab-grafos" hidden>
+                    <div class="grafos-toolbar">
                         <div class="analysis-display-options">
                             <label class="analysis-display-option" for="toggle-overlap-labels">
                                 <input type="checkbox" id="toggle-overlap-labels" checked>
@@ -60,13 +135,53 @@
                                 Destacar mudanças no grafo otimizado
                             </label>
                         </div>
-                        <button id="analysis-run-button" class="btn btn-primary analysis-run-button" type="button" disabled>
-                            <i class="fa-solid fa-play"></i> Executar análise
+                        <button type="button" id="btn-reenquadrar" class="btn btn-sm btn-secondary" title="Reenquadrar os dois grafos">
+                            <i class="fa-solid fa-expand"></i> Reenquadrar
                         </button>
                     </div>
+                    <p id="graphs-size-notice" class="analysis-graphs-notice" hidden>
+                        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                        <span id="graphs-size-notice-text"></span>
+                        <button type="button" id="graphs-size-toggle" class="btn btn-sm btn-ghost"></button>
+                    </p>
+                    <div id="analysis-graphs" class="grafos-comparacao"></div>
+                </section>
+
+                <section class="analysis-tab-panel panel" role="tabpanel" id="panel-convergencia" aria-labelledby="tab-convergencia" hidden>
+                    <div id="analysis-convergence">
+                        <p class="analysis-empty">Execute uma análise para ver a convergência.</p>
+                    </div>
+                </section>
+
+                <section class="analysis-tab-panel panel" role="tabpanel" id="panel-configuracoes" aria-labelledby="tab-configuracoes" hidden>
+                    <p id="analysis-changes-empty" class="analysis-empty">Execute uma análise para ver as configurações propostas.</p>
+                    <div id="tabela-alteracoes-container"></div>
+                </section>
+
+                <section class="analysis-tab-panel panel" role="tabpanel" id="panel-execucao" aria-labelledby="tab-execucao" hidden>
+                    <p id="analysis-execution-empty" class="analysis-empty">Execute uma análise para ver os metadados da execução.</p>
+                    <div id="analysis-execution-container" class="analysis-execution" hidden></div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    {# Mapa do espectro: largo demais para a coluna lateral, abre em um modal. #}
+    <div id="spectrum-modal" class="modal spectrum-modal" role="dialog" aria-modal="true" aria-labelledby="spectrum-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="spectrum-modal-title"><i class="fa-solid fa-sliders"></i> Canais disponíveis por faixa</h2>
+                <button type="button" class="btn-close" id="spectrum-modal-close" aria-label="Fechar"></button>
+            </div>
+            <div class="spectrum-modal-body">
+                <div id="analysis-channels">
+                    <p class="analysis-parameter-meta">Carregando canais…</p>
                 </div>
             </div>
-        </section>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" id="spectrum-modal-done">Concluir</button>
+            </div>
+        </div>
     </div>
 </section>
 <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>

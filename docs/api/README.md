@@ -26,12 +26,14 @@ POST /api/access_points/generate
 GET /api/access_points/{id}
 PUT /api/access_points/{id}
 DELETE /api/access_points/{id}
+GET /experiments
 GET /scalability
 GET /api/experiments/scalability
 POST /api/experiments/scalability
 GET /api/experiments/scalability/{id}
 DELETE /api/experiments/scalability/{id}
 POST /api/experiments/scalability/{id}/cancel
+GET /api/experiments/scalability/{id}/proposal?strategy=...
 GET /api/experiments/scalability/{id}/export?format=csv|json
 GET /api/analysis/strategies
 GET /api/analysis/capabilities
@@ -69,12 +71,13 @@ POST /experiments/scalability
 GET /experiments/scalability/{id}
 DELETE /experiments/scalability/{id}
 POST /experiments/scalability/{id}/cancel
+GET /experiments/scalability/{id}/proposal?strategy=...
 GET /experiments/scalability/{id}/export?format=csv|json
 ```
 
 `POST /access_points/generate` takes `node_count` (2 to 1000), `min_degree` (1 to `node_count` − 1; the former name, `clique_factor`, is still accepted) and, optionally, `seed` (integer from 0 to 4294967295), and returns in `payload` the APs, the links and `metadata`, with the seed used in `metadata.seed`. The same seed and parameters generate the same topology; without `seed`, one is drawn.
 
-`POST /experiments/scalability` starts the scalability test in the background and answers HTTP 202 with the created run. It takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600) and `thread_count`; invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) and `points` (one point per size and strategy). The listing omits `points`, and the export returns the CSV or the JSON as a file. The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
+`POST /experiments/scalability` starts an experiment in the background. The `mode` field picks the type: `scalability` (default), the scalability test, or `comparison`, the comparison of the strategies on the registered APs with coordinates, copied when the run starts (without APs with coordinates, HTTP 400); in the comparison, `max_nodes`, `step` and `min_degree` do not apply, there are no break points, and the run and the proposed configuration of each strategy's best repetition are stored. It answers HTTP 202 with the created run. In the scalability test, it takes `max_nodes` (2 to 1000), `step`, `min_degree`, `seed` (optional), `strategies` (implemented strategies; default: all), `time_limit_seconds` (greater than 0 and up to 3600), `thread_count`, `repetitions` (1 to 100; default: 1), applied only to stochastic strategies, those that declare `seed`, `strategy_parameters` (optional, each strategy's parameters, such as `{"simulated_annealing": {"max_iterations": 20000}}`; the seed and the time limit are the test's), `channels` (optional, in the format of the analysis routes' `channels`; without it, the default profiles) and `objective` (optimization criterion, with the same values as the analysis routes; default: `default`); invalid parameters return HTTP 400, and another run in progress, HTTP 409. `GET /experiments/scalability/{id}` returns the run, with `status` (`running`, `completed`, `cancelled`, `failed` or `interrupted`), `progress`, `version` (`commit`, `branch` and `tag`, read from the git repository mounted at `/repo-git`), `parameters`, `strategies` (with `exact`), `breaks` (the break size of each strategy) `points` (one point per size, strategy and repetition, with `repetition` and `seed`; the repetition seeds are derived from the test seed and are the same in every strategy and size) and `summaries` (per size and strategy, the number of repetitions and the mean, standard deviation, best and worst of time, conflicts, interference, power and processing energy). The run also reports `mode`, `instance_size` (the number of APs in the comparison) and `proposals` (the strategies with a stored proposal, with the repetition and the seed). `GET /experiments/scalability/{id}/proposal?strategy=...` returns the stored proposal of a compared strategy: the instance (`instance`, the copied APs), each AP's proposed configuration (`proposal`), the best repetition's run (`execution`), the repetition, the seed, the criterion and the channels; the Analysis page opens it at `/analysis?experiment={id}&strategy=...`. The listing omits `points`, and the export returns the CSV or the JSON as a file; the CSV has one line per repetition and, after the original columns, `objective` (runs made before it appear as `default`), the processing energy columns, `repetition` and `seed`. The service calls analysis_service through `ANALYSIS_SERVICE_URL`.
 
 `GET /access_points/{id}` returns the AP with the same fields as the listing (`id`, `name`, `channel`, `frequency`, `bandwidth`, `latitude`, `longitude` and `last_update`), or HTTP 404 when the identifier does not exist. The frontend route `GET /api/access_points/{id}` passes through the same response.
 
@@ -96,20 +99,56 @@ POST /collision-graph
 POST /graph-metrics
 ```
 
-Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy and whether it is an exact method (`exact`):
+Besides the `strategies` map (name and description), `GET /strategies` returns the `strategy_details` list with the parameters accepted by each strategy, whether it is an exact method (`exact`) and its family (`family`: `exact`, `constructive` or `metaheuristic`), which the interface uses to group the strategies. In each parameter, `advanced` tells whether the interface shows it under the advanced parameters:
 
 ```json
 {
   "name": "backtracking",
   "implemented": true,
+  "exact": true,
+  "family": "exact",
   "parameters": [
-    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false},
-    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true}
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true, "optional": false},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false, "optional": false}
   ]
 }
 ```
 
-The analysis routes receive these values in `parameters`. Values outside the declared type or range return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+An optional parameter (`optional: true`) has no default (`default` is null), and `optional_label` tells what happens without a value: the metaheuristics' seed is drawn (`Sorteada`), and Simulated Annealing's initial temperature is estimated (`Estimada`). A choice parameter (`type: "choice"`) lists its options in `options`, with `value` and `label`, and the default option in `default`, without `min` and `max`:
+
+```json
+{"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
+```
+
+In the same response, `objectives` lists the accepted optimization criteria, and `default_objective`, the default:
+
+```json
+{"name": "energy_tiebreak", "label": "Energia no desempate", "description": "...", "order": ["conflicts", "interference", "power"]}
+```
+
+The analysis routes receive the criterion in the `objective` field (`default`, `energy_tiebreak` or `energy_first`; without the field, `default`) and report it in `execution.objective`. An unknown objective returns HTTP 400.
+
+The analysis routes receive these values in `parameters`. Values outside the declared type or range, and options outside the list, return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
+
+In the metaheuristics (`metaheuristic` family: `local_search`, `simulated_annealing`, `tabu_search`, `genetic` and `hybrid_genetic`), the response also reports:
+
+- `execution.seed`: the seed used, given in `parameters.seed` or drawn; repeating the request with it reproduces the result (except when the search stops at the time limit);
+- `execution.search.iterations` and, in each band, `search.iterations`: the iterations run;
+- `stop_reason`: besides `completed`, `time_limit` and `cancelled`, the reasons `iteration_limit` (iteration limit), `no_improvement` (iterations without improvement) and `min_temperature` (Simulated Annealing's minimum temperature);
+- in Simulated Annealing, each band reports in `search` the initial and final temperatures, whether the initial one was estimated, the levels visited and the worsenings accepted, and, in Tabu Search, the moves evaluated, forbidden, accepted by aspiration and worsening, and, in the Genetic Algorithm, the population, the evaluations and the generations in which the best got worse (in the GA, each iteration is a generation), and, in the hybrid, also the individuals refined by the local search, those that improved and the neighbors evaluated;
+- `execution.bands[].convergence`: the band's convergence curve, with the best solution at the initial solution, at each improvement and at the end:
+
+```json
+[{"iteration": 0, "time_ms": 0.2, "conflicts": 10, "interference": 241.4, "bandwidth": 240, "power_w": 111.0}, {"iteration": 11, "time_ms": 0.3, "conflicts": 9, "interference": 230.9, "bandwidth": 240, "power_w": 111.0}]
+```
+
+On the *streaming* route, the metaheuristics' progress includes `iteration`.
+
+In every strategy, `execution.processing` and each `execution.bands[].processing` report the estimated processing energy: the strategy's CPU time (`cpu_seconds`), the power per core used (`core_power_w`, and `max_core_power_w` at turbo) and the estimated energy (`energy_j` and `max_energy_j`). The power per core is set by `ANALYSIS_CORE_POWER_W` and `ANALYSIS_MAX_CORE_POWER_W`; the method is in [docs/energy/README.md](../energy/README.md).
+
+```json
+"processing": {"cpu_seconds": 0.394, "core_power_w": 3.25, "max_core_power_w": 10.95, "energy_j": 1.28, "max_energy_j": 4.31}
+```
 
 `POST /graph-metrics` takes `aps`, like the analysis routes, and returns the metrics of the graph the analysis would build (`nodes`, `edges`, `density`, `average_degree` and `max_degree`), in total and in `bands`, without running a strategy. APs without `raio` use the band's default radius: 20 m in 2.4 GHz, 15 m in 5 GHz and 12 m in 6 GHz.
 

@@ -1,131 +1,12 @@
 import json
-import os
-import random
-import socket
-import subprocess
 import time
 import unittest
 import urllib.error
-import urllib.request
+
+from service_case import AnalysisServiceTestCase
 
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-SERVICE_DIR = os.path.join(REPO_ROOT, "services", "analysis_service")
-TEST_IMAGE = "powertrackz-analysis-service-test"
-
-
-def find_free_port():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
-class AnalysisServiceBacktrackingTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        try:
-            subprocess.run(["docker", "--version"], check=True, capture_output=True, text=True)
-        except Exception as exc:
-            raise unittest.SkipTest(f"Docker indisponivel: {exc}")
-
-        subprocess.run(
-            ["docker", "build", "-t", TEST_IMAGE, SERVICE_DIR],
-            check=True,
-            cwd=REPO_ROOT,
-        )
-
-        cls.host_port = find_free_port()
-        cls.container_name = f"powertrackz-analysis-test-{os.getpid()}"
-        subprocess.run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--rm",
-                "--name",
-                cls.container_name,
-                "-e",
-                "HOST=0.0.0.0",
-                "-e",
-                "PORT=5002",
-                "-e",
-                "ANALYSIS_LOG_LEVEL=ERROR",
-                "-p",
-                f"{cls.host_port}:5002",
-                TEST_IMAGE,
-            ],
-            check=True,
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-
-        deadline = time.time() + 30
-        last_error = None
-        while time.time() < deadline:
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{cls.host_port}/health", timeout=2) as response:
-                    if response.status == 200:
-                        return
-            except Exception as exc:
-                last_error = exc
-                time.sleep(0.5)
-
-        cls.tearDownClass()
-        raise RuntimeError(f"analysis_service nao ficou saudavel: {last_error}")
-
-    @classmethod
-    def tearDownClass(cls):
-        container_name = getattr(cls, "container_name", None)
-        if container_name:
-            subprocess.run(
-                ["docker", "rm", "-f", container_name],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-            )
-
-    def post_json(self, path, payload, timeout=20):
-        request = urllib.request.Request(
-            url=f"http://127.0.0.1:{self.host_port}{path}",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-
-    def get_node_by_id(self, response_json, node_id):
-        nodes = response_json["graph_data"]["nodes"]
-        return next(node for node in nodes if node["id"] == node_id)
-
-    def random_aps(self, count, seed, spread=0.0012):
-        rnd = random.Random(seed)
-        return [
-            {
-                "id": f"ap-{index}",
-                "label": f"AP {index}",
-                "x": -23.5505 + rnd.uniform(0, spread),
-                "y": -46.6333 + rnd.uniform(0, spread),
-                "raio": 60,
-                "channel": rnd.choice(["1", "6", "11"]),
-                "bandwidth": "20 MHz",
-                "frequency": "2.4 GHz",
-                "locked": False,
-            }
-            for index in range(count)
-        ]
-
-    def proposals(self, response_json):
-        return sorted(
-            (node["id"], node["proposed_channel"], node["proposed_bandwidth"])
-            for node in response_json["graph_data"]["nodes"]
-        )
-
-    def get_json(self, path):
-        with urllib.request.urlopen(f"http://127.0.0.1:{self.host_port}{path}", timeout=20) as response:
-            return json.loads(response.read().decode("utf-8"))
-
+class AnalysisServiceBacktrackingTests(AnalysisServiceTestCase):
     def spectral_factor(self, left, right):
         # Dois APs no mesmo ponto: a sobreposicao espacial w e 100%, e o peso de interferencia e 100 * s.
         aps = [
@@ -471,6 +352,29 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
                     with self.subTest(frequency=frequency, bandwidth=bandwidth, channel=option["channel"]):
                         self.assertAlmostEqual(option["upper_mhz"] - option["lower_mhz"], width)
 
+    def test_default_40_mhz_profiles_in_24_ghz_overlap_by_design(self):
+        # Decisao da #78: os perfis padrao de 40 MHz em 2,4 GHz continuam 1+5 e 7+11, que se sobrepoem em 10 MHz
+        # (s = 0,25). A sobreposicao conta como interferencia na busca, e 1+5 com 9+13 segue como alternativa.
+        plan = self.get_json("/channel-plan")
+        self.assertEqual(plan["profiles"]["2.4 GHz"]["40 MHz"], ["1", "11"])
+        by_channel = {option["channel"]: option for option in plan["options"]["2.4 GHz"]["40 MHz"]}
+        overlap = min(by_channel["1"]["upper_mhz"], by_channel["11"]["upper_mhz"]) - max(by_channel["1"]["lower_mhz"], by_channel["11"]["lower_mhz"])
+        self.assertEqual(overlap, 10)
+        self.assertAlmostEqual(self.spectral_factor(("1", "40 MHz", "2.4 GHz"), ("11", "40 MHz", "2.4 GHz")), 0.25)
+
+        aps = [self.ap_at("a", "2.4 GHz", "1"), self.ap_at("b", "2.4 GHz", "1", offset=0.00001)]
+        cases = [
+            ({"2.4 GHz": {"40 MHz": ["1", "11"]}}, 1),
+            ({"2.4 GHz": {"40 MHz": ["1", "9"]}}, 0),
+        ]
+        for channels, conflicts in cases:
+            with self.subTest(channels=channels):
+                result = self.post_json(
+                    "/analyze-graph",
+                    {"aps": aps, "strategy": "backtracking", "channels": channels, "parameters": {"time_limit_seconds": 0}},
+                )
+                self.assertEqual(result["execution"]["comparison"]["conflicts_after"], conflicts)
+
     def test_channel_plan_profiles_are_valid_combinations(self):
         plan = self.get_json("/channel-plan")
         profiles = plan["profiles"]
@@ -490,8 +394,16 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertEqual(backtracking["thread_count"]["min"], 1)
         self.assertEqual(backtracking["time_limit_seconds"]["default"], 60)
         self.assertTrue(backtracking["time_limit_seconds"]["zero_disables"])
+        self.assertTrue(backtracking["thread_count"]["advanced"])
+        self.assertFalse(backtracking["time_limit_seconds"]["advanced"])
+        families = {name: detail["family"] for name, detail in details.items()}
+        self.assertEqual(families.pop("backtracking"), "exact")
+        self.assertEqual(families.pop("greedy"), "constructive")
+        # As demais sao metaheuristicas (genetic, local_search, simulated_annealing...).
+        self.assertIn("genetic", families)
+        self.assertEqual(set(families.values()), {"metaheuristic"})
         self.assertEqual(details["greedy"]["parameters"], [])
-        self.assertFalse(details["genetic"]["implemented"])
+        self.assertTrue(details["genetic"]["implemented"])
         self.assertTrue(details["backtracking"]["exact"])
         self.assertFalse(details["greedy"]["exact"])
         self.assertFalse(details["genetic"]["exact"])
@@ -569,6 +481,40 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertFalse(search["optimal"])
         self.assertLessEqual(search["conflicts"], search["greedy_conflicts"])
         self.assertEqual(result["execution"]["parameters"]["time_limit_seconds"], 1)
+
+    def test_reports_the_processing_cpu_time_and_estimated_energy(self):
+        aps = self.random_aps(40, seed=12)
+        for strategy in ("greedy", "backtracking", "local_search"):
+            with self.subTest(strategy=strategy):
+                parameters = {"time_limit_seconds": 1} if strategy != "greedy" else {}
+                execution = self.post_json("/analyze-graph", {"aps": aps, "strategy": strategy, "parameters": parameters})["execution"]
+                processing = execution["processing"]
+                self.assertGreaterEqual(processing["cpu_seconds"], 0)
+                # Padrao do i7-14700 da maquina de desenvolvimento: 65 W / 20 e 219 W / 20 por nucleo.
+                self.assertAlmostEqual(processing["core_power_w"], 3.25)
+                self.assertAlmostEqual(processing["max_core_power_w"], 10.95)
+                self.assertAlmostEqual(processing["energy_j"], processing["cpu_seconds"] * 3.25)
+                self.assertAlmostEqual(processing["max_energy_j"], processing["cpu_seconds"] * 10.95)
+                self.assertAlmostEqual(
+                    processing["cpu_seconds"],
+                    sum(band["processing"]["cpu_seconds"] for band in execution["bands"]),
+                )
+
+    def test_processing_cpu_time_counts_every_search_thread(self):
+        # Busca que para pelo limite de tempo: com 4 threads, o mesmo tempo de relogio gasta cerca de 4 vezes a CPU.
+        aps = self.random_aps(150, seed=7, spread=0.002)
+        cpu = {}
+        for threads in (1, 4):
+            execution = self.post_json(
+                "/analyze-graph",
+                {"aps": aps, "strategy": "backtracking", "parameters": {"thread_count": threads, "time_limit_seconds": 1}},
+                timeout=60,
+            )["execution"]
+            self.assertEqual(execution["search"]["stop_reason"], "time_limit")
+            cpu[threads] = execution["processing"]["cpu_seconds"]
+            self.assertLessEqual(cpu[threads], threads * execution["duration_seconds"] + 0.5)
+        self.assertGreater(cpu[1], 0.5)
+        self.assertGreater(cpu[4], 2.5 * cpu[1])
 
     def test_analyzes_one_thousand_access_points(self):
         aps = self.random_aps(1000, seed=50, spread=0.01)
@@ -670,6 +616,29 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertEqual(node["proposed_channel"], "44")
         self.assertEqual(node["proposed_bandwidth"], "20 MHz")
 
+    def locked_outside_the_profiles(self):
+        # AP travado no canal 3 (fora dos perfis padrao de 2,4 GHz) e um AP livre sobreposto a ele.
+        return [
+            {"id": "locked-ap", "label": "Locked", "x": -23.5505, "y": -46.6333, "raio": 20,
+             "channel": "3", "bandwidth": "20 MHz", "frequency": "2.4 GHz", "locked": True},
+            {"id": "free-ap", "label": "Free", "x": -23.55051, "y": -46.63331, "raio": 20,
+             "channel": "3", "bandwidth": "20 MHz", "frequency": "2.4 GHz", "locked": False},
+        ]
+
+    def test_keeps_locked_access_points_outside_the_profiles(self):
+        aps = self.locked_outside_the_profiles()
+        for strategy, parameters in (("backtracking", {"time_limit_seconds": 0}), ("greedy", {})):
+            with self.subTest(strategy=strategy):
+                result = self.post_json("/analyze-graph", {"aps": aps, "strategy": strategy, "parameters": parameters})
+                node = self.get_node_by_id(result, "locked-ap")
+                self.assertEqual((node["proposed_channel"], node["proposed_bandwidth"]), ("3", "20 MHz"))
+                # O AP livre sai da sobreposicao com o canal 3 (2412-2432 MHz), e a largura do travado entra uma vez so.
+                search = result["execution"]["search"]
+                self.assertEqual(result["execution"]["comparison"]["conflicts_after"], 0)
+                self.assertEqual(search["conflicts"], 0)
+                free = self.get_node_by_id(result, "free-ap")
+                self.assertEqual(search["bandwidth_score"], 20 + float(free["proposed_bandwidth"].split()[0]))
+
     def test_when_repeat_is_required_prefers_lower_interference_side(self):
         payload = {
             "aps": [
@@ -728,6 +697,117 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertEqual(node["proposed_frequency"], "2.4 GHz")
         self.assertEqual(node["proposed_channel"], "11")
         self.assertIn(node["proposed_bandwidth"], {"20 MHz", "40 MHz"})
+
+    # Dois APs de 5 GHz no mesmo ponto em que cada objetivo leva a uma solucao diferente. Sem conflito, 80+20 MHz
+    # soma mais banda (100 MHz), mas 40+40 MHz gasta menos (20,6 W contra 21,0 W); os dois a 80 MHz gastam o
+    # minimo (19,8 W), com um conflito.
+    OBJECTIVE_CHANNELS = {"5 GHz": {"20 MHz": ["52"], "40 MHz": ["36", "44"], "80 MHz": ["36"]}}
+
+    def objective_aps(self):
+        return [self.ap_at("a", "5 GHz", "52"), self.ap_at("b", "5 GHz", "52", offset=0.00001)]
+
+    def analyze_with_objective(self, strategy, objective=None, aps=None, channels=None):
+        payload = {
+            "aps": aps or self.objective_aps(),
+            "strategy": strategy,
+            "channels": channels or self.OBJECTIVE_CHANNELS,
+            "parameters": {"time_limit_seconds": 0} if strategy == "backtracking" else {},
+        }
+        if objective is not None:
+            payload["objective"] = objective
+        return self.post_json("/analyze-graph", payload)
+
+    def bandwidths(self, result):
+        return sorted(node["proposed_bandwidth"] for node in result["graph_data"]["nodes"])
+
+    def test_strategies_list_the_optimization_objectives(self):
+        body = self.get_json("/strategies")
+        objectives = {item["name"]: item for item in body["objectives"]}
+
+        self.assertEqual(body["default_objective"], "default")
+        self.assertEqual(objectives["default"]["order"], ["conflicts", "interference", "bandwidth"])
+        self.assertEqual(objectives["energy_tiebreak"]["order"], ["conflicts", "interference", "power"])
+        self.assertEqual(objectives["energy_first"]["order"], ["power", "conflicts", "interference"])
+        for objective in objectives.values():
+            self.assertTrue(objective["label"])
+            self.assertTrue(objective["description"])
+
+    def test_rejects_an_unknown_objective(self):
+        for objective in ("energia", 3):
+            with self.subTest(objective=objective):
+                with self.assertRaises(urllib.error.HTTPError) as context:
+                    self.analyze_with_objective("greedy", objective)
+                with context.exception as error:
+                    self.assertEqual(error.code, 400)
+                    body = json.loads(error.read().decode("utf-8"))
+                self.assertIn("Objetivo inválido", body["error"])
+
+    def test_default_objective_is_used_when_none_is_given(self):
+        for strategy in ("greedy", "backtracking"):
+            with self.subTest(strategy=strategy):
+                implicit = self.analyze_with_objective(strategy)
+                explicit = self.analyze_with_objective(strategy, "default")
+
+                self.assertEqual(implicit["execution"]["objective"], "default")
+                self.assertEqual(self.proposals(implicit), self.proposals(explicit))
+
+    def test_backtracking_follows_each_objective(self):
+        cases = {
+            "default": (["20 MHz", "80 MHz"], 0, 21.0),
+            "energy_tiebreak": (["40 MHz", "40 MHz"], 0, 20.6),
+            "energy_first": (["80 MHz", "80 MHz"], 1, 19.8),
+        }
+        for objective, (bandwidths, conflicts, power) in cases.items():
+            with self.subTest(objective=objective):
+                result = self.analyze_with_objective("backtracking", objective)
+                execution = result["execution"]
+
+                self.assertEqual(execution["objective"], objective)
+                self.assertEqual(self.bandwidths(result), bandwidths)
+                self.assertEqual(execution["comparison"]["conflicts_after"], conflicts)
+                self.assertAlmostEqual(execution["comparison"]["power_after_w"], power)
+                self.assertAlmostEqual(execution["search"]["power_score_w"], power)
+                self.assertTrue(execution["search"]["optimal"])
+
+    def test_greedy_follows_the_objective(self):
+        # O guloso escolhe, AP a AP, o melhor incremento no objetivo: no padrao evita o conflito; com a energia
+        # em primeiro lugar, fica com a menor potencia mesmo em conflito.
+        default = self.analyze_with_objective("greedy", "default")
+        energy_first = self.analyze_with_objective("greedy", "energy_first")
+
+        self.assertEqual(self.bandwidths(default), ["20 MHz", "80 MHz"])
+        self.assertEqual(default["execution"]["comparison"]["conflicts_after"], 0)
+        self.assertEqual(self.bandwidths(energy_first), ["80 MHz", "80 MHz"])
+        self.assertEqual(energy_first["execution"]["comparison"]["conflicts_after"], 1)
+
+    def test_objective_result_is_the_same_for_any_thread_count(self):
+        aps = self.random_aps(9, seed=77)
+        for objective in ("default", "energy_tiebreak", "energy_first"):
+            with self.subTest(objective=objective):
+                results = [
+                    self.post_json(
+                        "/analyze-graph",
+                        {
+                            "aps": aps,
+                            "strategy": "backtracking",
+                            "objective": objective,
+                            "parameters": {"thread_count": threads, "time_limit_seconds": 0},
+                        },
+                    )
+                    for threads in (1, 4)
+                ]
+                self.assertEqual(self.proposals(results[0]), self.proposals(results[1]))
+
+    def test_configurations_outside_the_power_model_are_never_favored_by_energy(self):
+        # 160 MHz nao tem valor no modelo: no criterio de energia vale a maior potencia modelada da faixa (11,1 W),
+        # entao a energia prefere 80 MHz (9,9 W), enquanto o padrao fica com a maior largura.
+        aps = [self.ap_at("solo", "5 GHz", "36")]
+        channels = {"5 GHz": {"80 MHz": ["36"], "160 MHz": ["36"]}}
+        default = self.analyze_with_objective("backtracking", "default", aps=aps, channels=channels)
+        energy = self.analyze_with_objective("backtracking", "energy_tiebreak", aps=aps, channels=channels)
+
+        self.assertEqual(self.bandwidths(default), ["160 MHz"])
+        self.assertEqual(self.bandwidths(energy), ["80 MHz"])
 
 
 if __name__ == "__main__":

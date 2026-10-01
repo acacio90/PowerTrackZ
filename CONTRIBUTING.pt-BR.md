@@ -29,11 +29,24 @@ Toda alteração parte de uma *issue* e chega à `develop` por um *pull request*
 
 ## Versionamento
 
-O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`MAJOR.MINOR.PATCH`), aplicado à interface pública: rotas HTTP, formato das respostas JSON e forma de executar o sistema (`docker-compose.yml`, portas e variáveis do `.env`).
+O projeto segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) (`MAJOR.MINOR.PATCH`), aplicado à interface pública.
 
-- `PATCH` para correções que não alteram o comportamento esperado;
-- `MINOR` para funcionalidades novas compatíveis com as anteriores;
-- `MAJOR` para mudanças que quebram a compatibilidade.
+**Interface pública** é o que outros programas e scripts usam do PowerTrackZ:
+
+- as rotas HTTP dos serviços e os campos das requisições e respostas JSON, como documentados em [`docs/api`](docs/api/README.pt-BR.md), incluindo os valores padrão que mudam o resultado (como o critério de otimização ou o raio padrão dos APs);
+- a forma de executar o sistema: `docker-compose.yml`, portas e variáveis do `.env`.
+
+Não fazem parte dela a aparência e os textos das telas nem o texto das mensagens de erro (os códigos de status e os campos da resposta, sim).
+
+| Parte | Quando sobe | Exemplos |
+|---|---|---|
+| `PATCH` | Correções que não alteram o comportamento esperado nem a compatibilidade | v1.2.1: padronização visual e revisão dos textos, sem mudar rotas nem campos |
+| `MINOR` | Funcionalidades novas compatíveis com as anteriores: rotas, campos ou parâmetros novos e opcionais | v1.3.0: novas estratégias e critério de otimização configurável, com o padrão atual mantido |
+| `MAJOR` | Mudanças que quebram a compatibilidade: remover ou renomear uma rota ou campo, mudar o formato de uma resposta ou um valor padrão que altera os resultados | remover os campos `cor` e `proposed_cor` da resposta da análise |
+
+**Descontinuação.** Para renomear ou substituir um campo, parâmetro ou rota sem quebrar a compatibilidade, a versão MINOR aceita os dois nomes e a *release* registra o antigo como descontinuado; o nome antigo só é removido na próxima versão MAJOR. Foi o que aconteceu com `clique_factor`, que continua aceito como alternativa a `min_degree`.
+
+A v1.2.0 é uma exceção registrada: publicada como MINOR, ela renomeou campos de `execution.comparison` sem manter os nomes antigos e mudou valores padrão, e pelo SemVer deveria ter sido a v2.0.0. Versões publicadas não são renumeradas; o desvio está anotado nas notas da *release*.
 
 Cada versão tem um *milestone* com as *issues* que a compõem. Quando todas estão concluídas na `develop`:
 
@@ -68,11 +81,28 @@ Os testes usam `unittest` e ficam em `services/<serviço>/tests/`.
 
 ```bash
 # access_point_service (requer as dependências do serviço instaladas)
-python -m unittest services/access_point_service/tests/test_access_point.py
+python -m unittest discover -s services/access_point_service/tests
 
-# analysis_service (constrói e sobe um contêiner, requer Docker)
-python -m unittest services/analysis_service/tests/test_backtracking.py
+# analysis_service (constrói e sobe um contêiner, requer Docker; inclui os testes em C da base das metaheurísticas)
+python -m unittest discover -s services/analysis_service/tests
+
+# frontend_service (requer as dependências do serviço; os outros serviços são simulados, sem Docker, rede nem navegador)
+python -m unittest discover -s services/frontend_service/tests
 ```
+
+Para rodar um único arquivo, informe o caminho, por exemplo `python -m unittest services/frontend_service/tests/test_routes.py`.
+
+### Testes da interface no navegador
+
+Os testes em `services/frontend_service/browser_tests/` abrem as páginas no Chrome headless, pelo protocolo DevTools, com os serviços do `docker compose` no ar. Eles conferem que nenhuma página gera erro de JavaScript, os fluxos principais (os modais da infraestrutura, gerar uma topologia até a revisão, executar uma estratégia na Análise até o resumo e abrir o teste de escalabilidade), o contraste AA do texto visível a 1280 e 600 px e a ausência de rolagem horizontal a 600 px. As requisições que gravariam dados (POST, PUT e DELETE fora das rotas de análise e da geração de topologia) são bloqueadas no navegador, então os testes não alteram o banco.
+
+```bash
+pip install -r services/frontend_service/requirements-dev.txt   # websocket-client, só para desenvolvimento
+docker compose up -d
+python -m unittest discover -s services/frontend_service/browser_tests
+```
+
+Sem o Chrome, o `websocket-client` ou os serviços no ar, os testes são pulados, com um aviso. O Chrome é procurado nos caminhos padrão; informe outro em `CHROME_PATH`, e outro endereço do frontend em `PTZ_FRONTEND_URL` (padrão `http://localhost:3000`). As dependências de teste ficam em `requirements-dev.txt`, fora da imagem do serviço (o `.dockerignore` exclui os testes).
 
 Antes de abrir um *pull request*, rode os testes dos serviços alterados e inclua testes para o comportamento novo.
 

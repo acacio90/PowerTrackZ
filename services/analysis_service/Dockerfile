@@ -8,16 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY app/main.c ./app/main.c
-COPY src/analysis_service.c ./src/analysis_service.c
-COPY src/analysis_service.h ./src/analysis_service.h
-COPY src/strategies/strategy.c ./src/strategies/strategy.c
-COPY src/strategies/strategy.h ./src/strategies/strategy.h
-COPY src/strategies/backtracking.c ./src/strategies/backtracking.c
-COPY src/strategies/backtracking.h ./src/strategies/backtracking.h
+COPY app ./app
+COPY src ./src
 
-RUN gcc -O2 -pthread -Wall -Wextra -std=c11 app/main.c src/analysis_service.c src/strategies/strategy.c src/strategies/backtracking.c -o analysis_service \
-    -lcjson -lcurl -lm
+RUN gcc -O2 -pthread -Wall -Wextra -std=c11 app/main.c src/analysis_service.c src/strategies/*.c -o analysis_service     -lcjson -lcurl -lm
+
+# Testes em C da base comum (docker build --target test): compilados com o servico e executados no build.
+FROM builder AS test
+
+COPY tests/c ./tests/c
+
+RUN gcc -O2 -pthread -Wall -Wextra -std=c11 tests/c/*.c src/analysis_service.c src/strategies/*.c -o run_tests     -lcjson -lcurl -lm     && ./run_tests
 
 FROM debian:bookworm-slim
 

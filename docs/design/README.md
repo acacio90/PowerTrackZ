@@ -189,6 +189,10 @@ Two sizes: default and `.btn-sm`. States (hover, active, disabled and focus) fol
 | `.panel-muted` | neutral background and no shadow (indicators, blocks inside another panel) |
 | `.panel-floating` | elements laid over the content (analysis progress) |
 
+### Page title
+
+`.page-title` is the page title (Análise, Infraestrutura and Teste de escalabilidade): an icon in the accent color, followed by the title in bold (`--font-size-xl`). `.page-subtitle` is the optional line right below it, in `text-muted`. The title always sits inside a `.panel`, never loose on the page background. The home page keeps its own presentation title.
+
 ### Tables
 
 `.app-table` is the standard table (neutral header background, rows separated by a border, hover highlight), inside `.app-table-shell` (outline) and `.app-table-wrap` (horizontal scroll). `.app-table-compact` is the dense version, used for data tables and the run history.
