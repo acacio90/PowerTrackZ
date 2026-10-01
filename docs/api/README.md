@@ -111,7 +111,7 @@ Besides the `strategies` map (name and description), `GET /strategies` returns t
 }
 ```
 
-An optional parameter (`optional: true`) has no default (`default` is null): it is the metaheuristics' seed, which the service draws when it is not given. A choice parameter (`type: "choice"`) lists its options in `options`, with `value` and `label`, and the default option in `default`, without `min` and `max`:
+An optional parameter (`optional: true`) has no default (`default` is null), and `optional_label` tells what happens without a value: the metaheuristics' seed is drawn (`Sorteada`), and Simulated Annealing's initial temperature is estimated (`Estimada`). A choice parameter (`type: "choice"`) lists its options in `options`, with `value` and `label`, and the default option in `default`, without `min` and `max`:
 
 ```json
 {"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
@@ -127,11 +127,12 @@ The analysis routes receive the criterion in the `objective` field (`default`, `
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range, and options outside the list, return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
 
-In the metaheuristics (`metaheuristic` family, currently `local_search`), the response also reports:
+In the metaheuristics (`metaheuristic` family: `local_search` and `simulated_annealing`), the response also reports:
 
 - `execution.seed`: the seed used, given in `parameters.seed` or drawn; repeating the request with it reproduces the result (except when the search stops at the time limit);
 - `execution.search.iterations` and, in each band, `search.iterations`: the iterations run;
-- `stop_reason`: besides `completed`, `time_limit` and `cancelled`, the reasons `iteration_limit` (iteration limit) and `no_improvement` (iterations without improvement);
+- `stop_reason`: besides `completed`, `time_limit` and `cancelled`, the reasons `iteration_limit` (iteration limit), `no_improvement` (iterations without improvement) and `min_temperature` (Simulated Annealing's minimum temperature);
+- in Simulated Annealing, each band reports in `search` the initial and final temperatures, whether the initial one was estimated, the levels visited and the worsenings accepted;
 - `execution.bands[].convergence`: the band's convergence curve, with the best solution at the initial solution, at each improvement and at the end:
 
 ```json

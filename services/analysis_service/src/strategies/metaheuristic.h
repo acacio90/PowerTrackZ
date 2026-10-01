@@ -117,6 +117,23 @@ bool meta_run_offer(MetaRun *run, const int *profiles, AssignmentCost *cost);
 // Encerra a execucao: ultimo ponto da curva, estatisticas (com a curva) e a configuracao proposta.
 ProposedConfig *meta_run_end(MetaRun *run, AssignmentStats *stats);
 
+// Componentes do custo, na ordem de AssignmentCost.
+typedef enum {
+    META_COMPONENT_CONFLICTS = 0,
+    META_COMPONENT_INTERFERENCE,
+    META_COMPONENT_BANDWIDTH,
+    META_COMPONENT_POWER,
+    META_COMPONENT_COUNT
+} MetaCostComponent;
+
+// Quanto "candidate" e pior que "reference" no componente (positivo se pior, negativo se melhor); a largura
+// de banda e o unico componente em que maior e melhor.
+double meta_component_worsening(const AssignmentCost *candidate, const AssignmentCost *reference, MetaCostComponent component);
+
+// Primeiro componente, na ordem do objetivo, em que os custos diferem; -1 se forem iguais. E o componente que
+// decide a comparacao lexicografica (compare_assignment_costs).
+int meta_deciding_component(OptimizationObjective objective, const AssignmentCost *left, const AssignmentCost *right);
+
 // Parametros comuns das metaheuristicas, para compor a lista de cada estrategia.
 extern const StrategyParameterOption META_INITIAL_SOLUTION_OPTIONS[2];
 
@@ -132,6 +149,7 @@ extern const StrategyParameterOption META_INITIAL_SOLUTION_OPTIONS[2];
     .zero_disables = false, \
     .advanced = false, \
     .optional = true, \
+    .optional_label = "Sorteada", \
 }
 
 #define META_TIME_LIMIT_PARAMETER { \

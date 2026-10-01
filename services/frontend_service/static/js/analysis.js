@@ -129,6 +129,7 @@ window.addEventListener('DOMContentLoaded', function() {
             backtracking: 'Backtracking',
             greedy: 'Guloso',
             local_search: 'Busca local',
+            simulated_annealing: 'Simulated Annealing',
             genetic: 'Algoritmo genético'
         }[strategy] || strategy || 'Nenhuma estratégia';
     }
@@ -206,7 +207,7 @@ window.addEventListener('DOMContentLoaded', function() {
         }
         const startsDisabled = parameter.zero_disables && parameter.default === 0;
         const value = startsDisabled || parameter.default == null ? '' : parameter.default;
-        const placeholder = parameter.optional ? ' placeholder="Sorteada"' : '';
+        const placeholder = parameter.optional ? ` placeholder="${escapeHtml(parameter.optional_label || 'Automático')}"` : '';
         const meta = parameter.name === 'thread_count'
             ? `<p id="analysis-thread-availability" class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`
             : `<p class="analysis-parameter-meta">${escapeHtml(parameter.description)}</p>`;
@@ -405,6 +406,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 time_limit: 'Sem garantia de ótimo; parou no limite de tempo',
                 iteration_limit: 'Sem garantia de ótimo; parou no limite de iterações',
                 no_improvement: 'Sem garantia de ótimo; parou por falta de melhora',
+                min_temperature: 'Sem garantia de ótimo; parou na temperatura mínima',
                 cancelled: 'Melhor encontrada até o cancelamento'
             }[search.stop_reason] || 'Sem garantia de ótimo';
         }
@@ -470,10 +472,13 @@ window.addEventListener('DOMContentLoaded', function() {
                 ? `conflitos ${search.greedy_conflicts ?? '-'} / ${search.conflicts ?? '-'}`
                 : `conflitos ${search.conflicts ?? '-'}`;
             const iterations = search.iterations != null ? ` | ${Number(search.iterations).toLocaleString('pt-BR')} iterações` : '';
+            const annealing = search.initial_temperature != null
+                ? ` | temperatura ${formatNumber(search.initial_temperature, 3)}${search.initial_temperature_estimated ? ' (estimada)' : ''} → ${formatNumber(search.final_temperature, 4)} | ${Number(search.accepted_worse).toLocaleString('pt-BR')} pioras aceitas`
+                : '';
             return `
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
-                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations} | ${describeSearchOutcome(strategy, search)}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing} | ${describeSearchOutcome(strategy, search)}</span>
                 </div>`;
         }).join('');
     }
@@ -2186,7 +2191,7 @@ window.addEventListener('DOMContentLoaded', function() {
         { id: 'constructive', label: 'Construtiva' },
         { id: 'metaheuristic', label: 'Metaheurísticas' }
     ];
-    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', genetic: 'fa-dna' };
+    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', simulated_annealing: 'fa-temperature-arrow-down', genetic: 'fa-dna' };
     const strategyList = document.getElementById('analysis-strategy-list');
 
     function renderStrategyCard(detail) {

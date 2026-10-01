@@ -45,6 +45,7 @@ typedef struct {
 typedef enum {
     ASSIGNMENT_STOP_COMPLETED = 0,
     ASSIGNMENT_STOP_NO_IMPROVEMENT,
+    ASSIGNMENT_STOP_MIN_TEMPERATURE,
     ASSIGNMENT_STOP_ITERATION_LIMIT,
     ASSIGNMENT_STOP_TIME_LIMIT,
     ASSIGNMENT_STOP_CANCELLED
@@ -63,6 +64,8 @@ typedef struct {
     // Metaheuristicas: iteracoes executadas e curva de convergencia (array JSON, de quem recebe as estatisticas).
     long long iterations;
     cJSON *convergence;
+    // Contadores proprios da estrategia (objeto JSON), acrescentados ao "search" da faixa.
+    cJSON *details;
 } AssignmentStats;
 
 typedef ProposedConfig *(*AnalysisStrategyRun)(
@@ -96,8 +99,10 @@ typedef struct {
     bool zero_disables;
     // Parametro avancado: a interface o mostra recolhido, com o valor padrao.
     bool advanced;
-    // Parametro opcional, sem valor padrao (a semente: sem valor, o servico sorteia uma).
+    // Parametro opcional, sem valor padrao (a semente: sem valor, o servico sorteia uma), e o que acontece
+    // sem valor, exibido no campo vazio ("Sorteada", "Estimada").
     bool optional;
+    const char *optional_label;
     // Opcoes e opcao padrao dos parametros de escolha.
     const StrategyParameterOption *options;
     size_t option_count;

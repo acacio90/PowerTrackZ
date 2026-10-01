@@ -249,5 +249,96 @@ class AnalysisServiceMetaheuristicTests(AnalysisServiceTestCase):
         self.assertLess(time.time() - started, 15)
 
 
+
+class SimulatedAnnealingTests(AnalysisServiceTestCase):
+    """Simulated Annealing (#82) sobre a base comum."""
+
+    def annealing(self, aps, **parameters):
+        return self.post_json(
+            "/analyze-graph",
+            {"aps": aps, "strategy": "simulated_annealing", "parameters": parameters},
+            timeout=60,
+        )
+
+    def dense_aps(self, count, seed):
+        return AnalysisServiceMetaheuristicTests.dense_aps(self, count, seed)
+
+    def test_is_declared_with_its_parameters(self):
+        details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
+        annealing = details["simulated_annealing"]
+        parameters = {parameter["name"]: parameter for parameter in annealing["parameters"]}
+
+        self.assertEqual(annealing["family"], "metaheuristic")
+        self.assertFalse(annealing["exact"])
+        self.assertTrue(annealing["implemented"])
+        self.assertTrue(
+            {"seed", "time_limit_seconds", "initial_temperature", "cooling_schedule", "cooling_rate",
+             "iterations_per_temperature", "min_temperature", "max_iterations",
+             "max_iterations_without_improvement", "initial_solution"} <= set(parameters)
+        )
+        self.assertTrue(parameters["initial_temperature"]["optional"])
+        self.assertEqual(parameters["initial_temperature"]["optional_label"], "Estimada")
+        self.assertEqual(parameters["seed"]["optional_label"], "Sorteada")
+        self.assertEqual([option["value"] for option in parameters["cooling_schedule"]["options"]], ["geometric", "linear"])
+
+    def test_same_seed_gives_the_same_result(self):
+        aps = self.dense_aps(60, seed=40)
+        parameters = {"seed": 77, "time_limit_seconds": 0, "max_iterations": 20000, "min_temperature": 0}
+        first = self.annealing(aps, **parameters)
+        second = self.annealing(aps, **parameters)
+
+        self.assertEqual(self.proposals(first), self.proposals(second))
+        self.assertEqual(
+            [band["search"]["accepted_worse"] for band in first["execution"]["bands"]],
+            [band["search"]["accepted_worse"] for band in second["execution"]["bands"]],
+        )
+
+    def test_accepts_worse_solutions_at_high_temperature_and_returns_the_best(self):
+        aps = self.dense_aps(60, seed=41)
+        common = {"seed": 3, "time_limit_seconds": 0, "max_iterations": 5000, "max_iterations_without_improvement": 0, "min_temperature": 0}
+        hot = self.annealing(aps, initial_temperature=100000, **common)
+        cold = self.annealing(aps, initial_temperature=0.0001, **common)
+
+        hot_worse = sum(band["search"]["accepted_worse"] for band in hot["execution"]["bands"])
+        cold_worse = sum(band["search"]["accepted_worse"] for band in cold["execution"]["bands"])
+        self.assertGreater(hot_worse, 1000)
+        self.assertLess(cold_worse, hot_worse / 10)
+        # A solucao corrente anda por pioras, mas a devolvida e a melhor: nunca pior que a inicial (o guloso).
+        for band in hot["execution"]["bands"]:
+            self.assertLessEqual(band["search"]["conflicts"], band["search"]["greedy_conflicts"])
+        self.assertEqual(hot["execution"]["search"]["conflicts"], hot["execution"]["comparison"]["conflicts_after"])
+
+    def test_estimates_the_initial_temperature_when_not_given(self):
+        result = self.annealing(self.dense_aps(40, seed=42), seed=1, time_limit_seconds=0, max_iterations=2000)
+        for band in result["execution"]["bands"]:
+            self.assertTrue(band["search"]["initial_temperature_estimated"])
+            self.assertGreater(band["search"]["initial_temperature"], 0)
+
+    def test_cooling_schedules_stop_at_the_minimum_temperature(self):
+        aps = self.dense_aps(40, seed=43)
+        cases = (
+            # Geometrico: 1 -> 0,5 -> 0,25 (< 0,5) para no segundo patamar.
+            ({"cooling_schedule": "geometric", "cooling_rate": 0.5, "min_temperature": 0.5}, 20),
+            # Linear: 1 -> 0,75 -> 0,5 -> 0,25 -> 0 para no quarto patamar.
+            ({"cooling_schedule": "linear", "cooling_rate": 0.75, "min_temperature": 0}, 40),
+        )
+        for parameters, iterations in cases:
+            with self.subTest(parameters=parameters):
+                result = self.annealing(
+                    aps, seed=1, time_limit_seconds=0, initial_temperature=1, iterations_per_temperature=10, **parameters
+                )
+                self.assertEqual(result["execution"]["search"]["stop_reason"], "min_temperature")
+                for band in result["execution"]["bands"]:
+                    self.assertEqual(band["search"]["stop_reason"], "min_temperature")
+                    self.assertEqual(band["search"]["iterations"], iterations)
+
+    def test_rejects_a_minimum_temperature_above_the_initial(self):
+        with self.assertRaises(urllib.error.HTTPError) as context:
+            self.annealing(self.dense_aps(4, seed=44), initial_temperature=0.01, min_temperature=0.5)
+        with context.exception as error:
+            self.assertEqual(error.code, 400)
+            self.assertIn("temperatura mínima", json.loads(error.read().decode("utf-8"))["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

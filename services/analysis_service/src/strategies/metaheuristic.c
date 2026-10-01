@@ -265,6 +265,38 @@ bool meta_validate_parameters(cJSON *parameters, char *error, size_t error_size)
     return false;
 }
 
+// ---------- Componentes do custo ----------
+
+double meta_component_worsening(const AssignmentCost *candidate, const AssignmentCost *reference, MetaCostComponent component) {
+    switch (component) {
+        case META_COMPONENT_CONFLICTS:
+            return (double) (candidate->conflicts - reference->conflicts);
+        case META_COMPONENT_INTERFERENCE:
+            return candidate->interference - reference->interference;
+        case META_COMPONENT_BANDWIDTH:
+            return reference->bandwidth - candidate->bandwidth;
+        case META_COMPONENT_POWER:
+            return (double) (candidate->power_mw - reference->power_mw) / 1000.0;
+        default:
+            return 0.0;
+    }
+}
+
+int meta_deciding_component(OptimizationObjective objective, const AssignmentCost *left, const AssignmentCost *right) {
+    static const MetaCostComponent default_order[] = {META_COMPONENT_CONFLICTS, META_COMPONENT_INTERFERENCE, META_COMPONENT_BANDWIDTH};
+    static const MetaCostComponent energy_tiebreak_order[] = {META_COMPONENT_CONFLICTS, META_COMPONENT_INTERFERENCE, META_COMPONENT_POWER};
+    static const MetaCostComponent energy_first_order[] = {META_COMPONENT_POWER, META_COMPONENT_CONFLICTS, META_COMPONENT_INTERFERENCE};
+    const MetaCostComponent *order = objective == OBJECTIVE_ENERGY_TIEBREAK ? energy_tiebreak_order
+        : objective == OBJECTIVE_ENERGY_FIRST ? energy_first_order
+        : default_order;
+    for (int index = 0; index < 3; index++) {
+        if (meta_component_worsening(left, right, order[index]) != 0.0) {
+            return (int) order[index];
+        }
+    }
+    return -1;
+}
+
 // ---------- Execucao ----------
 
 static void add_curve_point(MetaRun *run, long long iteration) {

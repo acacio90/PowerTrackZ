@@ -11,6 +11,7 @@ Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a c
 | `backtracking` | Busca exata por *branch-and-bound*. Minimiza o custo do critério de otimização (seção abaixo); no padrão, nesta ordem, o número de conflitos, a interferência total e o inverso da largura de banda somada. |
 | `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor custo incremental no critério de otimização (no padrão, o de menor interferência local). É também a solução inicial da busca exata. |
 | `local_search` | Busca local sobre a base comum das metaheurísticas (seção abaixo): a cada iteração, troca o perfil de um AP sorteado e aceita a troca se ela não piorar a solução no critério de otimização. Não garante o ótimo; serve de referência para as metaheurísticas. |
+| `simulated_annealing` | Simulated Annealing sobre a base comum: aceita pioras com a probabilidade de Metropolis, que diminui com a temperatura (seção abaixo). Não garante o ótimo. |
 | `genetic` | Ainda não implementada (retorna um *placeholder*). |
 
 ## Parâmetros
@@ -27,13 +28,13 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 | `local_search` | `max_iterations_without_improvement` | inteiro | `100000` | 0 a 10⁹ | Para a busca na faixa depois deste número de iterações sem melhorar a melhor solução. `0` desativa o critério. |
 | `local_search` | `initial_solution` | escolha | `greedy` | `greedy`, `random` | Solução inicial: a do guloso ou um perfil aleatório para cada AP. |
 
-As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Na `local_search`, pelo menos um dos três critérios de parada precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
+As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Os parâmetros do `simulated_annealing` estão na seção Simulated Annealing. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
 
-`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
+`GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo, e `optional_label` diz o que acontece sem valor, como `Sorteada` ou `Estimada`). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
 
 Valores fora do tipo ou do intervalo declarado, e opções que não estão na lista, são recusados com HTTP 400 e uma mensagem como `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parâmetros que a estratégia não declara são ignorados. Os valores efetivamente usados aparecem em `execution.parameters`; o número de *threads* é limitado ao número de APs do grafo, e a semente é a usada (informada ou sorteada).
 
-A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada, os nós explorados, os conflitos da solução inicial e da final (`greedy_conflicts` e `conflicts`) e os componentes do custo da solução (`interference_score`, `bandwidth_score` e `power_score_w`). Os motivos da parada são `completed` (a busca terminou), `no_improvement` (iterações sem melhora), `iteration_limit` (limite de iterações), `time_limit` (limite de tempo) e `cancelled` (cancelamento); ao consolidar as faixas, vale o motivo de maior precedência, nesta mesma ordem. Nas metaheurísticas, `iterations` informa as iterações executadas, `nodes_explored` é igual a elas e `greedy_conflicts` são os conflitos da solução inicial, que pode ser a aleatória.
+A resposta traz em `execution.search` se a solução é ótima (`optimal`), o motivo da parada, os nós explorados, os conflitos da solução inicial e da final (`greedy_conflicts` e `conflicts`) e os componentes do custo da solução (`interference_score`, `bandwidth_score` e `power_score_w`). Os motivos da parada são `completed` (a busca terminou), `no_improvement` (iterações sem melhora), `min_temperature` (temperatura mínima do Simulated Annealing), `iteration_limit` (limite de iterações), `time_limit` (limite de tempo) e `cancelled` (cancelamento); ao consolidar as faixas, vale o motivo de maior precedência, nesta mesma ordem. Nas metaheurísticas, `iterations` informa as iterações executadas, `nodes_explored` é igual a elas e `greedy_conflicts` são os conflitos da solução inicial, que pode ser a aleatória.
 
 ## Critério de Otimização
 
@@ -67,6 +68,26 @@ As metaheurísticas usam as mesmas peças, em `src/strategies/metaheuristic.c`, 
 - **Progresso e cancelamento.** Na rota com *streaming*, o progresso (`iteration`, `best_conflicts` e a fração concluída, a do critério de parada mais adiantado) é enviado a cada 0,2 s, e o cancelamento é conferido a cada 256 iterações.
 
 Para criar uma metaheurística, declare os parâmetros comuns com as macros `META_SEED_PARAMETER`, `META_TIME_LIMIT_PARAMETER`, `META_MAX_ITERATIONS_PARAMETER`, `META_STAGNATION_PARAMETER` e `META_INITIAL_SOLUTION_PARAMETER`, use `meta_validate_parameters` na validação e siga o laço de `local_search.c`: `meta_run_begin`, `meta_run_next` a cada iteração, `meta_run_offer` quando a solução atual mudar e `meta_run_end` no fim. As comparações usam a ordem lexicográfica do objetivo (`compare_assignment_costs`); uma metaheurística que precise de uma diferença numérica de custo (como a aceitação do Simulated Annealing) deve documentar como a obtém sem violar essa ordem.
+
+## Simulated Annealing
+
+A estratégia `simulated_annealing` (`src/strategies/simulated_annealing.c`) parte da solução inicial e, a cada iteração, sorteia um vizinho. Um vizinho que não piora a solução corrente é sempre aceito; um que piora é aceito com a probabilidade de Metropolis, exp(−Δ/T), que diminui com a temperatura T. A solução devolvida é a melhor encontrada, mesmo que a corrente, ao fim, seja pior.
+
+**Diferença de custo lexicográfica.** O custo tem vários componentes comparados em ordem (seção Critério de Otimização), e Metropolis precisa de um número. Δ é a piora no componente que decide a comparação, isto é, o primeiro, na ordem do objetivo, em que o vizinho e a solução corrente diferem, dividida pela escala desse componente. Assim, a ordem dos critérios é respeitada: no objetivo padrão, um vizinho com um conflito a mais é julgado pela piora em conflitos, por maior que seja a melhora em interferência, e a interferência só pesa entre soluções com os mesmos conflitos. A escala de cada componente é a média das variações não nulas desse componente numa amostra de 200 vizinhos da solução inicial; ela torna os componentes comparáveis entre si e torna T adimensional. Uma soma ponderada dos componentes, com pesos grandes para os primeiros, foi descartada: ela só respeita a ordem se os pesos dominarem qualquer variação dos componentes seguintes, o que depende da instância.
+
+**Temperatura.** Sem `initial_temperature`, a temperatura inicial é estimada na mesma amostra, para aceitar em média 80% das pioras: T₀ = −média(Δ) / ln 0,8. A cada `iterations_per_temperature` iterações, a temperatura cai: no resfriamento geométrico (`geometric`, padrão), T ← T · `cooling_rate`; no linear (`linear`), T ← T − T₀ · (1 − `cooling_rate`). A busca na faixa para quando T fica abaixo de `min_temperature` (motivo `min_temperature`) ou por um dos critérios comuns.
+
+Cada faixa de `execution.bands` traz em `search`: `initial_temperature` e `initial_temperature_estimated` (se foi estimada), `final_temperature`, `temperature_levels` (patamares de temperatura percorridos) e `accepted_worse` (pioras aceitas).
+
+| Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+|---|---|---|---|---|
+| `initial_temperature` | número, opcional | estimada | 0,0001 a 10⁶ | Temperatura inicial. |
+| `cooling_schedule` | escolha | `geometric` | `geometric`, `linear` | Esquema de resfriamento. |
+| `cooling_rate` | número | `0.95` | 0,5 a 0,9999 | Taxa de resfriamento. |
+| `iterations_per_temperature` | inteiro | `1000` | 1 a 10⁷ | Iterações em cada patamar de temperatura. |
+| `min_temperature` | número | `0.001` | 0 a 10⁶ | Temperatura em que a busca para; `0` desativa o critério (no linear, a busca para quando T chega a zero). |
+
+Além desses, o SA aceita os parâmetros comuns das metaheurísticas (`seed`, `time_limit_seconds`, `max_iterations`, `max_iterations_without_improvement` e `initial_solution`). Uma temperatura mínima igual ou maior que a inicial informada é recusada com HTTP 400.
 
 ## Interferência
 

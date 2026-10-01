@@ -4,6 +4,7 @@
 #include "backtracking.h"
 #include "local_search.h"
 #include "metaheuristic.h"
+#include "simulated_annealing.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -85,6 +86,88 @@ static const StrategyParameter LOCAL_SEARCH_PARAMETERS[] = {
     META_INITIAL_SOLUTION_PARAMETER,
 };
 
+static ProposedConfig *run_simulated_annealing(
+    const Graph *graph,
+    const AnalysisExecutionContext *context,
+    AssignmentStats *stats
+) {
+    return build_simulated_annealing_proposals(graph, context, stats);
+}
+
+static const StrategyParameterOption COOLING_SCHEDULE_OPTIONS[] = {
+    {"geometric", "Geométrico"},
+    {"linear", "Linear"},
+};
+
+static const StrategyParameter SIMULATED_ANNEALING_PARAMETERS[] = {
+    META_SEED_PARAMETER,
+    META_TIME_LIMIT_PARAMETER,
+    {
+        .name = "initial_temperature",
+        .label = "Temperatura inicial",
+        .description = "Temperatura no início da busca; em branco, é estimada para aceitar cerca de 80% das pioras de uma amostra de vizinhos.",
+        .type = STRATEGY_PARAMETER_NUMBER,
+        .default_value = 0,
+        .min_value = 0.0001,
+        .max_value = 1000000,
+        .unit = NULL,
+        .zero_disables = false,
+        .advanced = true,
+        .optional = true,
+        .optional_label = "Estimada",
+    },
+    {
+        .name = "cooling_schedule",
+        .label = "Resfriamento",
+        .description = "Geométrico multiplica a temperatura pela taxa a cada patamar; linear subtrai dela a fração (1 - taxa) da temperatura inicial.",
+        .type = STRATEGY_PARAMETER_CHOICE,
+        .unit = NULL,
+        .advanced = true,
+        .options = COOLING_SCHEDULE_OPTIONS,
+        .option_count = 2,
+        .default_option = "geometric",
+    },
+    {
+        .name = "cooling_rate",
+        .label = "Taxa de resfriamento",
+        .description = "Quanto a temperatura conserva a cada patamar: mais perto de 1, resfriamento mais lento.",
+        .type = STRATEGY_PARAMETER_NUMBER,
+        .default_value = 0.95,
+        .min_value = 0.5,
+        .max_value = 0.9999,
+        .unit = NULL,
+        .zero_disables = false,
+        .advanced = true,
+    },
+    {
+        .name = "iterations_per_temperature",
+        .label = "Iterações por temperatura",
+        .description = "Iterações em cada patamar de temperatura, antes de resfriar.",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 1000,
+        .min_value = 1,
+        .max_value = 10000000,
+        .unit = NULL,
+        .zero_disables = false,
+        .advanced = true,
+    },
+    {
+        .name = "min_temperature",
+        .label = "Temperatura mínima",
+        .description = "A busca para na faixa quando a temperatura fica abaixo deste valor.",
+        .type = STRATEGY_PARAMETER_NUMBER,
+        .default_value = 0.001,
+        .min_value = 0,
+        .max_value = 1000000,
+        .unit = NULL,
+        .zero_disables = true,
+        .advanced = true,
+    },
+    META_MAX_ITERATIONS_PARAMETER,
+    META_STAGNATION_PARAMETER,
+    META_INITIAL_SOLUTION_PARAMETER,
+};
+
 #define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
 
 static const AnalysisStrategy STRATEGIES[] = {
@@ -118,6 +201,17 @@ static const AnalysisStrategy STRATEGIES[] = {
         .parameter_count = PARAMETER_COUNT(LOCAL_SEARCH_PARAMETERS),
         .run = run_local_search,
         .validate = meta_validate_parameters,
+    },
+    {
+        .name = "simulated_annealing",
+        .description = "Simulated Annealing: aceita pioras com probabilidade que diminui com a temperatura, para escapar de ótimos locais.",
+        .mode = "sequential",
+        .family = "metaheuristic",
+        .exact = false,
+        .parameters = SIMULATED_ANNEALING_PARAMETERS,
+        .parameter_count = PARAMETER_COUNT(SIMULATED_ANNEALING_PARAMETERS),
+        .run = run_simulated_annealing,
+        .validate = validate_simulated_annealing_parameters,
     },
     {
         .name = "genetic",
@@ -255,6 +349,8 @@ const char *assignment_stop_reason_name(AssignmentStopReason reason) {
     switch (reason) {
         case ASSIGNMENT_STOP_NO_IMPROVEMENT:
             return "no_improvement";
+        case ASSIGNMENT_STOP_MIN_TEMPERATURE:
+            return "min_temperature";
         case ASSIGNMENT_STOP_ITERATION_LIMIT:
             return "iteration_limit";
         case ASSIGNMENT_STOP_TIME_LIMIT:

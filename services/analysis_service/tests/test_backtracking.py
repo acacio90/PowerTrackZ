@@ -396,10 +396,12 @@ class AnalysisServiceBacktrackingTests(AnalysisServiceTestCase):
         self.assertTrue(backtracking["time_limit_seconds"]["zero_disables"])
         self.assertTrue(backtracking["thread_count"]["advanced"])
         self.assertFalse(backtracking["time_limit_seconds"]["advanced"])
-        self.assertEqual(
-            {name: detail["family"] for name, detail in details.items()},
-            {"backtracking": "exact", "greedy": "constructive", "local_search": "metaheuristic", "genetic": "metaheuristic"},
-        )
+        families = {name: detail["family"] for name, detail in details.items()}
+        self.assertEqual(families.pop("backtracking"), "exact")
+        self.assertEqual(families.pop("greedy"), "constructive")
+        # As demais sao metaheuristicas (genetic, local_search, simulated_annealing...).
+        self.assertIn("genetic", families)
+        self.assertEqual(set(families.values()), {"metaheuristic"})
         self.assertEqual(details["greedy"]["parameters"], [])
         self.assertFalse(details["genetic"]["implemented"])
         self.assertTrue(details["backtracking"]["exact"])

@@ -111,7 +111,7 @@ POST /graph-metrics
 }
 ```
 
-Um parâmetro opcional (`optional: true`) não tem padrão (`default` nulo): é a semente das metaheurísticas, que o serviço sorteia quando ela não é informada. Um parâmetro de escolha (`type: "choice"`) traz as opções em `options`, com `value` e `label`, e a opção padrão em `default`, sem `min` e `max`:
+Um parâmetro opcional (`optional: true`) não tem padrão (`default` nulo), e `optional_label` diz o que acontece sem valor: a semente das metaheurísticas é sorteada (`Sorteada`), e a temperatura inicial do Simulated Annealing, estimada (`Estimada`). Um parâmetro de escolha (`type: "choice"`) traz as opções em `options`, com `value` e `label`, e a opção padrão em `default`, sem `min` e `max`:
 
 ```json
 {"name": "initial_solution", "label": "Solução inicial", "type": "choice", "default": "greedy", "options": [{"value": "greedy", "label": "Guloso"}, {"value": "random", "label": "Aleatória"}], "unit": null, "zero_disables": false, "advanced": true, "optional": false}
@@ -127,11 +127,12 @@ As rotas de análise recebem o critério no campo `objective` (`default`, `energ
 
 As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado, e opções fora da lista, retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
 
-Nas metaheurísticas (família `metaheuristic`, hoje a `local_search`), a resposta traz também:
+Nas metaheurísticas (família `metaheuristic`: `local_search` e `simulated_annealing`), a resposta traz também:
 
 - `execution.seed`: a semente usada, informada em `parameters.seed` ou sorteada; repetir a requisição com ela reproduz o resultado (exceto quando a busca para pelo limite de tempo);
 - `execution.search.iterations` e, em cada faixa, `search.iterations`: as iterações executadas;
-- `stop_reason`: além de `completed`, `time_limit` e `cancelled`, os motivos `iteration_limit` (limite de iterações) e `no_improvement` (iterações sem melhora);
+- `stop_reason`: além de `completed`, `time_limit` e `cancelled`, os motivos `iteration_limit` (limite de iterações), `no_improvement` (iterações sem melhora) e `min_temperature` (temperatura mínima do Simulated Annealing);
+- no Simulated Annealing, cada faixa traz em `search` a temperatura inicial e a final, se a inicial foi estimada, os patamares percorridos e as pioras aceitas;
 - `execution.bands[].convergence`: a curva de convergência da faixa, com a melhor solução na solução inicial, a cada melhora e no fim:
 
 ```json
