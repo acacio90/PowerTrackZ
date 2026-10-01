@@ -1,4 +1,5 @@
-// Teste de escalabilidade: parametros, acompanhamento da execucao, graficos e historico. A execucao roda no
+// Pagina de Experimentos: modos Comparacao (estrategias sobre a infraestrutura cadastrada) e Escalabilidade (topologia
+// gerada de tamanho crescente); parametros, acompanhamento da execucao, resultados e historico. A execucao roda no
 // access_point_service; esta pagina so a inicia, consulta o andamento e le os resultados salvos.
 document.addEventListener('DOMContentLoaded', () => {
     const API = '/api/experiments/scalability';
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyBody = document.getElementById('scal-history');
     const historyEmpty = document.getElementById('scal-history-empty');
 
+    let mode = window.EXPERIMENT_MODE === 'comparison' ? 'comparison' : 'scalability';
     let strategyOrder = [];
     let strategyDetails = {};
     let channelSelector = null;
@@ -94,11 +96,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return objectiveLabels[name || 'default'] || name || 'Padrão';
     }
 
-    function describeParameters(parameters) {
+    function describeParameters(parameters, run = {}) {
         const own = Object.entries(parameters.strategy_parameters || {})
             .filter(([, values]) => Object.keys(values).length)
             .map(([name, values]) => `${strategyName(name)}: ${Object.entries(values).map(([key, value]) => `${key} ${value}`).join(', ')}`);
-        return `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `
+        const instance = parameters.mode === 'comparison'
+            ? `comparação sobre ${run.instance_size ?? '?'} APs cadastrados, `
+            : `até ${parameters.max_nodes} APs, passo ${parameters.step}, grau mínimo ${parameters.min_degree}, `;
+        return instance
             + `semente ${parameters.seed}, limite ${formatNumber(parameters.time_limit_seconds, 1)} s, ${parameters.thread_count} thread(s), `
             + `critério ${objectiveLabel(parameters.objective)}`
             + `${parameters.repetitions > 1 ? `, ${parameters.repetitions} repetições` : ''}`
@@ -156,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `
                 <div class="scal-strategy">
                     <label>
-                        <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" ${detail.family === 'metaheuristic' ? '' : 'checked'}>
+                        <input type="checkbox" name="strategy" value="${escapeHtml(detail.name)}" ${mode === 'comparison' || detail.family !== 'metaheuristic' ? 'checked' : ''}>
                         ${escapeHtml(strategyName(detail.name))}
                         <span class="scal-kind">(${detail.exact ? 'exato' : stochastic ? 'estocástica' : 'sem garantia de ótimo'})</span>
                     </label>
@@ -230,7 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function readForm() {
         const integer = id => Number.parseInt(document.getElementById(id).value, 10);
         const seedText = document.getElementById('scal-seed').value.trim();
+        if (mode === 'comparison') {
+            return {
+                mode,
+                seed: seedText === '' ? null : Number(seedText),
+                time_limit_seconds: Number(document.getElementById('scal-time-limit').value),
+                thread_count: integer('scal-threads'),
+                objective: objectiveSelect.value,
+                repetitions: integer('scal-repetitions'),
+                strategies: [...strategiesBox.querySelectorAll('input[name="strategy"]:checked')].map(input => input.value),
+            };
+        }
         return {
+            mode,
             max_nodes: integer('scal-max-nodes'),
             step: integer('scal-step'),
             min_degree: integer('scal-min-degree'),
@@ -244,9 +261,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function validateForm(parameters) {
-        if (!Number.isInteger(parameters.max_nodes) || parameters.max_nodes < 2 || parameters.max_nodes > 1000) return 'O tamanho máximo deve ser um inteiro entre 2 e 1000.';
-        if (!Number.isInteger(parameters.step) || parameters.step < 1 || parameters.step > parameters.max_nodes) return 'O passo deve ser um inteiro entre 1 e o tamanho máximo.';
-        if (!Number.isInteger(parameters.min_degree) || parameters.min_degree < 1 || parameters.min_degree >= parameters.max_nodes) return 'O grau mínimo deve ser um inteiro maior que 0 e menor que o tamanho máximo.';
+        if (parameters.mode !== 'comparison' && !Number.isInteger(parameters.max_nodes) || parameters.max_nodes < 2 || parameters.max_nodes > 1000) return 'O tamanho máximo deve ser um inteiro entre 2 e 1000.';
+        if (parameters.mode !== 'comparison' && (!Number.isInteger(parameters.step) || parameters.step < 1 || parameters.step > parameters.max_nodes)) return 'O passo deve ser um inteiro entre 1 e o tamanho máximo.';
+        if (parameters.mode !== 'comparison' && (!Number.isInteger(parameters.min_degree) || parameters.min_degree < 1 || parameters.min_degree >= parameters.max_nodes)) return 'O grau mínimo deve ser um inteiro maior que 0 e menor que o tamanho máximo.';
         if (parameters.seed !== null && (!Number.isInteger(parameters.seed) || parameters.seed < 0 || parameters.seed > 4294967295)) return 'A semente deve ser um inteiro entre 0 e 4294967295 ou ficar em branco.';
         if (!(parameters.time_limit_seconds > 0 && parameters.time_limit_seconds <= 3600)) return 'O limite de tempo deve ser maior que 0 e até 3600 s.';
         if (!Number.isInteger(parameters.thread_count) || parameters.thread_count < 1 || parameters.thread_count > 256) return 'As threads devem ser um inteiro entre 1 e 256.';
@@ -426,16 +443,126 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Comparacao: uma linha por estrategia (media ± desvio nas estocasticas), com o melhor valor de cada metrica.
+    const COMPARISON_METRICS = [
+        { field: 'conflicts', digits: 0 },
+        { field: 'interference', digits: 1 },
+        { field: 'power_w', digits: 1 },
+        { field: 'changed_nodes', digits: 0 },
+        { field: 'duration_seconds', digits: 2, format: formatSeconds },
+        { field: 'processing_energy_j', digits: 2 },
+    ];
+
+    function renderComparison(run) {
+        const summaries = (run.strategies || [])
+            .map(strategy => ({ strategy, summary: summariesOf(run, strategy.name)[0] }))
+            .filter(item => item.summary);
+        const best = {};
+        COMPARISON_METRICS.forEach(metric => {
+            const means = summaries.map(item => item.summary[metric.field]?.mean).filter(value => value != null);
+            best[metric.field] = means.length ? Math.min(...means) : null;
+        });
+        document.getElementById('scal-comparison-rows').innerHTML = summaries.map(({ strategy, summary }) => {
+            const points = (run.points || []).filter(point => point.strategy === strategy.name);
+            const stops = points.reduce((counts, point) => ({ ...counts, [point.stop_reason]: (counts[point.stop_reason] || 0) + 1 }), {});
+            const stopText = Object.entries(stops)
+                .map(([reason, count]) => `${points.length > 1 ? `${count}× ` : ''}${STOP_LABELS[reason] || reason}`).join(', ');
+            const optimal = points.some(point => point.optimal);
+            const cells = COMPARISON_METRICS.map(metric => {
+                const value = summary[metric.field];
+                if (!value || value.mean == null) return '<td>-</td>';
+                const format = metric.format || (number => formatNumber(number, summary.repetitions > 1 ? Math.max(metric.digits, 1) : metric.digits));
+                const isBest = best[metric.field] != null && Math.abs(value.mean - best[metric.field]) < 1e-9;
+                const text = summary.repetitions > 1
+                    ? `${format(value.mean)} <span class="scal-spread">± ${format(value.std)}</span>`
+                    : format(value.mean);
+                return `<td class="${isBest ? 'scal-best' : ''}">${text}${isBest ? '<span class="visually-hidden"> (melhor)</span>' : ''}</td>`;
+            }).join('');
+            const proposal = run.proposals && run.proposals[strategy.name]
+                ? `<a class="btn btn-ghost btn-sm" href="/analysis?experiment=${run.id}&amp;strategy=${encodeURIComponent(strategy.name)}"
+                       title="Abre na página de Análise a configuração proposta da melhor repetição">Abrir na Análise</a>`
+                : '-';
+            return `
+                <tr>
+                    <th scope="row"><span class="scal-swatch" style="background:${strategyStyle(strategy.name).color}"></span> ${escapeHtml(strategyName(strategy.name))}</th>
+                    <td>${summary.repetitions}</td>
+                    ${cells}
+                    <td>${escapeHtml(stopText)}${optimal ? ' (ótima)' : ''}</td>
+                    <td>${proposal}</td>
+                </tr>`;
+        }).join('');
+        renderComparisonChart(run);
+    }
+
+    function renderComparisonChart(run) {
+        const field = document.getElementById('scal-comparison-metric').value;
+        const metric = COMPARISON_METRICS.find(item => item.field === field);
+        const option = document.querySelector(`#scal-comparison-metric option[value="${field}"]`);
+        const items = (run.strategies || [])
+            .map(strategy => ({ strategy, summary: summariesOf(run, strategy.name)[0] }))
+            .filter(item => item.summary && item.summary[field] && item.summary[field].mean != null);
+        if (charts.comparison) charts.comparison.destroy();
+        charts.comparison = new Chart(document.getElementById('scal-chart-comparison'), {
+            type: 'bar',
+            data: {
+                labels: items.map(item => strategyName(item.strategy.name)),
+                datasets: [
+                    {
+                        label: 'Média',
+                        data: items.map(item => item.summary[field].mean),
+                        backgroundColor: items.map(item => withAlpha(strategyStyle(item.strategy.name).color, 0.75)),
+                        borderColor: items.map(item => strategyStyle(item.strategy.name).color),
+                        borderWidth: 1,
+                        grouped: false,
+                    },
+                    {
+                        label: 'Melhor a pior',
+                        data: items.map(item => [item.summary[field].min, item.summary[field].max]),
+                        backgroundColor: CHART_TEXT_STRONG,
+                        barPercentage: 0.08,
+                        grouped: false,
+                    },
+                ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { ticks: { color: CHART_TEXT_MUTED }, grid: { display: false } },
+                    y: { beginAtZero: true, title: { display: true, text: option ? option.textContent : field, color: CHART_TEXT }, ticks: { color: CHART_TEXT_MUTED }, grid: { color: CHART_GRID } },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: context => {
+                                const summary = items[context.dataIndex].summary;
+                                const format = metric.format || (number => formatNumber(number, metric.digits || 1));
+                                return describeSummary(summary, field, format);
+                            },
+                        },
+                        filter: item => item.datasetIndex === 0,
+                    },
+                },
+            },
+        });
+    }
+
     function renderResult(run) {
         selectedRunId = run.id;
         resultCard.hidden = false;
-        document.getElementById('scal-result-title').textContent = `Execução #${run.id}`;
+        const comparison = run.mode === 'comparison';
+        document.getElementById('scal-result-title').textContent = `${comparison ? 'Comparação' : 'Escalabilidade'} · execução #${run.id}`;
+        document.getElementById('scal-comparison').hidden = !comparison;
+        document.getElementById('scal-scalability-charts').hidden = comparison;
+        document.getElementById('scal-points-details').hidden = comparison;
+        document.getElementById('scal-result-breaks').hidden = comparison;
         const created = run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-';
         document.getElementById('scal-result-meta').innerHTML = `
             <span><strong>Situação:</strong> ${escapeHtml(STATUS_LABELS[run.status] || run.status)}${run.error ? ` (${escapeHtml(run.error)})` : ''}</span>
             <span><strong>Data:</strong> ${escapeHtml(created)}</span>
             <span><strong>Versão:</strong> ${escapeHtml(describeVersion(run.version))}</span>
-            <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters))}</span>
+            <span><strong>Parâmetros:</strong> ${escapeHtml(describeParameters(run.parameters, run))}</span>
             <span class="scal-row-actions"><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a><a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=json">JSON</a></span>`;
         document.getElementById('scal-result-breaks').innerHTML = (run.strategies || []).map(strategy => `
             <span class="tag tag-outline scal-break">
@@ -443,6 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${escapeHtml(strategyName(strategy.name))}</strong> ${escapeHtml(describeBreak(run, strategy))}
             </span>`).join('');
 
+        if (comparison) {
+            renderComparison(run);
+            highlightSelected();
+            return;
+        }
         const limit = run.parameters.time_limit_seconds;
         const sizes = (run.points || []).map(point => point.nodes);
         const timeDatasets = chartDatasets(run, 'duration_seconds', value => Math.max(value, 1e-5));
@@ -531,9 +663,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${run.id}</td>
                     <td>${escapeHtml(run.created_at ? new Date(run.created_at).toLocaleString('pt-BR') : '-')}</td>
                     <td title="${escapeHtml(describeVersion(run.version))}">${escapeHtml(describeVersion(run.version, false))}</td>
-                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters))}</td>
+                    <td class="scal-params">${escapeHtml(describeParameters(run.parameters, run))}</td>
                     <td class="scal-status">${escapeHtml(STATUS_LABELS[run.status] || run.status)}</td>
-                    <td>${(run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
+                    <td>${run.mode === 'comparison'
+                        ? `Comparação: ${(run.strategies || []).map(strategy => escapeHtml(strategyName(strategy.name))).join(', ')}`
+                        : (run.strategies || []).map(strategy => `${escapeHtml(strategyName(strategy.name))}: ${run.breaks[strategy.name] != null ? `${run.breaks[strategy.name]} APs` : '—'}`).join('<br>')}</td>
                     <td><div class="scal-row-actions">
                         <button type="button" class="btn btn-ghost btn-sm" data-action="view">Ver</button>
                         <a class="btn btn-ghost btn-sm" href="${API}/${run.id}/export?format=csv">CSV</a>
@@ -615,5 +749,45 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    // Modos: os campos e textos marcados com data-mode so aparecem no modo correspondente.
+    function setMode(next) {
+        mode = next;
+        document.querySelectorAll('.scal-mode').forEach(button => {
+            const active = button.dataset.mode === mode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('.scal-mode-field, .scal-mode-text').forEach(element => {
+            element.hidden = element.dataset.mode !== mode;
+        });
+        document.getElementById('scal-form-title').textContent = mode === 'comparison' ? 'Parâmetros da comparação' : 'Parâmetros do teste de escalabilidade';
+        showError('');
+        try {
+            history.replaceState(null, '', `/experiments${mode === 'comparison' ? '?mode=comparison' : ''}`);
+        } catch (error) {
+            // Sem history (por exemplo, numa pre-visualizacao), o endereco so nao acompanha o modo.
+        }
+    }
+
+    document.querySelectorAll('.scal-mode').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
+
+    async function loadInstance() {
+        try {
+            const points = await requestJson('/api/access_points');
+            const positioned = (Array.isArray(points) ? points : []).filter(point => point.latitude != null && point.longitude != null);
+            document.getElementById('scal-instance').textContent = `${formatNumber(positioned.length)} APs com coordenadas`;
+        } catch (error) {
+            document.getElementById('scal-instance').textContent = 'não foi possível contar os APs';
+        }
+    }
+
+    document.getElementById('scal-comparison-metric').addEventListener('change', async () => {
+        if (!selectedRunId) return;
+        const { run } = await requestJson(`${API}/${selectedRunId}`);
+        if (run.mode === 'comparison') renderComparisonChart(run);
+    });
+
+    setMode(mode);
+    loadInstance();
     loadStrategies().then(loadHistory);
 });

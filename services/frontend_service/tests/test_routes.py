@@ -32,6 +32,7 @@ PAGE_STYLES = {
     "/infrastructure": "css/pages/infrastructure.css",
     "/analysis": "css/pages/analysis.css",
     "/scalability": "css/pages/scalability.css",
+    "/experiments": "css/pages/scalability.css",
 }
 CONNECTION_ERROR = "Não foi possível contatar o serviço. Confira se os serviços estão no ar e tente de novo."
 
@@ -137,6 +138,8 @@ class FrontendRoutesTests(unittest.TestCase):
             ("post", "/api/analysis/cancel-analysis", {"job_id": "job-1"}, f"{ANALYSIS_URL}/cancel-analysis"),
             ("post", "/api/experiments/scalability", {"max_nodes": 20}, f"{ACCESS_POINT_URL}/experiments/scalability"),
             ("delete", "/api/experiments/scalability/3", None, f"{ACCESS_POINT_URL}/experiments/scalability/3"),
+            ("get", "/api/experiments/scalability/3/proposal?strategy=local_search", None,
+             f"{ACCESS_POINT_URL}/experiments/scalability/3/proposal?strategy=local_search"),
         ]
         for method, path, payload, url in cases:
             with self.subTest(method=method, path=path):
@@ -201,6 +204,12 @@ class FrontendRoutesTests(unittest.TestCase):
         self.assertEqual(response.get_data(), events)
         self.assertEqual(self.http["post"].call_args.args[0], f"{ANALYSIS_URL}/analyze-graph-stream")
         self.assertTrue(upstream.closed)
+
+    def test_experiments_page_opens_in_the_requested_mode(self):
+        for path, mode in (("/experiments", "scalability"), ("/experiments?mode=comparison", "comparison"), ("/scalability", "scalability")):
+            with self.subTest(path=path):
+                html = self.client.get(path).get_data(as_text=True)
+                self.assertIn(f'window.EXPERIMENT_MODE = "{mode}"', html)
 
     def test_non_json_responses_are_forwarded_as_text(self):
         self.http["get"].return_value = FakeResponse(content=b"pong", content_type="text/plain")

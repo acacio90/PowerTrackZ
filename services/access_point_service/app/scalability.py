@@ -10,6 +10,10 @@ criterios de parada. Depois de quebrar, ela deixa de ser executada nos tamanhos 
 
 As estrategias estocasticas sao repetidas por tamanho, com sementes derivadas da semente do teste (as mesmas em
 todas as estrategias e tamanhos), e cada repeticao vira um ponto; as estatisticas por tamanho saem dos pontos.
+
+No modo Comparacao (#90), a instancia e uma copia dos APs cadastrados, tirada no inicio, e as estrategias sao
+executadas sobre ela com o mesmo criterio, os mesmos canais e as mesmas sementes; da melhor repeticao de cada uma,
+guarda-se a execucao e a configuracao proposta, para abri-la na pagina de Analise.
 """
 import csv
 import hashlib
@@ -25,7 +29,7 @@ from datetime import datetime
 import requests
 
 from access_point_generator import MAX_NODE_COUNT, generate_access_point_infrastructure, resolve_seed
-from models import ScalabilityRun, db
+from models import AccessPoint, ScalabilityRun, db
 from version import read_version
 
 logger = logging.getLogger(__name__)
@@ -48,10 +52,11 @@ POINT_FIELDS = [
 ]
 # Colunas acrescentadas depois de "objective" no CSV (#124): tempo de CPU e energia estimada do processamento.
 PROCESSING_FIELDS = ["cpu_seconds", "processing_energy_j", "processing_max_energy_j"]
-# Colunas acrescentadas depois delas (#86): repeticao e semente de cada ponto.
-REPETITION_FIELDS = ["repetition", "seed"]
+# Colunas acrescentadas depois delas (#86): repeticao e semente de cada ponto; e (#90) os APs alterados.
+REPETITION_FIELDS = ["repetition", "seed", "changed_nodes"]
 # Metricas resumidas por tamanho e estrategia (media, desvio-padrao, melhor e pior).
-SUMMARY_FIELDS = ["duration_seconds", "conflicts", "interference", "power_w", "processing_energy_j"]
+SUMMARY_FIELDS = ["duration_seconds", "conflicts", "interference", "power_w", "processing_energy_j", "changed_nodes"]
+MODES = ("scalability", "comparison")
 # Parametros que o teste define para todas as estrategias, e nao por estrategia.
 SHARED_PARAMETERS = {"seed", "time_limit_seconds"}
 
@@ -114,12 +119,17 @@ def _integer(data, name, minimum, maximum):
 def validate_parameters(data, strategy_details, objectives=("default",)):
     """Valida os parametros do teste e devolve-os completos, com a semente resolvida."""
     data = data or {}
-    # As metaheuristicas ficam de fora ate o teste ter repeticoes por semente: o ponto de quebra dos metodos
-    # sem garantia de otimo (limite de tempo excedido) nao descreve uma busca que para pelo tempo.
     implemented = [detail["name"] for detail in strategy_details if detail.get("implemented")]
-    max_nodes = _integer(data, "max_nodes", 2, MAX_NODE_COUNT)
-    step = _integer(data, "step", 1, max_nodes)
-    min_degree = _integer(data, "min_degree", 1, max_nodes - 1)
+    mode = data.get("mode") or "scalability"
+    if mode not in MODES:
+        raise ValueError("mode deve ser scalability ou comparison")
+    if mode == "comparison":
+        # A instancia e a infraestrutura cadastrada: nao ha tamanhos nem topologia gerada.
+        max_nodes = step = min_degree = None
+    else:
+        max_nodes = _integer(data, "max_nodes", 2, MAX_NODE_COUNT)
+        step = _integer(data, "step", 1, max_nodes)
+        min_degree = _integer(data, "min_degree", 1, max_nodes - 1)
     thread_count = _integer(data, "thread_count", 1, 256)
 
     time_limit = data.get("time_limit_seconds", DEFAULT_PARAMETERS["time_limit_seconds"])
@@ -148,6 +158,7 @@ def validate_parameters(data, strategy_details, objectives=("default",)):
         raise ValueError("channels deve ser um objeto por faixa e largura, como profiles em /channel-plan, ou ficar vazio")
 
     return {
+        "mode": mode,
         "max_nodes": max_nodes,
         "step": step,
         "min_degree": min_degree,
@@ -194,6 +205,34 @@ def instance_sizes(max_nodes, step):
     if not sizes or sizes[-1] != max_nodes:
         sizes.append(max_nodes)
     return sizes
+
+
+def registered_aps():
+    """APs cadastrados com coordenadas, no formato do gerador (os que a pagina de Analise analisa)."""
+    points = AccessPoint.query.filter(AccessPoint.latitude.isnot(None), AccessPoint.longitude.isnot(None)).order_by(AccessPoint.id).all()
+    return [point.to_dict() for point in points]
+
+
+def proposal_key(objective, point):
+    """Ordem da melhor repeticao, pelo criterio de otimizacao: conflitos e interferencia, ou a potencia primeiro."""
+    conflicts = point.get("conflicts") if point.get("conflicts") is not None else float("inf")
+    interference = point.get("interference") if point.get("interference") is not None else float("inf")
+    power = point.get("power_w") if point.get("power_w") is not None else float("inf")
+    if objective == "energy_first":
+        return (power, conflicts, interference)
+    if objective == "energy_tiebreak":
+        return (conflicts, interference, power)
+    return (conflicts, interference)
+
+
+def compact_proposal(result):
+    """Configuracao proposta de cada AP, a partir do graph_data da resposta."""
+    nodes = (result.get("graph_data") or {}).get("nodes") or []
+    return [
+        {"id": node.get("id"), "channel": node.get("proposed_channel"), "bandwidth": node.get("proposed_bandwidth"),
+         "frequency": node.get("proposed_frequency")}
+        for node in nodes
+    ]
 
 
 def to_analysis_aps(aps):
@@ -272,6 +311,7 @@ def build_point(size, metrics, strategy, exact, result, wall_seconds, time_limit
         "broke": strategy_broke(exact, stop_reason, duration_seconds, time_limit_seconds),
         "gap_conflicts": None,
         "gap_interference": None,
+        "changed_nodes": comparison.get("changed_nodes"),
         "cpu_seconds": processing.get("cpu_seconds"),
         "processing_energy_j": processing.get("energy_j"),
         "processing_max_energy_j": processing.get("max_energy_j"),
@@ -291,6 +331,9 @@ def fill_optimality_gaps(points_of_size):
 
 
 def run_to_dict(run, include_points=True):
+    parameters = json.loads(run.parameters or "{}")
+    instance = parameters.pop("instance", None)
+    proposals = json.loads(getattr(run, "proposals", None) or "{}")
     data = {
         "id": run.id,
         "created_at": run.created_at.isoformat() + "Z" if run.created_at else None,
@@ -299,7 +342,11 @@ def run_to_dict(run, include_points=True):
         "progress": run.progress,
         "current_step": run.current_step,
         "version": json.loads(run.version or "{}"),
-        "parameters": json.loads(run.parameters or "{}"),
+        "mode": parameters.get("mode", "scalability"),
+        "parameters": parameters,
+        # Comparacao: numero de APs da instancia e estrategias com a proposta guardada (a lista de APs fica fora).
+        "instance_size": len(instance) if instance is not None else None,
+        "proposals": {name: {"repetition": item.get("repetition"), "seed": item.get("seed")} for name, item in proposals.items()},
         "strategies": json.loads(run.strategies or "[]"),
         "breaks": json.loads(run.breaks or "{}"),
         "error": run.error,
@@ -355,6 +402,12 @@ class ScalabilityRunner:
     def start(self, data):
         details = self.client.strategies()
         parameters = validate_parameters(data, details, self.client.objectives())
+        if parameters["mode"] == "comparison":
+            instance = registered_aps()
+            if not instance:
+                raise ValueError("Nenhum AP cadastrado com coordenadas. Cadastre ou carregue os APs na página Sua infraestrutura.")
+            # Copia da infraestrutura no inicio: a comparacao continua reprodutivel mesmo que os APs mudem depois.
+            parameters["instance"] = instance
         with self._lock:
             if self._active_run is not None:
                 raise ScalabilityConflict("Já existe um teste de escalabilidade em andamento. Aguarde o fim dele ou cancele-o.")
@@ -415,6 +468,9 @@ class ScalabilityRunner:
     def _run(self, run_id):
         run = db.session.get(ScalabilityRun, run_id)
         parameters = json.loads(run.parameters)
+        if parameters.get("mode") == "comparison":
+            self._run_comparison(run_id, parameters, json.loads(run.strategies))
+            return
         strategies = json.loads(run.strategies)
         # Exatas primeiro: quando comprovam o otimo, servem de referencia para as demais no mesmo tamanho.
         ordered = sorted(strategies, key=lambda strategy: not strategy["exact"])
@@ -486,3 +542,90 @@ class ScalabilityRunner:
             points=json.dumps(points),
             breaks=json.dumps(breaks),
         )
+
+    def _run_comparison(self, run_id, parameters, strategies):
+        """Executa as estrategias sobre a copia da infraestrutura cadastrada; guarda a melhor repeticao de cada uma."""
+        ordered = sorted(strategies, key=lambda strategy: not strategy["exact"])
+        time_limit = parameters["time_limit_seconds"]
+        objective = parameters.get("objective", "default")
+        channels = parameters.get("channels")
+        own_parameters = parameters.get("strategy_parameters") or {}
+        seeds = [repetition_seed(parameters["seed"], index) for index in range(parameters.get("repetitions", 1))]
+        aps = to_analysis_aps(parameters["instance"])
+        size = len(aps)
+        metrics = self.client.graph_metrics(aps)
+        total_steps = sum(len(seeds) if strategy.get("stochastic") else 1 for strategy in ordered)
+        done_steps = 0
+        points, proposals = [], {}
+
+        for strategy in ordered:
+            name = strategy["name"]
+            stochastic = strategy.get("stochastic", False)
+            runs = seeds if stochastic else [None]
+            best = None
+            for index, seed in enumerate(runs):
+                if self._cancel.is_set():
+                    break
+                step = name + (f" (repetição {index + 1} de {len(runs)})" if stochastic else "")
+                self._save(run_id, current_step=step)
+                analysis_parameters = {"thread_count": parameters["thread_count"], "time_limit_seconds": time_limit,
+                                       **own_parameters.get(name, {})}
+                if seed is not None:
+                    analysis_parameters["seed"] = seed
+                started = self.clock()
+                result = self.client.analyze(aps, name, analysis_parameters, time_limit, objective, channels)
+                point = build_point(size, metrics, name, strategy["exact"], result, self.clock() - started, time_limit)
+                # A comparacao nao tem ponto de quebra: o limite de tempo so encerra a busca.
+                point["broke"] = False
+                point["repetition"] = index + 1
+                point["seed"] = seed
+                points.append(point)
+                if best is None or proposal_key(objective, point) < proposal_key(objective, best[0]):
+                    best = (point, result)
+                done_steps += 1
+                self._save(run_id, progress=done_steps / total_steps)
+            if best is not None:
+                point, result = best
+                execution = result.get("execution") or {}
+                proposals[name] = {
+                    "repetition": point["repetition"],
+                    "seed": point["seed"],
+                    "execution": execution,
+                    "proposal": compact_proposal(result),
+                }
+            fill_optimality_gaps(points)
+            self._save(run_id, points=json.dumps(points), proposals=json.dumps(proposals))
+            if self._cancel.is_set():
+                break
+
+        cancelled = self._cancel.is_set()
+        self._save(
+            run_id,
+            status="cancelled" if cancelled else "completed",
+            progress=1.0 if not cancelled else done_steps / total_steps,
+            current_step=None,
+            finished_at=datetime.utcnow(),
+            points=json.dumps(points),
+            breaks=json.dumps({}),
+            proposals=json.dumps(proposals),
+        )
+
+
+def run_proposal(run, strategy):
+    """Proposta guardada da melhor repeticao de uma estrategia comparada, com a instancia e a execucao."""
+    parameters = json.loads(run.parameters or "{}")
+    proposals = json.loads(run.proposals or "{}")
+    item = proposals.get(strategy)
+    if parameters.get("mode") != "comparison" or not item:
+        return None
+    return {
+        "run_id": run.id,
+        "strategy": strategy,
+        "repetition": item.get("repetition"),
+        "seed": item.get("seed"),
+        "objective": parameters.get("objective", "default"),
+        "channels": parameters.get("channels"),
+        "instance": parameters.get("instance") or [],
+        "execution": item.get("execution") or {},
+        "proposal": item.get("proposal") or [],
+    }

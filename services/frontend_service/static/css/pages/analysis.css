@@ -7,6 +7,27 @@
     margin-bottom: var(--space-5);
 }
 
+.analysis-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+/* Proposta aberta a partir de uma comparação da página de Experimentos */
+.analysis-experiment-notice {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-soft);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.analysis-experiment-notice[hidden] {
+    display: none;
+}
+
 .analysis-layout {
     display: grid;
     grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);

@@ -1930,7 +1930,7 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     function criarGrafoOriginal() {
-        fetch((window.BACKEND_URL || '/api/analysis/collision-graph'), {
+        return fetch((window.BACKEND_URL || '/api/analysis/collision-graph'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ aps: apsOriginais })
@@ -2444,8 +2444,101 @@ window.addEventListener('DOMContentLoaded', function() {
     fetchAnalysisCapabilities();
     atualizarBotoesEstrategia();
 
-    carregarAPs(() => {
-        criarGrafoOriginal();
-        setEmptyOptimizedState('Selecione uma estratégia, ajuste os parâmetros e clique em Executar análise.');
-    });
+    // Proposta guardada de uma comparacao da pagina de Experimentos (#90): ?experiment=ID&strategy=NOME. Os APs sao
+    // a copia tirada quando a comparacao rodou; o grafo proposto e montado com a configuracao guardada.
+    function apsDosPontos(points) {
+        return (points || [])
+            .filter(point => point.latitude != null && point.longitude != null)
+            .map(point => ({
+                id: point.id || point.name,
+                x: point.latitude,
+                y: point.longitude,
+                raio: getRaio(point.frequency),
+                label: point.name,
+                channel: point.channel,
+                bandwidth: point.bandwidth,
+                frequency: point.frequency,
+                locked: false
+            }));
+    }
+
+    async function abrirPropostaDeExperimento(runId, strategy) {
+        const notice = document.getElementById('analysis-experiment-notice');
+        const response = await fetch(`/api/experiments/scalability/${encodeURIComponent(runId)}/proposal?strategy=${encodeURIComponent(strategy)}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Não foi possível abrir a proposta do experimento.');
+        }
+        apsOriginais = apsDosPontos(data.instance);
+        apsOtimizado = apsOriginais.map(ap => ({ ...ap }));
+        updateThreadAvailabilityInfo();
+        await criarGrafoOriginal();
+
+        const proposta = new Map((data.proposal || []).map(item => [String(item.id), item]));
+        const apsPropostos = apsOriginais.map(ap => {
+            const item = proposta.get(String(ap.id));
+            return item ? { ...ap, channel: item.channel, bandwidth: item.bandwidth, frequency: item.frequency } : ap;
+        });
+        const proposedResponse = await fetch(window.BACKEND_URL || '/api/analysis/collision-graph', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ aps: apsPropostos })
+        });
+        const proposedGraph = await proposedResponse.json();
+        const propostosPorId = new Map((proposedGraph.nodes || []).map(node => [String(node.id), node]));
+        const graphData = {
+            ...proposedGraph,
+            // Configuracao atual dos nos (para os destaques de mudanca) com a proposta guardada.
+            nodes: (originalGraphData?.nodes || []).map(node => {
+                const proposto = propostosPorId.get(String(node.id)) || node;
+                return {
+                    ...node,
+                    proposed_channel: proposto.channel,
+                    proposed_bandwidth: proposto.bandwidth,
+                    proposed_frequency: proposto.frequency,
+                    proposed_cor: proposto.cor,
+                    proposed_power_w: proposto.power_w
+                };
+            }),
+            links: proposedGraph.links || []
+        };
+
+        window.selectedStrategy = strategy;
+        if (objectiveSelect && data.objective) {
+            objectiveSelect.value = data.objective;
+            updateObjectiveDescription();
+        }
+        atualizarBotoesEstrategia();
+        const execution = data.execution || {};
+        lastAnalysisPayload = {
+            ...montarPayloadAnalise(apsOriginais, execution.parameters || {}),
+            strategy,
+            objective: data.objective,
+            channels: data.channels && data.channels !== 'padrao' ? data.channels : undefined
+        };
+        aplicarResultadoAnalise({ success: true, graph_data: graphData, execution, strategy_used: strategy }, analysisRequestToken);
+        notice.innerHTML = `Proposta da <a href="/experiments?mode=comparison">comparação #${escapeHtml(String(data.run_id))}</a>: `
+            + `${escapeHtml(getStrategyDisplayName(strategy))}, melhor repetição (${escapeHtml(String(data.repetition))}`
+            + `${data.seed != null ? `, semente ${escapeHtml(String(data.seed))}` : ''}), com os APs de quando a comparação foi executada. `
+            + 'Executar análise roda de novo sobre estes APs.';
+        notice.hidden = false;
+    }
+
+    const experimentParams = new URLSearchParams(window.location.search);
+    if (experimentParams.get('experiment') && experimentParams.get('strategy')) {
+        abrirPropostaDeExperimento(experimentParams.get('experiment'), experimentParams.get('strategy')).catch(error => {
+            const notice = document.getElementById('analysis-experiment-notice');
+            notice.textContent = `${error.message} A página mostra a infraestrutura cadastrada.`;
+            notice.hidden = false;
+            carregarAPs(() => {
+                criarGrafoOriginal();
+                setEmptyOptimizedState('Selecione uma estratégia, ajuste os parâmetros e clique em Executar análise.');
+            });
+        });
+    } else {
+        carregarAPs(() => {
+            criarGrafoOriginal();
+            setEmptyOptimizedState('Selecione uma estratégia, ajuste os parâmetros e clique em Executar análise.');
+        });
+    }
 });

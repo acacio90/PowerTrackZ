@@ -16,7 +16,7 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 import main  # noqa: E402
-from models import ScalabilityRun, db  # noqa: E402
+from models import AccessPoint, ScalabilityRun, db  # noqa: E402
 from scalability import (  # noqa: E402
     ScalabilityRunner,
     instance_sizes,
@@ -84,10 +84,14 @@ class FakeAnalysisClient:
             conflicts, duration_ms = 2, size * 10
         return {
             "success": True,
+            # Proposta: todos os APs no canal 6, para a comparacao guardar a configuracao da melhor repeticao.
+            "graph_data": {"nodes": [{"id": ap["id"], "proposed_channel": "6", "proposed_bandwidth": "20 MHz",
+                                      "proposed_frequency": ap.get("frequency")} for ap in aps]},
             "execution": {
                 "duration_ms": duration_ms,
                 "search": search,
                 "comparison": {
+                    "changed_nodes": size // 2,
                     "conflicts_before": 5, "conflicts_after": conflicts,
                     "interference_before": 500.0, "interference_after": conflicts * 50.0,
                     "power_after_w": size * 12.0,
@@ -177,11 +181,11 @@ class ScalabilityTests(unittest.TestCase):
         self.assertEqual(csv_response.mimetype, "text/csv")
         self.assertIn("attachment", csv_response.headers["Content-Disposition"])
         self.assertTrue(lines[0].startswith("run_id,commit,tag,seed,min_degree,time_limit_seconds,thread_count,nodes,"))
-        self.assertTrue(lines[0].endswith(",objective,cpu_seconds,processing_energy_j,processing_max_energy_j,repetition,seed"))
+        self.assertTrue(lines[0].endswith(",objective,cpu_seconds,processing_energy_j,processing_max_energy_j,repetition,seed,changed_nodes"))
         self.assertIn(",default,", lines[1])
         point = run["points"][0]
         self.assertAlmostEqual(point["processing_energy_j"], point["cpu_seconds"] * 3.25)
-        self.assertTrue(lines[1].endswith(f",{point['cpu_seconds']},{point['processing_energy_j']},{point['processing_max_energy_j']},1,"))
+        self.assertTrue(lines[1].endswith(f",{point['cpu_seconds']},{point['processing_energy_j']},{point['processing_max_energy_j']},1,,{point['changed_nodes']}"))
         self.assertEqual(len(lines), 1 + len(run["points"]))
         self.assertEqual(json.loads(json_response.get_data())["id"], run["id"])
 
@@ -271,6 +275,63 @@ class ScalabilityTests(unittest.TestCase):
             with self.subTest(body=body):
                 response = self.client.post("/experiments/scalability", json={"strategies": ["greedy"], **body})
                 self.assertEqual(response.status_code, 400)
+
+    def register_aps(self, count, without_coordinates=1):
+        with main.app.app_context():
+            for index in range(count):
+                db.session.add(AccessPoint(id=f"ap-{index:02d}", name=f"AP {index}", channel="1", frequency="2.4 GHz",
+                                           bandwidth="20 MHz", latitude=-23.55 + index * 1e-4, longitude=-46.63))
+            for index in range(without_coordinates):
+                db.session.add(AccessPoint(id=f"sem-{index}", name="Sem coordenadas", channel="1", frequency="2.4 GHz", bandwidth="20 MHz"))
+            db.session.commit()
+
+    def test_comparison_runs_every_strategy_on_the_registered_aps_with_the_same_conditions(self):
+        self.register_aps(12)
+        channels = {"2.4 GHz": {"20 MHz": ["1", "6", "11"]}}
+        run = self.start(mode="comparison", strategies=["backtracking", "greedy", "local_search"], repetitions=3,
+                         objective="energy_tiebreak", channels=channels)
+
+        self.assertEqual(run["mode"], "comparison")
+        self.assertEqual(run["instance_size"], 12)
+        self.assertNotIn("instance", run["parameters"])
+        self.assertEqual(run["breaks"], {})
+        self.assertEqual(run["status"], "completed")
+        expected_ids = [f"ap-{index:02d}" for index in range(12)]
+        self.assertTrue(all(ids == expected_ids for _, ids in self.fake.calls))
+        self.assertEqual(self.fake.objectives_used, {"energy_tiebreak"})
+        self.assertTrue(all(request["channels"] == channels for request in self.fake.requests))
+        local = [request["parameters"]["seed"] for request in self.fake.requests if request["strategy"] == "local_search"]
+        self.assertEqual(local, [repetition_seed(7, index) for index in range(3)])
+        self.assertEqual([point["strategy"] for point in run["points"]], ["backtracking", "greedy"] + ["local_search"] * 3)
+        self.assertTrue(all(point["changed_nodes"] == 6 for point in run["points"]))
+        self.assertEqual(set(run["proposals"]), {"backtracking", "greedy", "local_search"})
+
+    def test_comparison_keeps_the_proposal_of_the_best_repetition(self):
+        self.register_aps(8)
+        run = self.start(mode="comparison", strategies=["greedy", "local_search"], repetitions=4)
+        seeds = [repetition_seed(7, index) for index in range(4)]
+        best = min(range(4), key=lambda index: (1 + seeds[index] % 4, (1 + seeds[index] % 4) * 50.0))
+
+        response = self.client.get(f"/experiments/scalability/{run['id']}/proposal?strategy=local_search")
+        body = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual((body["repetition"], body["seed"]), (best + 1, seeds[best]))
+        self.assertEqual(len(body["instance"]), 8)
+        self.assertEqual({item["channel"] for item in body["proposal"]}, {"6"})
+        self.assertEqual(body["execution"]["comparison"]["conflicts_after"], 1 + seeds[best] % 4)
+        self.assertEqual(self.client.get(f"/experiments/scalability/{run['id']}/proposal?strategy=tabu_search").status_code, 404)
+
+    def test_scalability_runs_have_no_stored_proposal(self):
+        run = self.start(max_nodes=20)
+        self.assertEqual(run["mode"], "scalability")
+        self.assertEqual(self.client.get(f"/experiments/scalability/{run['id']}/proposal?strategy=greedy").status_code, 404)
+
+    def test_comparison_needs_registered_aps_with_coordinates(self):
+        self.register_aps(0, without_coordinates=2)
+        response = self.client.post("/experiments/scalability", json={"mode": "comparison", "strategies": ["greedy"]})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Nenhum AP", response.get_json()["error"])
+        self.assertEqual(self.client.post("/experiments/scalability", json={"mode": "outro"}).status_code, 400)
 
     def test_marks_runs_left_running_as_interrupted(self):
         with main.app.app_context():
