@@ -6,7 +6,7 @@ Este guia descreve o fluxo principal da interface: carregar pontos de acesso, sa
 
 ## 1. Sua Infraestrutura
 
-A página **Sua infraestrutura** (menu **Infraestrutura**, `/infrastructure`) reúne a lista e o mapa dos APs salvos no banco. Os endereços antigos `/hosts` e `/register` redirecionam para ela.
+A página **Sua infraestrutura** (menu **Infraestrutura**, `/infrastructure`) reúne a lista e o mapa dos APs salvos no banco, nos cards **Pontos de acesso** e **Mapa dos pontos de acesso**. Os endereços antigos `/hosts` e `/register` redirecionam para ela.
 
 ### Carregar APs
 
