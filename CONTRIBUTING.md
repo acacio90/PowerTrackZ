@@ -81,11 +81,16 @@ Tests use `unittest` and live in `services/<service>/tests/`.
 
 ```bash
 # access_point_service (requires the service dependencies installed)
-python -m unittest services/access_point_service/tests/test_access_point.py
+python -m unittest discover -s services/access_point_service/tests
 
-# analysis_service (builds and starts a container, requires Docker)
-python -m unittest services/analysis_service/tests/test_backtracking.py
+# analysis_service (builds and starts a container, requires Docker; includes the C tests of the metaheuristic base)
+python -m unittest discover -s services/analysis_service/tests
+
+# frontend_service (requires the service dependencies; the other services are mocked, with no Docker, network or browser)
+python -m unittest discover -s services/frontend_service/tests
 ```
+
+To run a single file, give its path, for example `python -m unittest services/frontend_service/tests/test_routes.py`.
 
 Before opening a *pull request*, run the tests of the changed services and add tests for the new behavior.
 
