@@ -142,7 +142,7 @@ int assignment_collect_candidates(
 ) {
     int candidate_count = 0;
     const Node *node = &setup->graph->nodes[node_index];
-    for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
+    for (int profile_index = 0; profile_index < setup->searchable_count; profile_index++) {
         const ProposedConfig *profile = &setup->profiles->items[profile_index];
         if (!assignment_same_band(profile->frequency, node->frequency)) {
             continue;
@@ -167,9 +167,9 @@ static void apply_candidate(AssignmentCost *cost, const ProfileCandidate *candid
     add_assignment_cost(cost, &candidate->delta);
 }
 
-static double max_bandwidth_for_frequency(const ProfileSet *profiles, const char *frequency) {
+static double max_bandwidth_for_frequency(const ProfileSet *profiles, int count, const char *frequency) {
     double best = 0.0;
-    for (int profile_index = 0; profile_index < profiles->count; profile_index++) {
+    for (int profile_index = 0; profile_index < count; profile_index++) {
         if (assignment_same_band(profiles->items[profile_index].frequency, frequency)) {
             double score = assignment_bandwidth_score(profiles->items[profile_index].bandwidth);
             if (score > best) {
@@ -181,9 +181,9 @@ static double max_bandwidth_for_frequency(const ProfileSet *profiles, const char
 }
 
 // Menor potencia (no criterio de otimizacao) entre os perfis da faixa; zero se a faixa nao tem perfis.
-static long long min_power_for_frequency(const ProfileSet *profiles, const char *frequency) {
+static long long min_power_for_frequency(const ProfileSet *profiles, int count, const char *frequency) {
     long long best = -1;
-    for (int profile_index = 0; profile_index < profiles->count; profile_index++) {
+    for (int profile_index = 0; profile_index < count; profile_index++) {
         if (assignment_same_band(profiles->items[profile_index].frequency, frequency)) {
             long long power = objective_power_mw(profiles->items[profile_index].frequency, profiles->items[profile_index].bandwidth);
             if (best < 0 || power < best) {
@@ -199,7 +199,10 @@ static long long min_power_for_frequency(const ProfileSet *profiles, const char 
 void assignment_setup(const Graph *graph, const ProfileSet *profiles, OptimizationObjective objective, SearchSetup *setup) {
     int node_count = graph->node_count;
     setup->graph = graph;
-    setup->profiles = profiles && profiles->count > 0 ? profiles : default_search_profiles();
+    const ProfileSet *search_profiles = profiles && profiles->count > 0 ? profiles : default_search_profiles();
+    setup->profiles = search_profiles;
+    setup->searchable_count = search_profiles->count;
+    setup->extended_items = NULL;
     setup->objective = objective;
     setup->order = assignment_malloc(sizeof(int) * node_count, "malloc search order");
     setup->base_profiles = assignment_malloc(sizeof(int) * node_count, "malloc base profiles");
@@ -218,12 +221,33 @@ void assignment_setup(const Graph *graph, const ProfileSet *profiles, Optimizati
         }
         setup->base_bandwidth += assignment_bandwidth_score(node->bandwidth);
         setup->base_power_mw += objective_power_mw(node->frequency, node->bandwidth);
-        for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
-            if (same_profile(&setup->profiles->items[profile_index], node)) {
+        for (int profile_index = 0; profile_index < search_profiles->count; profile_index++) {
+            if (same_profile(&search_profiles->items[profile_index], node)) {
                 setup->base_profiles[node_index] = profile_index;
                 break;
             }
         }
+    }
+
+    // APs travados fora dos perfis: cada um ganha um perfil proprio, no fim da lista, com a sua configuracao.
+    int extra = 0;
+    for (int node_index = 0; node_index < node_count; node_index++) {
+        extra += graph->nodes[node_index].locked && setup->base_profiles[node_index] < 0;
+    }
+    if (extra > 0) {
+        int total = search_profiles->count + extra;
+        setup->extended_items = assignment_malloc(sizeof(ProposedConfig) * (size_t) total, "malloc locked profiles");
+        memcpy(setup->extended_items, search_profiles->items, sizeof(ProposedConfig) * (size_t) search_profiles->count);
+        int next = search_profiles->count;
+        for (int node_index = 0; node_index < node_count; node_index++) {
+            const Node *node = &graph->nodes[node_index];
+            if (node->locked && setup->base_profiles[node_index] < 0) {
+                setup->extended_items[next] = (ProposedConfig){node->channel, node->bandwidth, node->frequency};
+                setup->base_profiles[node_index] = next++;
+            }
+        }
+        setup->extended_profiles = (ProfileSet){setup->extended_items, total};
+        setup->profiles = &setup->extended_profiles;
     }
     sort_indices_by_degree(graph, setup->order, node_count);
 
@@ -233,8 +257,8 @@ void assignment_setup(const Graph *graph, const ProfileSet *profiles, Optimizati
         int node_index = setup->order[depth];
         bool fixed = assignment_node_is_fixed(graph, setup->base_profiles, node_index);
         const char *frequency = graph->nodes[node_index].frequency;
-        double bandwidth_bound = fixed ? 0.0 : max_bandwidth_for_frequency(setup->profiles, frequency);
-        long long power_bound = fixed ? 0 : min_power_for_frequency(setup->profiles, frequency);
+        double bandwidth_bound = fixed ? 0.0 : max_bandwidth_for_frequency(setup->profiles, setup->searchable_count, frequency);
+        long long power_bound = fixed ? 0 : min_power_for_frequency(setup->profiles, setup->searchable_count, frequency);
         setup->remaining_bandwidth[depth] = setup->remaining_bandwidth[depth + 1] + bandwidth_bound;
         setup->remaining_min_power_mw[depth] = setup->remaining_min_power_mw[depth + 1] + power_bound;
     }
@@ -245,6 +269,7 @@ void assignment_free_setup(SearchSetup *setup) {
     free(setup->base_profiles);
     free(setup->remaining_bandwidth);
     free(setup->remaining_min_power_mw);
+    free(setup->extended_items);
 }
 
 // Atribui a cada no, na ordem de grau, o melhor perfil local; e a primeira folha da busca exata.

@@ -60,7 +60,7 @@ No modelo de consumo, larguras maiores gastam menos potência. Por isso, `energy
 
 As metaheurísticas usam as mesmas peças, em `src/strategies/metaheuristic.c`, para que a comparação com o backtracking e com o guloso dependa só do método, e não de diferenças de implementação. A busca local (`local_search.c`) é a referência que exercita essa base.
 
-- **Representação.** A solução é um índice de perfil por AP, como no backtracking. Em cada faixa, só mudam os APs que não estão fixos e têm perfis da sua faixa; os APs travados num perfil disponível ficam fixos, com as mesmas regras do backtracking (`assignment.c`).
+- **Representação.** A solução é um índice de perfil por AP, como no backtracking. Em cada faixa, só mudam os APs que não estão fixos e têm perfis da sua faixa; os APs travados ficam fixos, com as mesmas regras do backtracking (`assignment.c`, seção APs Travados).
 - **Custo.** O custo é o do critério de otimização (`AssignmentCost` e `compare_assignment_costs`, em `objective.c`), com as mesmas regras do custo incremental do backtracking e do guloso: conta as arestas em conflito com os dois lados definidos, exceto entre dois APs fixos, e soma a largura e a potência de cada AP atribuído. `meta_full_cost` recalcula o custo completo, e `meta_move_delta` calcula a variação ao trocar o perfil de um AP, em O(grau). Como a interferência é real, a soma incremental pode acumular erro de arredondamento ao longo de milhões de movimentos; por isso, o custo atual é recalculado por completo a cada 4.096 iterações, e uma solução só vira a melhor depois de o seu custo ser recalculado. Os testes em C conferem que a variação incremental coincide com o recálculo completo em 20.000 movimentos aleatórios, nos três objetivos.
 - **Vizinhança.** O movimento básico é trocar o perfil de um AP; `meta_random_move` sorteia um AP móvel e um perfil permitido diferente do atual.
 - **Solução inicial.** A do guloso (`greedy`, padrão) ou um perfil permitido aleatório para cada AP (`random`).
@@ -154,6 +154,10 @@ Cada faixa de `execution.bands` traz em `search`, além dos contadores do AG: `l
 | `local_search_depth` | inteiro | `200` | 1 a 10⁷ | Vizinhos avaliados em cada indivíduo refinado. |
 
 Além desses, o híbrido aceita todos os parâmetros do Algoritmo Genético, com os mesmos padrões, para que a comparação com o AG puro mude só a busca local.
+
+## APs Travados
+
+Um AP travado (`locked: true`) mantém a sua configuração em todas as estratégias. Se a configuração dele está entre os perfis da busca, ele fica fixo nesse perfil; se não está (por exemplo, o canal 3 em 2,4 GHz, fora dos perfis padrão), ele recebe um perfil próprio, acrescentado ao fim da lista, que só ele usa e que a busca nunca oferece aos APs livres. Assim, a interferência entre o AP travado e os vizinhos entra no custo pela configuração real dele, e os APs livres podem fugir dela. A largura e a potência do AP travado entram uma vez só no custo. Até a v1.2.1, um AP travado fora dos perfis era tratado como livre e podia ter a configuração alterada (#112).
 
 ## Interferência
 
