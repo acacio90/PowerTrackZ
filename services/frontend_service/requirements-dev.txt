@@ -1,0 +1,3 @@
+# Dependencias de desenvolvimento do frontend_service (fora da imagem do servico).
+# Testes da interface no navegador (browser_tests): cliente do protocolo DevTools do Chrome.
+websocket-client==1.9.2

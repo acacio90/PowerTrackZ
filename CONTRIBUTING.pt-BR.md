@@ -92,6 +92,18 @@ python -m unittest discover -s services/frontend_service/tests
 
 Para rodar um único arquivo, informe o caminho, por exemplo `python -m unittest services/frontend_service/tests/test_routes.py`.
 
+### Testes da interface no navegador
+
+Os testes em `services/frontend_service/browser_tests/` abrem as páginas no Chrome headless, pelo protocolo DevTools, com os serviços do `docker compose` no ar. Eles conferem que nenhuma página gera erro de JavaScript, os fluxos principais (os modais da infraestrutura, gerar uma topologia até a revisão, executar uma estratégia na Análise até o resumo e abrir o teste de escalabilidade), o contraste AA do texto visível a 1280 e 600 px e a ausência de rolagem horizontal a 600 px. As requisições que gravariam dados (POST, PUT e DELETE fora das rotas de análise e da geração de topologia) são bloqueadas no navegador, então os testes não alteram o banco.
+
+```bash
+pip install -r services/frontend_service/requirements-dev.txt   # websocket-client, só para desenvolvimento
+docker compose up -d
+python -m unittest discover -s services/frontend_service/browser_tests
+```
+
+Sem o Chrome, o `websocket-client` ou os serviços no ar, os testes são pulados, com um aviso. O Chrome é procurado nos caminhos padrão; informe outro em `CHROME_PATH`, e outro endereço do frontend em `PTZ_FRONTEND_URL` (padrão `http://localhost:3000`). As dependências de teste ficam em `requirements-dev.txt`, fora da imagem do serviço (o `.dockerignore` exclui os testes).
+
 Antes de abrir um *pull request*, rode os testes dos serviços alterados e inclua testes para o comportamento novo.
 
 ## Padrões de Código
