@@ -60,7 +60,7 @@ In the consumption model, wider bandwidths use less power. That is why `energy_t
 
 The metaheuristics share the same pieces, in `src/strategies/metaheuristic.c`, so that the comparison with backtracking and greedy depends only on the method, not on implementation differences. Local search (`local_search.c`) is the reference that exercises this base.
 
-- **Representation.** The solution is one profile index per AP, as in backtracking. In each band, only the APs that are not fixed and have profiles of their band change; the APs locked on an available profile stay fixed, with the same rules as backtracking (`assignment.c`).
+- **Representation.** The solution is one profile index per AP, as in backtracking. In each band, only the APs that are not fixed and have profiles of their band change; locked APs stay fixed, with the same rules as backtracking (`assignment.c`, Locked APs section).
 - **Cost.** The cost is the optimization criterion's (`AssignmentCost` and `compare_assignment_costs`, in `objective.c`), with the same rules as the incremental cost of backtracking and greedy: it counts the conflicting edges with both ends defined, except between two fixed APs, and adds the bandwidth and power of each assigned AP. `meta_full_cost` recomputes the full cost, and `meta_move_delta` computes the change when the profile of one AP changes, in O(degree). Since interference is a real number, the incremental sum may accumulate rounding error over millions of moves; therefore, the current cost is fully recomputed every 4,096 iterations, and a solution only becomes the best one after its cost is recomputed. The C tests check that the incremental change matches the full recomputation over 20,000 random moves, in the three objectives.
 - **Neighborhood.** The basic move is changing the profile of one AP; `meta_random_move` draws a mobile AP and an allowed profile different from the current one.
 - **Initial solution.** The greedy one (`greedy`, default) or a random allowed profile for each AP (`random`).
@@ -154,6 +154,10 @@ Each band in `execution.bands` reports in `search`, besides the GA counters: `lo
 | `local_search_depth` | integer | `200` | 1 to 10⁷ | Neighbors evaluated in each refined individual. |
 
 Besides these, the hybrid accepts all the Genetic Algorithm parameters, with the same defaults, so that the comparison with the pure GA changes only the local search.
+
+## Locked APs
+
+A locked AP (`locked: true`) keeps its configuration in every strategy. If its configuration is among the search profiles, it stays fixed on that profile; if it is not (for example, channel 3 in 2.4 GHz, outside the default profiles), it gets a profile of its own, appended to the end of the list, which only it uses and which the search never offers to the free APs. This way, the interference between the locked AP and its neighbors enters the cost through its actual configuration, and the free APs can move away from it. The bandwidth and power of the locked AP enter the cost only once. Up to v1.2.1, a locked AP outside the profiles was treated as free and could have its configuration changed (#112).
 
 ## Interference
 

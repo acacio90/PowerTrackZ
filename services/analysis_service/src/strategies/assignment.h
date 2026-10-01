@@ -16,7 +16,12 @@ typedef struct {
 // profundidade, os limites otimistas do que falta atribuir (maior banda e menor potencia possiveis).
 typedef struct {
     const Graph *graph;
+    // Perfis da busca seguidos dos perfis proprios dos APs travados fora deles: so os searchable_count primeiros
+    // sao oferecidos aos APs livres; cada perfil extra serve apenas ao AP travado que o originou.
     const ProfileSet *profiles;
+    int searchable_count;
+    ProfileSet extended_profiles;
+    ProposedConfig *extended_items;
     OptimizationObjective objective;
     int *order;
     int order_count;
@@ -32,7 +37,8 @@ double assignment_monotonic_seconds(void);
 double assignment_bandwidth_score(const char *bandwidth);
 bool assignment_same_band(const char *left, const char *right);
 
-// AP travado com um perfil disponivel: fica fixo e nao entra na busca.
+// AP travado: fica fixo e nao entra na busca. Se a configuracao dele nao esta entre os perfis da busca, ele
+// recebe um perfil proprio, para manter a configuracao e ter a interferencia com os vizinhos no custo.
 bool assignment_node_is_fixed(const Graph *graph, const int *profiles, int node_index);
 
 // Conflitos e interferencia (w * s) de dar ao AP o perfil indicado, frente aos vizinhos com perfil definido.

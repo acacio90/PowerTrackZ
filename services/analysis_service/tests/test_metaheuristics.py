@@ -213,6 +213,40 @@ class AnalysisServiceMetaheuristicTests(AnalysisServiceTestCase):
                 (ap["channel"], ap["bandwidth"], ap["frequency"]),
             )
 
+    def test_every_metaheuristic_keeps_locked_access_points_outside_the_profiles(self):
+        aps = self.dense_aps(30, seed=33)
+        locked = {}
+        for ap in aps[::6]:
+            ap["locked"] = True
+            ap.update({"channel": "3", "bandwidth": "20 MHz"} if ap["frequency"] == "2.4 GHz" else {"channel": "100", "bandwidth": "20 MHz"})
+            locked[ap["id"]] = (ap["channel"], ap["bandwidth"])
+        cases = {
+            "local_search": {"max_iterations": 3000},
+            "simulated_annealing": {"max_iterations": 3000},
+            "tabu_search": {"max_iterations": 300},
+            "genetic": {"generations": 30},
+            "hybrid_genetic": {"generations": 10},
+        }
+        for strategy, limits in cases.items():
+            with self.subTest(strategy=strategy):
+                result = self.post_json(
+                    "/analyze-graph",
+                    {"aps": aps, "strategy": strategy,
+                     "parameters": {"seed": 4, "time_limit_seconds": 0, "initial_solution": "random", **limits}},
+                    timeout=60,
+                )
+                for ap_id, expected in locked.items():
+                    node = self.get_node_by_id(result, ap_id)
+                    self.assertEqual((node["proposed_channel"], node["proposed_bandwidth"]), expected)
+                # O custo da busca deixa de fora os conflitos entre dois APs travados (nao dependem da atribuicao);
+                # a comparacao geral os conta.
+                locked_pairs = sum(
+                    1 for link in result["graph_data"]["links"]
+                    if link["source"] in locked and link["target"] in locked and link["interference_peso"] > 0
+                )
+                execution = result["execution"]
+                self.assertEqual(execution["search"]["conflicts"] + locked_pairs, execution["comparison"]["conflicts_after"])
+
     def test_streams_progress_and_can_be_cancelled(self):
         aps = self.dense_aps(200, seed=32)
         payload = {

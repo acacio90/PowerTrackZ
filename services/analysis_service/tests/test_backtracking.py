@@ -582,6 +582,29 @@ class AnalysisServiceBacktrackingTests(AnalysisServiceTestCase):
         self.assertEqual(node["proposed_channel"], "44")
         self.assertEqual(node["proposed_bandwidth"], "20 MHz")
 
+    def locked_outside_the_profiles(self):
+        # AP travado no canal 3 (fora dos perfis padrao de 2,4 GHz) e um AP livre sobreposto a ele.
+        return [
+            {"id": "locked-ap", "label": "Locked", "x": -23.5505, "y": -46.6333, "raio": 20,
+             "channel": "3", "bandwidth": "20 MHz", "frequency": "2.4 GHz", "locked": True},
+            {"id": "free-ap", "label": "Free", "x": -23.55051, "y": -46.63331, "raio": 20,
+             "channel": "3", "bandwidth": "20 MHz", "frequency": "2.4 GHz", "locked": False},
+        ]
+
+    def test_keeps_locked_access_points_outside_the_profiles(self):
+        aps = self.locked_outside_the_profiles()
+        for strategy, parameters in (("backtracking", {"time_limit_seconds": 0}), ("greedy", {})):
+            with self.subTest(strategy=strategy):
+                result = self.post_json("/analyze-graph", {"aps": aps, "strategy": strategy, "parameters": parameters})
+                node = self.get_node_by_id(result, "locked-ap")
+                self.assertEqual((node["proposed_channel"], node["proposed_bandwidth"]), ("3", "20 MHz"))
+                # O AP livre sai da sobreposicao com o canal 3 (2412-2432 MHz), e a largura do travado entra uma vez so.
+                search = result["execution"]["search"]
+                self.assertEqual(result["execution"]["comparison"]["conflicts_after"], 0)
+                self.assertEqual(search["conflicts"], 0)
+                free = self.get_node_by_id(result, "free-ap")
+                self.assertEqual(search["bandwidth_score"], 20 + float(free["proposed_bandwidth"].split()[0]))
+
     def test_when_repeat_is_required_prefers_lower_interference_side(self):
         payload = {
             "aps": [

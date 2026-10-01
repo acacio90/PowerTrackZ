@@ -103,7 +103,7 @@ void meta_problem_init(MetaProblem *problem, const Graph *graph, const ProfileSe
         if (assignment_node_is_fixed(graph, setup->base_profiles, node_index)) {
             continue;
         }
-        for (int profile_index = 0; profile_index < setup->profiles->count; profile_index++) {
+        for (int profile_index = 0; profile_index < setup->searchable_count; profile_index++) {
             if (assignment_same_band(setup->profiles->items[profile_index].frequency, graph->nodes[node_index].frequency)) {
                 problem->allowed[used++] = profile_index;
             }

@@ -26,7 +26,8 @@ static int failures = 0;
 } while (0)
 
 // Grafo aleatorio e reprodutivel: APs proximos (muitas sobreposicoes) em 2,4 e 5 GHz; os de indice
-// multiplo de 7 ficam travados no canal 6 (2,4 GHz) ou 44 (5 GHz), que estao nos perfis padrao.
+// multiplo de 7 ficam travados no canal 6 (2,4 GHz) ou 44 (5 GHz), que estao nos perfis padrao, e os de
+// indice multiplo de 11 (e nao de 7), no canal 3 ou 100, fora deles (#112).
 static void build_test_graph(Graph *graph, int node_count, uint64_t seed) {
     MetaRng rng;
     meta_rng_seed(&rng, seed, 0);
@@ -37,6 +38,7 @@ static void build_test_graph(Graph *graph, int node_count, uint64_t seed) {
     for (int index = 0; index < node_count; index++) {
         bool band24 = index % 2 == 0;
         bool locked = index % 7 == 0;
+        bool locked_outside = !locked && index % 11 == 0;
         char id[16];
         snprintf(id, sizeof(id), "ap%d", index);
         cJSON *ap = cJSON_CreateObject();
@@ -44,9 +46,11 @@ static void build_test_graph(Graph *graph, int node_count, uint64_t seed) {
         cJSON_AddNumberToObject(ap, "x", -23.55 + meta_rng_unit(&rng) * 0.0005);
         cJSON_AddNumberToObject(ap, "y", -46.63 + meta_rng_unit(&rng) * 0.0005);
         cJSON_AddStringToObject(ap, "frequency", band24 ? "2.4 GHz" : "5 GHz");
-        cJSON_AddStringToObject(ap, "bandwidth", locked ? "20 MHz" : (meta_rng_below(&rng, 2) ? "20 MHz" : "40 MHz"));
-        cJSON_AddStringToObject(ap, "channel", locked ? (band24 ? "6" : "44") : (band24 ? channels24[meta_rng_below(&rng, 4)] : channels5[meta_rng_below(&rng, 4)]));
-        cJSON_AddBoolToObject(ap, "locked", locked);
+        cJSON_AddStringToObject(ap, "bandwidth", locked || locked_outside ? "20 MHz" : (meta_rng_below(&rng, 2) ? "20 MHz" : "40 MHz"));
+        cJSON_AddStringToObject(ap, "channel", locked ? (band24 ? "6" : "44")
+            : locked_outside ? (band24 ? "3" : "100")
+            : (band24 ? channels24[meta_rng_below(&rng, 4)] : channels5[meta_rng_below(&rng, 4)]));
+        cJSON_AddBoolToObject(ap, "locked", locked || locked_outside);
         cJSON_AddItemToArray(aps, ap);
     }
     char *error = NULL;
@@ -331,7 +335,37 @@ static void test_local_search_descent_never_worsens(void) {
     analysis_free_graph(&graph);
 }
 
+// APs travados fora dos perfis recebem um perfil proprio, que so eles usam e que a busca nunca oferece (#112).
+static void test_locked_access_points_outside_the_profiles_keep_their_configuration(void) {
+    Graph graph;
+    build_test_graph(&graph, 60, 31);
+    MetaProblem problem;
+    meta_problem_init(&problem, &graph, default_search_profiles(), OBJECTIVE_DEFAULT);
+    const SearchSetup *setup = &problem.setup;
+    int outside = 0;
+    for (int node_index = 0; node_index < graph.node_count; node_index++) {
+        const Node *node = &graph.nodes[node_index];
+        if (!node->locked) {
+            continue;
+        }
+        int profile = setup->base_profiles[node_index];
+        CHECK(profile >= 0, "AP travado %s sem perfil", node->id);
+        CHECK(assignment_node_is_fixed(&graph, setup->base_profiles, node_index), "AP travado %s nao ficou fixo", node->id);
+        if (profile >= setup->searchable_count) {
+            outside++;
+            CHECK(strcmp(setup->profiles->items[profile].channel, node->channel) == 0, "perfil proprio de %s com outro canal", node->id);
+        }
+    }
+    CHECK(outside > 0, "o grafo de teste deveria ter APs travados fora dos perfis");
+    for (int index = 0; index < problem.allowed_start[graph.node_count]; index++) {
+        CHECK(problem.allowed[index] < setup->searchable_count, "a busca oferece um perfil proprio de AP travado");
+    }
+    meta_problem_free(&problem);
+    analysis_free_graph(&graph);
+}
+
 int main(void) {
+    test_locked_access_points_outside_the_profiles_keep_their_configuration();
     test_local_search_descent_never_worsens();
     test_genetic_operators_preserve_fixed_access_points();
     test_genetic_tournament_prefers_better_individuals();
