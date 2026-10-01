@@ -92,6 +92,8 @@ typedef struct {
     AssignmentCost initial;
     cJSON *curve;
     long long curve_last_iteration;
+    // A cada quantas iteracoes conferir tempo e cancelamento (256; o AG, em que cada iteracao e uma geracao, usa 1).
+    long long check_interval;
 } MetaRun;
 
 // Inicia a execucao: gerador pela semente da faixa, solucao inicial (em profiles e cost), primeiro ponto

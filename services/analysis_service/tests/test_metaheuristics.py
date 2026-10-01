@@ -395,5 +395,83 @@ class TabuSearchTests(AnalysisServiceTestCase):
         self.assertGreater(rejections(long), rejections(short))
 
 
+
+class GeneticAlgorithmTests(AnalysisServiceTestCase):
+    """Algoritmo Genetico (#84). Os operadores tem testes em C (tests/c)."""
+
+    def genetic(self, aps, **parameters):
+        return self.post_json("/analyze-graph", {"aps": aps, "strategy": "genetic", "parameters": parameters}, timeout=60)
+
+    def dense_aps(self, count, seed):
+        return AnalysisServiceMetaheuristicTests.dense_aps(self, count, seed)
+
+    def test_is_implemented_with_its_parameters(self):
+        details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
+        genetic = details["genetic"]
+        parameters = {parameter["name"]: parameter for parameter in genetic["parameters"]}
+
+        self.assertTrue(genetic["implemented"])
+        self.assertEqual(genetic["family"], "metaheuristic")
+        self.assertTrue({"seed", "time_limit_seconds", "population_size", "generations", "max_iterations_without_improvement",
+                         "greedy_fraction", "crossover", "crossover_rate", "mutation_rate", "tournament_size", "elitism"} <= set(parameters))
+        self.assertEqual([option["value"] for option in parameters["crossover"]["options"]], ["uniform", "one_point"])
+
+    def test_same_seed_gives_the_same_result(self):
+        aps = self.dense_aps(60, seed=60)
+        parameters = {"seed": 21, "time_limit_seconds": 0, "generations": 60, "population_size": 30}
+        first = self.genetic(aps, **parameters)
+        second = self.genetic(aps, **parameters)
+
+        self.assertEqual(self.proposals(first), self.proposals(second))
+        for band in first["execution"]["bands"]:
+            self.assertEqual(band["search"]["iterations"], 60)
+            self.assertEqual(band["search"]["evaluations"], 30 + 60 * (30 - 2))
+
+    def test_elitism_never_lets_the_best_of_a_generation_get_worse(self):
+        aps = self.dense_aps(60, seed=61)
+        common = {"seed": 6, "time_limit_seconds": 0, "generations": 80, "population_size": 20,
+                  "mutation_rate": 0.3, "max_iterations_without_improvement": 0}
+        with_elite = self.genetic(aps, elitism=1, **common)
+        without_elite = self.genetic(aps, elitism=0, **common)
+
+        for band in with_elite["execution"]["bands"]:
+            self.assertEqual(band["search"]["generation_best_worsened"], 0)
+        # Sem elite e com mutacao alta, a melhor de uma geracao chega a piorar; a devolvida continua sendo a melhor.
+        self.assertGreater(sum(band["search"]["generation_best_worsened"] for band in without_elite["execution"]["bands"]), 0)
+        for band in without_elite["execution"]["bands"]:
+            self.assertLessEqual(band["search"]["conflicts"], band["search"]["greedy_conflicts"])
+
+    def test_preserves_locked_access_points(self):
+        aps = self.dense_aps(30, seed=62)
+        locked = {ap["id"]: ap for ap in aps[::4]}
+        for ap in locked.values():
+            ap["locked"] = True
+            ap.update({"channel": "6", "bandwidth": "20 MHz"} if ap["frequency"] == "2.4 GHz" else {"channel": "44", "bandwidth": "20 MHz"})
+        result = self.genetic(aps, seed=8, time_limit_seconds=0, generations=50, greedy_fraction=0, mutation_rate=0.5)
+
+        for ap_id, ap in locked.items():
+            node = self.get_node_by_id(result, ap_id)
+            self.assertEqual(
+                (node["proposed_channel"], node["proposed_bandwidth"], node["proposed_frequency"]),
+                (ap["channel"], ap["bandwidth"], ap["frequency"]),
+            )
+
+    def test_rejects_inconsistent_parameters(self):
+        aps = self.dense_aps(4, seed=63)
+        cases = [
+            ({"population_size": 10, "elitism": 10}, "elite"),
+            ({"population_size": 10, "tournament_size": 11}, "torneio"),
+            ({"time_limit_seconds": 0, "generations": 0, "max_iterations_without_improvement": 0}, "critérios de parada"),
+            ({"crossover": "two_points"}, "crossover"),
+        ]
+        for parameters, expected in cases:
+            with self.subTest(parameters=parameters):
+                with self.assertRaises(urllib.error.HTTPError) as context:
+                    self.genetic(aps, **parameters)
+                with context.exception as error:
+                    self.assertEqual(error.code, 400)
+                    self.assertIn(expected, json.loads(error.read().decode("utf-8"))["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

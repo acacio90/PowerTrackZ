@@ -127,12 +127,12 @@ The analysis routes receive the criterion in the `objective` field (`default`, `
 
 The analysis routes receive these values in `parameters`. Values outside the declared type or range, and options outside the list, return HTTP 400 with the message in `error`. The details are in [services/analysis_service/README.md](../../services/analysis_service/README.md).
 
-In the metaheuristics (`metaheuristic` family: `local_search`, `simulated_annealing` and `tabu_search`), the response also reports:
+In the metaheuristics (`metaheuristic` family: `local_search`, `simulated_annealing`, `tabu_search` and `genetic`), the response also reports:
 
 - `execution.seed`: the seed used, given in `parameters.seed` or drawn; repeating the request with it reproduces the result (except when the search stops at the time limit);
 - `execution.search.iterations` and, in each band, `search.iterations`: the iterations run;
 - `stop_reason`: besides `completed`, `time_limit` and `cancelled`, the reasons `iteration_limit` (iteration limit), `no_improvement` (iterations without improvement) and `min_temperature` (Simulated Annealing's minimum temperature);
-- in Simulated Annealing, each band reports in `search` the initial and final temperatures, whether the initial one was estimated, the levels visited and the worsenings accepted, and, in Tabu Search, the moves evaluated, forbidden, accepted by aspiration and worsening;
+- in Simulated Annealing, each band reports in `search` the initial and final temperatures, whether the initial one was estimated, the levels visited and the worsenings accepted, and, in Tabu Search, the moves evaluated, forbidden, accepted by aspiration and worsening, and, in the Genetic Algorithm, the population, the evaluations and the generations in which the best got worse (in the GA, each iteration is a generation);
 - `execution.bands[].convergence`: the band's convergence curve, with the best solution at the initial solution, at each improvement and at the end:
 
 ```json

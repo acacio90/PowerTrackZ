@@ -440,6 +440,7 @@ void meta_run_begin(
     run->started_at = assignment_monotonic_seconds();
     run->deadline = options->time_limit_seconds > 0.0 ? run->started_at + options->time_limit_seconds : 0.0;
     run->stop_reason = ASSIGNMENT_STOP_COMPLETED;
+    run->check_interval = CHECK_INTERVAL;
     run->best_profiles = assignment_malloc(sizeof(int) * (size_t) node_count, "malloc best profiles");
     run->curve = cJSON_CreateArray();
 
@@ -468,7 +469,7 @@ bool meta_run_next(MetaRun *run, const int *profiles, AssignmentCost *cost) {
         run->stop_reason = ASSIGNMENT_STOP_NO_IMPROVEMENT;
         return false;
     }
-    if (run->iteration % CHECK_INTERVAL == 0) {
+    if (run->iteration % run->check_interval == 0) {
         const AnalysisExecutionContext *context = run->context;
         if (context && context->job && is_cancelled(context->job)) {
             run->stop_reason = ASSIGNMENT_STOP_CANCELLED;

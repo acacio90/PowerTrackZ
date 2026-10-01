@@ -13,7 +13,7 @@ C service that builds the conflict graph between access points and suggests the 
 | `local_search` | Local search on the common metaheuristic base (section below): at each iteration, it changes the profile of a random AP and accepts the change if it does not worsen the solution under the optimization criterion. It does not guarantee the optimum; it is the reference for the metaheuristics. |
 | `simulated_annealing` | Simulated Annealing on the common base: accepts worsenings with the Metropolis probability, which decreases with the temperature (section below). It does not guarantee the optimum. |
 | `tabu_search` | Tabu Search on the common base: applies the best non-forbidden profile change, even if worse, and forbids undoing it for a while (section below). It does not guarantee the optimum. |
-| `genetic` | Not implemented yet (returns a *placeholder*). |
+| `genetic` | Genetic Algorithm on the common base: tournament selection, crossover, mutation and elitism (section below). It does not guarantee the optimum. |
 
 ## Parameters
 
@@ -29,7 +29,7 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 | `local_search` | `max_iterations_without_improvement` | integer | `100000` | 0 to 10⁹ | Stops the search in the band after this number of iterations without improving the best solution. `0` disables the criterion. |
 | `local_search` | `initial_solution` | choice | `greedy` | `greedy`, `random` | Initial solution: the greedy one or a random profile for each AP. |
 
-The `greedy` and `genetic` strategies have no configurable parameters. The `simulated_annealing` and `tabu_search` parameters are in each one's section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
+The `greedy` strategy has no configurable parameters. The `simulated_annealing`, `tabu_search` and `genetic` parameters are in each one's section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
 
 `GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null, and `optional_label` tells what happens without a value, such as `Sorteada` or `Estimada`). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
@@ -107,6 +107,33 @@ Each band in `execution.bands` reports in `search`: `evaluated_moves` (moves eva
 | `candidate_nodes` | integer | `20` | 1 to 10,000 | APs drawn at each iteration, all of whose profile changes are evaluated. |
 
 Besides these, Tabu Search accepts the metaheuristics' common parameters. Each iteration evaluates dozens of moves, so, with the defaults, the search usually stops at the time limit.
+
+## Genetic Algorithm
+
+The `genetic` strategy (`src/strategies/genetic.c`) evolves a population of solutions. Each individual is a solution of the common base (one profile per AP), and the fitness is the cost of the optimization criterion, compared by the objective's lexicographic order, without turning the components into a number. In the common base, each iteration is a generation: `generations` is the iteration limit, and `max_iterations_without_improvement` counts generations.
+
+- **Initial population.** The greedy solution, mutated copies of it (up to the fraction `greedy_fraction` of the population, so they are not identical) and, for the rest, random solutions.
+- **Selection.** By tournament: draws `tournament_size` individuals, with replacement, and the best one wins. Tournament was chosen because it only uses comparisons between costs, which preserves the lexicographic order; roulette would require a numeric fitness.
+- **Crossover.** With probability `crossover_rate`, the child comes from crossing two parents; otherwise, it copies the first one. In uniform crossover (`uniform`, default), each AP inherits the profile of one of the parents, at random; in one-point crossover (`one_point`), the APs before a cut, in graph order, come from the first parent, and the others from the second. Uniform is the default because the order of the APs in the graph does not reflect the neighborhood between them, and one-point splits neighboring APs at random.
+- **Mutation.** Each mobile AP of the child changes, with probability `mutation_rate`, to another allowed profile of its band.
+- **Elitism.** The `elitism` best individuals pass unchanged to the next generation; with an elite, the best fitness of a generation never gets worse.
+- **Locked APs.** They are the same in every individual: both parents have the same profile on them, and mutation only changes mobile APs.
+
+The best solution found is returned. Each band in `execution.bands` reports in `search`: `population_size`, `evaluations` (solutions evaluated, the initial population plus each generation's children) and `generation_best_worsened` (generations in which the population's best got worse than the previous one's; zero with an elite).
+
+| Parameter | Type | Default | Range | Description |
+|---|---|---|---|---|
+| `population_size` | integer | `50` | 4 to 10,000 | Individuals in each generation. |
+| `generations` | integer | `1000` | 0 to 10⁷ | Maximum number of generations in each band; `0` disables the limit. |
+| `max_iterations_without_improvement` | integer | `200` | 0 to 10⁷ | Generations without improving the best solution; `0` disables the criterion. |
+| `greedy_fraction` | number | `0.1` | 0 to 1 | Fraction of the initial population derived from greedy. |
+| `crossover` | choice | `uniform` | `uniform`, `one_point` | Crossover type. |
+| `crossover_rate` | number | `0.9` | 0 to 1 | Crossover probability. |
+| `mutation_rate` | number | `0.02` | 0 to 1 | Mutation probability of each AP. |
+| `tournament_size` | integer | `3` | 1 to 10,000 | Individuals per tournament; cannot exceed the population. |
+| `elitism` | integer | `2` | 0 to 9,999 | Elite individuals; must be smaller than the population. |
+
+Besides these, the GA accepts the seed (`seed`) and the time limit (`time_limit_seconds`); at least one of the stopping criteria (time, generations or generations without improvement) must be active.
 
 ## Interference
 
