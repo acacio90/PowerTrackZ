@@ -311,6 +311,8 @@
                 });
                 const total = marcadas.length;
                 resumo.textContent = `${rotuloFaixa(frequencia)}: k = ${total} perfi${total === 1 ? 'l' : 's'}`;
+                // Avisa quem usa o seletor (o resumo da pagina de Analise) que a selecao mudou.
+                container.dispatchEvent(new CustomEvent('channelplan:change', { bubbles: true }));
             }
             atualizarFaixa();
         });
@@ -339,7 +341,23 @@
                 : null;
         }
 
-        return { selecao, validar };
+        // Uma entrada por faixa com perfis: rotulo, k (canais marcados) e se ainda e o conjunto padrao.
+        function resumo() {
+            const escolhidos = selecao();
+            return faixas.map(frequencia => {
+                const larguras = escolhidos[frequencia] || {};
+                const k = Object.values(larguras).reduce((soma, canais) => soma + canais.length, 0);
+                const doPadrao = padrao[frequencia] || {};
+                const igualAoPadrao = Object.keys({ ...doPadrao, ...larguras }).every(largura => {
+                    const a = [...(doPadrao[largura] || [])].sort().join(',');
+                    const b = [...(larguras[largura] || [])].sort().join(',');
+                    return a === b;
+                });
+                return { frequencia, rotulo: rotuloFaixa(frequencia), k, padrao: igualAoPadrao };
+            });
+        }
+
+        return { selecao, validar, resumo };
     }
 
     window.ChannelPlan = {

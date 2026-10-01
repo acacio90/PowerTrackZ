@@ -23,7 +23,7 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 
 The `greedy` and `genetic` strategies have no configurable parameters.
 
-`GET /strategies` describes these parameters in `strategy_details`, with name, label, type, default, limits, unit and whether the value `0` disables the feature. The interface builds its fields from this description, so a new parameter only needs to be declared in the service.
+`GET /strategies` describes these parameters in `strategy_details`, with name, label, type, default, limits, unit, whether the value `0` disables the feature and whether it is advanced (`advanced`, shown collapsed in the interface). Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
 Values outside the declared type or range are rejected with HTTP 400 and a message such as `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph.
 

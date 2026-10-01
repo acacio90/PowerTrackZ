@@ -51,6 +51,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
         .max_value = 256,
         .unit = NULL,
         .zero_disables = false,
+        .advanced = true,
     },
     {
         .name = "time_limit_seconds",
@@ -62,6 +63,7 @@ static const StrategyParameter BACKTRACKING_PARAMETERS[] = {
         .max_value = 3600,
         .unit = "s",
         .zero_disables = true,
+        .advanced = false,
     },
 };
 
@@ -72,6 +74,7 @@ static const AnalysisStrategy STRATEGIES[] = {
         .name = "backtracking",
         .description = "Busca exata por branch-and-bound que minimiza os conflitos e a interferência, com limite de tempo.",
         .mode = "pthread-task-queue",
+        .family = "exact",
         .exact = true,
         .parameters = BACKTRACKING_PARAMETERS,
         .parameter_count = PARAMETER_COUNT(BACKTRACKING_PARAMETERS),
@@ -81,6 +84,7 @@ static const AnalysisStrategy STRATEGIES[] = {
         .name = "greedy",
         .description = "Heurística gulosa que atribui a cada AP, em ordem de grau, o perfil de menor interferência local.",
         .mode = "sequential",
+        .family = "constructive",
         .exact = false,
         .parameters = NULL,
         .parameter_count = 0,
@@ -90,6 +94,7 @@ static const AnalysisStrategy STRATEGIES[] = {
         .name = "genetic",
         .description = "Algoritmo genético; ainda não implementado no serviço em C.",
         .mode = "placeholder",
+        .family = "metaheuristic",
         .exact = false,
         .parameters = NULL,
         .parameter_count = 0,

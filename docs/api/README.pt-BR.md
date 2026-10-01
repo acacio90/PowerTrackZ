@@ -96,15 +96,17 @@ POST /collision-graph
 POST /graph-metrics
 ```
 
-`GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia e se ela é um método exato (`exact`):
+`GET /strategies` devolve, além do mapa `strategies` (nome e descrição), a lista `strategy_details` com os parâmetros aceitos por cada estratégia, se ela é um método exato (`exact`) e a sua família (`family`: `exact`, `constructive` ou `metaheuristic`), que a interface usa para agrupar as estratégias. Em cada parâmetro, `advanced` indica se a interface o mostra entre os parâmetros avançados:
 
 ```json
 {
   "name": "backtracking",
   "implemented": true,
+  "exact": true,
+  "family": "exact",
   "parameters": [
-    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false},
-    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true}
+    {"name": "thread_count", "label": "Threads", "type": "integer", "default": 1, "min": 1, "max": 256, "unit": null, "zero_disables": false, "advanced": true},
+    {"name": "time_limit_seconds", "label": "Limite de tempo", "type": "number", "default": 60, "min": 0, "max": 3600, "unit": "s", "zero_disables": true, "advanced": false}
   ]
 }
 ```
