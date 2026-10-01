@@ -780,6 +780,10 @@ static void add_search_stats_to_execution(cJSON *execution, const AssignmentStat
     if (stats->convergence || stats->iterations > 0) {
         cJSON_AddNumberToObject(search, "iterations", (double) stats->iterations);
     }
+    // Contadores proprios da estrategia (so nas faixas: o consolidado nao os soma).
+    for (cJSON *item = stats->details ? stats->details->child : NULL; item; item = item->next) {
+        cJSON_AddItemToObject(search, item->string, cJSON_Duplicate(item, true));
+    }
 }
 
 static cJSON *build_summary_json(const Graph *graph) {
@@ -1005,6 +1009,7 @@ static cJSON *build_strategy_response_json(
         if (band_stats.convergence) {
             cJSON_AddItemToObject(band_json, "convergence", band_stats.convergence);
         }
+        cJSON_Delete(band_stats.details);
         cJSON_AddItemToArray(bands_json, band_json);
 
         free(band_proposals);
@@ -1122,6 +1127,9 @@ static cJSON *build_strategy_parameters_json(const AnalysisStrategy *strategy) {
         cJSON_AddBoolToObject(item, "zero_disables", parameter->zero_disables);
         cJSON_AddBoolToObject(item, "advanced", parameter->advanced);
         cJSON_AddBoolToObject(item, "optional", parameter->optional);
+        if (parameter->optional_label) {
+            cJSON_AddStringToObject(item, "optional_label", parameter->optional_label);
+        }
         cJSON_AddItemToArray(json, item);
     }
     return json;

@@ -11,6 +11,7 @@ C service that builds the conflict graph between access points and suggests the 
 | `backtracking` | Exact *branch-and-bound* search. Minimizes the cost of the optimization criterion (section below); by default, in this order, the number of conflicts, the total interference and the inverse of the summed bandwidth. |
 | `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest incremental cost in the optimization criterion (by default, the lowest local interference). It is also the initial solution of the exact search. |
 | `local_search` | Local search on the common metaheuristic base (section below): at each iteration, it changes the profile of a random AP and accepts the change if it does not worsen the solution under the optimization criterion. It does not guarantee the optimum; it is the reference for the metaheuristics. |
+| `simulated_annealing` | Simulated Annealing on the common base: accepts worsenings with the Metropolis probability, which decreases with the temperature (section below). It does not guarantee the optimum. |
 | `genetic` | Not implemented yet (returns a *placeholder*). |
 
 ## Parameters
@@ -27,13 +28,13 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 | `local_search` | `max_iterations_without_improvement` | integer | `100000` | 0 to 10⁹ | Stops the search in the band after this number of iterations without improving the best solution. `0` disables the criterion. |
 | `local_search` | `initial_solution` | choice | `greedy` | `greedy`, `random` | Initial solution: the greedy one or a random profile for each AP. |
 
-The `greedy` and `genetic` strategies have no configurable parameters. In `local_search`, at least one of the three stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
+The `greedy` and `genetic` strategies have no configurable parameters. The `simulated_annealing` parameters are in the Simulated Annealing section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
 
-`GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
+`GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null, and `optional_label` tells what happens without a value, such as `Sorteada` or `Estimada`). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
 Values outside the declared type or range, and options that are not in the list, are rejected with HTTP 400 and a message such as `O parâmetro time_limit_seconds deve estar entre 0 e 3600.`. Parameters not declared by the strategy are ignored. The values actually used appear in `execution.parameters`; the number of *threads* is limited to the number of APs in the graph, and the seed is the one used (given or drawn).
 
-The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped, the explored nodes, the conflicts of the initial and final solutions (`greedy_conflicts` and `conflicts`) and the components of the solution cost (`interference_score`, `bandwidth_score` and `power_score_w`). The stop reasons are `completed` (the search finished), `no_improvement` (iterations without improvement), `iteration_limit` (iteration limit), `time_limit` (time limit) and `cancelled` (cancellation); when the bands are consolidated, the reason with the highest precedence wins, in this same order. In the metaheuristics, `iterations` reports the iterations run, `nodes_explored` equals them and `greedy_conflicts` are the conflicts of the initial solution, which may be the random one.
+The response reports in `execution.search` whether the solution is optimal (`optimal`), the reason the search stopped, the explored nodes, the conflicts of the initial and final solutions (`greedy_conflicts` and `conflicts`) and the components of the solution cost (`interference_score`, `bandwidth_score` and `power_score_w`). The stop reasons are `completed` (the search finished), `no_improvement` (iterations without improvement), `min_temperature` (Simulated Annealing's minimum temperature), `iteration_limit` (iteration limit), `time_limit` (time limit) and `cancelled` (cancellation); when the bands are consolidated, the reason with the highest precedence wins, in this same order. In the metaheuristics, `iterations` reports the iterations run, `nodes_explored` equals them and `greedy_conflicts` are the conflicts of the initial solution, which may be the random one.
 
 ## Optimization Criterion
 
@@ -67,6 +68,26 @@ The metaheuristics share the same pieces, in `src/strategies/metaheuristic.c`, s
 - **Progress and cancellation.** On the *streaming* route, progress (`iteration`, `best_conflicts` and the completed fraction, that of the most advanced stopping criterion) is sent every 0.2 s, and cancellation is checked every 256 iterations.
 
 To create a metaheuristic, declare the common parameters with the macros `META_SEED_PARAMETER`, `META_TIME_LIMIT_PARAMETER`, `META_MAX_ITERATIONS_PARAMETER`, `META_STAGNATION_PARAMETER` and `META_INITIAL_SOLUTION_PARAMETER`, use `meta_validate_parameters` for validation and follow the loop in `local_search.c`: `meta_run_begin`, `meta_run_next` at each iteration, `meta_run_offer` when the current solution changes and `meta_run_end` at the end. Comparisons use the objective's lexicographic order (`compare_assignment_costs`); a metaheuristic that needs a numeric cost difference (such as Simulated Annealing's acceptance) must document how it obtains one without violating that order.
+
+## Simulated Annealing
+
+The `simulated_annealing` strategy (`src/strategies/simulated_annealing.c`) starts from the initial solution and, at each iteration, draws a neighbor. A neighbor that does not worsen the current solution is always accepted; one that worsens it is accepted with the Metropolis probability, exp(−Δ/T), which decreases with the temperature T. The solution returned is the best one found, even if the current one is worse at the end.
+
+**Lexicographic cost difference.** The cost has several components compared in order (Optimization Criterion section), and Metropolis needs a number. Δ is the worsening in the component that decides the comparison, that is, the first one, in the objective's order, in which the neighbor and the current solution differ, divided by that component's scale. This way, the order of the criteria is respected: in the default objective, a neighbor with one more conflict is judged by the worsening in conflicts, however large the improvement in interference, and interference only weighs between solutions with the same conflicts. The scale of each component is the mean of the nonzero changes of that component in a sample of 200 neighbors of the initial solution; it makes the components comparable and makes T dimensionless. A weighted sum of the components, with large weights for the first ones, was discarded: it only respects the order if the weights dominate any change of the following components, which depends on the instance.
+
+**Temperature.** Without `initial_temperature`, the initial temperature is estimated on the same sample, to accept 80% of the worsenings on average: T₀ = −mean(Δ) / ln 0.8. Every `iterations_per_temperature` iterations, the temperature drops: in geometric cooling (`geometric`, default), T ← T · `cooling_rate`; in linear cooling (`linear`), T ← T − T₀ · (1 − `cooling_rate`). The search in the band stops when T falls below `min_temperature` (reason `min_temperature`) or by one of the common criteria.
+
+Each band in `execution.bands` reports in `search`: `initial_temperature` and `initial_temperature_estimated` (whether it was estimated), `final_temperature`, `temperature_levels` (temperature levels visited) and `accepted_worse` (worsenings accepted).
+
+| Parameter | Type | Default | Range | Description |
+|---|---|---|---|---|
+| `initial_temperature` | number, optional | estimated | 0.0001 to 10⁶ | Initial temperature. |
+| `cooling_schedule` | choice | `geometric` | `geometric`, `linear` | Cooling schedule. |
+| `cooling_rate` | number | `0.95` | 0.5 to 0.9999 | Cooling rate. |
+| `iterations_per_temperature` | integer | `1000` | 1 to 10⁷ | Iterations at each temperature level. |
+| `min_temperature` | number | `0.001` | 0 to 10⁶ | Temperature at which the search stops; `0` disables the criterion (in linear cooling, the search stops when T reaches zero). |
+
+Besides these, SA accepts the metaheuristics' common parameters (`seed`, `time_limit_seconds`, `max_iterations`, `max_iterations_without_improvement` and `initial_solution`). A minimum temperature equal to or above the given initial one is rejected with HTTP 400.
 
 ## Interference
 
