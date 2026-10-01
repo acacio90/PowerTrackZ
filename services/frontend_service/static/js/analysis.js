@@ -555,7 +555,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Conflitos (antes / depois)</span>
-                    <span class="analysis-execution-value">${comparison.conflicts_before != null ? comparison.conflicts_before : '-'} / ${comparison.conflicts_after != null ? comparison.conflicts_after : '-'}</span>
+                    <span class="analysis-execution-value">${formatInteger(comparison.conflicts_before)} / ${formatInteger(comparison.conflicts_after)}</span>
                 </div>
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Densidade de conflitos (antes / depois)</span>
@@ -810,6 +810,10 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // Variacao de uma metrica em que menor e melhor (conflitos, interferencia, consumo): o sinal e a seta
     // acompanham a cor, para a leitura nao depender so dela.
+    function formatInteger(value) {
+        return value == null ? '-' : Number(value).toLocaleString('pt-BR');
+    }
+
     function formatChange(before, after, unit = '') {
         if (before == null || after == null) {
             return '<span class="analysis-change is-neutral">-</span>';
@@ -882,9 +886,9 @@ window.addEventListener('DOMContentLoaded', function() {
             return `
                 <tr>
                     <th scope="row">${band.toLocaleString('pt-BR')} GHz</th>
-                    <td>${metrics.nodes}</td>
-                    <td>${metrics.overlaps}</td>
-                    <td>${metrics.conflicts}</td>
+                    <td>${formatInteger(metrics.nodes)}</td>
+                    <td>${formatInteger(metrics.overlaps)}</td>
+                    <td>${formatInteger(metrics.conflicts)}</td>
                     <td>${formatNumber(metrics.interference)}</td>
                     <td>${formatNumber(metrics.power)} W</td>
                 </tr>`;
@@ -898,17 +902,17 @@ window.addEventListener('DOMContentLoaded', function() {
             <div class="analysis-summary-cards">
                 <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">APs</span>
-                    <span class="analysis-summary-value">${total.nodes}</span>
+                    <span class="analysis-summary-value">${formatInteger(total.nodes)}</span>
                     <span class="analysis-summary-detail">em ${bands.length} faixa${bands.length === 1 ? '' : 's'}</span>
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label" title="Pares de APs com coberturas sobrepostas na mesma faixa">Sobreposições</span>
-                    <span class="analysis-summary-value">${total.overlaps}</span>
+                    <span class="analysis-summary-value">${formatInteger(total.overlaps)}</span>
                     <span class="analysis-summary-detail">arestas do grafo</span>
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Conflitos</span>
-                    <span class="analysis-summary-value">${total.conflicts}</span>
+                    <span class="analysis-summary-value">${formatInteger(total.conflicts)}</span>
                     <span class="analysis-summary-detail">${total.overlaps ? `${Math.round((total.conflicts / total.overlaps) * 100)}% das sobreposições` : '-'}</span>
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
@@ -981,7 +985,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     <th scope="row">${escapeHtml(String(band.frequency).replace('.', ','))}</th>
                     <td>${band.nodes}</td>
                     <td>${band.profile_count}</td>
-                    <td>${bandComparison.conflicts_before} → ${bandComparison.conflicts_after} ${formatChange(bandComparison.conflicts_before, bandComparison.conflicts_after)}</td>
+                    <td>${formatInteger(bandComparison.conflicts_before)} → ${formatInteger(bandComparison.conflicts_after)} ${formatChange(bandComparison.conflicts_before, bandComparison.conflicts_after)}</td>
                     <td>${formatNumber(bandComparison.interference_before)} → ${formatNumber(bandComparison.interference_after)} ${formatChange(bandComparison.interference_before, bandComparison.interference_after)}</td>
                     <td>${formatNumber(bandComparison.power_before_w)} → ${formatNumber(bandComparison.power_after_w)} W ${formatChange(bandComparison.power_before_w, bandComparison.power_after_w, ' W')}</td>
                     <td>${escapeHtml(describeSearchOutcome(execution.strategy, bandSearch))}</td>
@@ -999,7 +1003,7 @@ window.addEventListener('DOMContentLoaded', function() {
             <div class="analysis-summary-cards">
                 <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">Conflitos</span>
-                    <span class="analysis-summary-value">${comparison.conflicts_before} → ${comparison.conflicts_after}</span>
+                    <span class="analysis-summary-value">${formatInteger(comparison.conflicts_before)} → ${formatInteger(comparison.conflicts_after)}</span>
                     <span class="analysis-summary-detail">${formatChange(comparison.conflicts_before, comparison.conflicts_after)}</span>
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
@@ -1009,7 +1013,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
                     <span class="analysis-summary-label">APs alterados</span>
-                    <span class="analysis-summary-value">${changed} de ${nodes}</span>
+                    <span class="analysis-summary-value">${formatInteger(changed)} de ${formatInteger(nodes)}</span>
                     <span class="analysis-summary-detail">${nodes ? `${Math.round((changed / nodes) * 100)}% dos APs` : '-'}</span>
                 </div>
                 <div class="panel panel-muted panel-compact analysis-summary-item">
@@ -1343,6 +1347,47 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 
     const OVERLAP_LABEL_EDGE_LIMIT = 40;
+    // Acima deste numero de arestas, os grafos sao exibidos de forma simplificada: sem as arestas de simples
+    // sobreposicao e sem rotulos, que respondem pela maior parte do desenho em redes grandes.
+    const LARGE_GRAPH_EDGE_LIMIT = 2000;
+    let fullGraphChosenByUser = false;
+
+    function isSimplifiedGraph(graphData) {
+        return !fullGraphChosenByUser && (graphData?.links?.length || 0) > LARGE_GRAPH_EDGE_LIMIT;
+    }
+
+    function updateGraphSizeNotice() {
+        const notice = document.getElementById('graphs-size-notice');
+        const edges = originalGraphData?.links?.length || 0;
+        if (!notice) {
+            return;
+        }
+        notice.hidden = edges <= LARGE_GRAPH_EDGE_LIMIT;
+        if (notice.hidden) {
+            return;
+        }
+        document.getElementById('graphs-size-notice-text').textContent = fullGraphChosenByUser
+            ? `Rede grande (${formatInteger(edges)} arestas): exibindo o grafo completo, que pode deixar a página lenta.`
+            : `Rede grande (${formatInteger(edges)} arestas): exibição simplificada, sem as arestas de simples sobreposição e sem rótulos.`;
+        document.getElementById('graphs-size-toggle').textContent = fullGraphChosenByUser
+            ? 'Voltar à exibição simplificada'
+            : 'Exibir o grafo completo';
+        const labelsToggle = document.getElementById('toggle-overlap-labels');
+        if (labelsToggle) {
+            labelsToggle.disabled = !fullGraphChosenByUser;
+        }
+    }
+
+    function rerenderGraphs() {
+        if (originalGraphData) {
+            renderizarCytoscape('cy1', originalGraphData, false);
+        }
+        if (optimizedGraphData) {
+            renderizarCytoscape('cy2', optimizedGraphData, true);
+        }
+        updateGraphSizeNotice();
+        refitGraphs();
+    }
 
     // Rotulos das arestas sem conflito: visiveis por padrao apenas em grafos pequenos,
     // ate que o usuario escolha explicitamente pelo controle da pagina.
@@ -1510,11 +1555,16 @@ window.addEventListener('DOMContentLoaded', function() {
         const edgeLabelColor = cssToken('--color-text-muted', '#607080');
         const edgeLabelBackground = cssToken('--color-surface', '#fff');
 
+        const simplified = isSimplifiedGraph(graphData);
         graphData.links.forEach(link => {
             const collision = Number(link.collision_peso ?? link.peso) || 0;
             const interference = Number(link.interference_peso ?? link.peso) || 0;
             const key = edgeKey(link.source, link.target);
             optimizedEdgeKeys.add(key);
+            // Na exibicao simplificada, ficam so as arestas em conflito e as de conflitos resolvidos.
+            if (simplified && interference <= 0 && !originalConflicts.has(key)) {
+                return;
+            }
             elements.push({
                 data: {
                     source: link.source,
@@ -1550,7 +1600,7 @@ window.addEventListener('DOMContentLoaded', function() {
                     style: {
                         'background-color': 'data(cor)',
                         'shape': 'data(forma)',
-                        'label': 'data(label)'
+                        'label': simplified ? '' : 'data(label)'
                     }
                 },
                 {
@@ -1571,7 +1621,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         'width': 1,
                         'line-color': overlapColor,
                         'label': function(ele) {
-                            return showOverlapLabels ? `${ele.data('collision').toFixed(1)}%` : '';
+                            return showOverlapLabels && !simplified ? `${ele.data('collision').toFixed(1)}%` : '';
                         },
                         'font-size': 9,
                         'color': edgeLabelColor,
@@ -1615,7 +1665,7 @@ window.addEventListener('DOMContentLoaded', function() {
                         },
                         'line-color': conflictColor,
                         'label': function(ele) {
-                            return `${ele.data('interference').toFixed(1)}%`;
+                            return simplified ? '' : `${ele.data('interference').toFixed(1)}%`;
                         },
                         'font-size': 10,
                         'font-weight': 'bold',
@@ -1674,6 +1724,14 @@ window.addEventListener('DOMContentLoaded', function() {
         if (cy) {
             cy.fit(undefined, 40);
         }
+    }
+
+    const graphsSizeToggle = document.getElementById('graphs-size-toggle');
+    if (graphsSizeToggle) {
+        graphsSizeToggle.addEventListener('click', () => {
+            fullGraphChosenByUser = !fullGraphChosenByUser;
+            rerenderGraphs();
+        });
     }
 
     const btnReenquadrar = document.getElementById('btn-reenquadrar');
@@ -1864,6 +1922,7 @@ window.addEventListener('DOMContentLoaded', function() {
                 originalGraphData = graphData;
                 atualizarEstilosConfiguracoes();
                 renderizarCytoscape('cy1', graphData, false);
+                updateGraphSizeNotice();
                 renderizarLegenda(getLegendaDiv('cy1'), graphData.nodes, false);
                 atualizarInfoConsumo('cy1', graphData);
                 if (!lastSummaryExecution) {
@@ -2012,6 +2071,9 @@ window.addEventListener('DOMContentLoaded', function() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        // Ate onde o buffer ja foi varrido sem achar fim de linha: o resultado chega numa linha de varios MB,
+        // e varrer o buffer inteiro a cada pedaco recebido tornava a leitura quadratica.
+        let scanned = 0;
         let finalResult = null;
 
         while (true) {
@@ -2021,7 +2083,7 @@ window.addEventListener('DOMContentLoaded', function() {
             }
 
             buffer += decoder.decode(value, { stream: true });
-            let lineBreakIndex = buffer.indexOf('\n');
+            let lineBreakIndex = buffer.indexOf('\n', scanned);
 
             while (lineBreakIndex >= 0) {
                 const line = buffer.slice(0, lineBreakIndex).trim();
@@ -2083,6 +2145,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
                 lineBreakIndex = buffer.indexOf('\n');
             }
+            scanned = buffer.length;
         }
 
         buffer += decoder.decode();

@@ -245,7 +245,9 @@ def analysis_analyze_graph_stream_api():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1):
+                # chunk_size=None repassa os dados conforme chegam (o progresso continua em tempo real), sem
+                # quebrar a resposta de varios MB em pedacos de 1 byte.
+                for chunk in response.iter_content(chunk_size=None):
                     if chunk:
                         yield chunk
             finally:
@@ -275,7 +277,9 @@ def analysis_backtracking_stream_api():
 
         def generate():
             try:
-                for chunk in response.iter_content(chunk_size=1):
+                # chunk_size=None repassa os dados conforme chegam (o progresso continua em tempo real), sem
+                # quebrar a resposta de varios MB em pedacos de 1 byte.
+                for chunk in response.iter_content(chunk_size=None):
                     if chunk:
                         yield chunk
             finally:
