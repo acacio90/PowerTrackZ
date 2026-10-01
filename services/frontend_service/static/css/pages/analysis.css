@@ -1095,3 +1095,25 @@
     font-weight: var(--font-weight-semibold);
     color: var(--color-text);
 }
+
+/* Aviso de rede grande na aba Grafos (exibicao simplificada ou completa) */
+.analysis-graphs-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 0.75rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-soft);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.analysis-graphs-notice[hidden] {
+    display: none;
+}
+
+.analysis-graphs-notice i {
+    color: var(--color-accent);
+}

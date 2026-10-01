@@ -51,8 +51,10 @@ class FakeResponse:
         return self._body
 
     def iter_content(self, chunk_size=1):
-        for index in range(0, len(self.content), chunk_size):
-            yield self.content[index:index + chunk_size]
+        # chunk_size=None entrega os dados como chegam; aqui, em dois pedacos, para exercitar a juncao.
+        size = chunk_size or max(1, len(self.content) // 2)
+        for index in range(0, len(self.content), size):
+            yield self.content[index:index + size]
 
     def close(self):
         self.closed = True
