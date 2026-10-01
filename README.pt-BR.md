@@ -75,4 +75,5 @@ http://localhost:3000
 - Instalação: [docs/guides/installation.pt-BR.md](docs/guides/installation.pt-BR.md)
 - Uso: [docs/guides/usage.pt-BR.md](docs/guides/usage.pt-BR.md)
 - Design tokens: [docs/design/README.pt-BR.md](docs/design/README.pt-BR.md)
+- Energia do processamento das estratégias: [docs/energy/README.pt-BR.md](docs/energy/README.pt-BR.md)
 - Contribuição: [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md)
