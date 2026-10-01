@@ -8,7 +8,7 @@ The interface is in Portuguese. Screen, button and field names are written here 
 
 ## 1. Your Infrastructure
 
-The **Sua infraestrutura** page (**Infraestrutura** menu, `/infrastructure`) brings together the list and the map of the APs saved in the database. The old `/hosts` and `/register` addresses redirect to it.
+The **Sua infraestrutura** page (**Infraestrutura** menu, `/infrastructure`) brings together the list and the map of the APs saved in the database, in the **Pontos de acesso** (access points) and **Mapa dos pontos de acesso** (access point map) cards. The old `/hosts` and `/register` addresses redirect to it.
 
 ### Loading APs
 

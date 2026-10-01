@@ -10,13 +10,23 @@
 {% block content %}
     <section class="page-register">
         <div class="container">
+            <header class="infrastructure-header panel">
+                <h1 class="page-title">
+                    <i class="fas fa-network-wired"></i>
+                    Sua infraestrutura
+                </h1>
+                <p class="page-subtitle">
+                    Cadastre, carregue e edite os pontos de acesso da rede; o mapa mostra a posição e a cobertura de cada um.
+                </p>
+            </header>
+
             <div class="register-grid">
                 <section class="table-section">
                     <div class="panel">
                         <div class="table-section-header">
                             <h2 class="page-title">
-                                <i class="fas fa-network-wired"></i>
-                                Sua infraestrutura
+                                <i class="fas fa-wifi"></i>
+                                Pontos de acesso
                             </h2>
                             <div class="table-section-actions">
                                 <button class="btn btn-primary" id="btn-load-points" type="button">
@@ -84,10 +94,12 @@
 
                 <section class="map-section">
                     <div class="panel">
-                        <h2 class="page-title">
-                            <i class="fas fa-map-marked-alt"></i>
-                            Mapa dos pontos de acesso
-                        </h2>
+                        <div class="table-section-header">
+                            <h2 class="page-title">
+                                <i class="fas fa-map-marked-alt"></i>
+                                Mapa dos pontos de acesso
+                            </h2>
+                        </div>
                         <div class="map-container">
                             <button class="map-add-button" id="btn-add-point" type="button" aria-label="Adicionar ponto de acesso">
                                 <i class="fas fa-plus"></i>
