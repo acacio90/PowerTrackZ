@@ -46,6 +46,8 @@ class ScalabilityRun(db.Model):
     points = db.Column(db.Text, nullable=False, default='[]')
     breaks = db.Column(db.Text, nullable=False, default='{}')
     error = db.Column(db.Text)
+    # Modo Comparacao (#90): por estrategia, a execucao e a configuracao proposta da melhor repeticao.
+    proposals = db.Column(db.Text, nullable=False, default='{}')
 
 
 class ZabbixConfig(db.Model):

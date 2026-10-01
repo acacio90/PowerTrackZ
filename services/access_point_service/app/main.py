@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from datetime import datetime
@@ -13,6 +14,7 @@ from scalability import (
     ScalabilityConflict,
     ScalabilityRunner,
     mark_interrupted_runs,
+    run_proposal,
     run_to_csv,
     run_to_dict,
 )
@@ -274,13 +276,25 @@ def delete_scalability_run(run_id):
     return jsonify({"success": True})
 
 
+@app.route("/experiments/scalability/<int:run_id>/proposal", methods=["GET"])
+def get_scalability_run_proposal(run_id):
+    run = db.session.get(ScalabilityRun, run_id)
+    if not run:
+        return jsonify({"success": False, "error": "Execução não encontrada. Recarregue a página para atualizar o histórico."}), 404
+    proposal = run_proposal(run, request.args.get("strategy", ""))
+    if not proposal:
+        return jsonify({"success": False, "error": "Esta execução não tem a proposta da estratégia pedida. Abra uma comparação concluída."}), 404
+    return jsonify({"success": True, **proposal})
+
+
 @app.route("/experiments/scalability/<int:run_id>/export", methods=["GET"])
 def export_scalability_run(run_id):
     run = db.session.get(ScalabilityRun, run_id)
     if not run:
         return jsonify({"success": False, "error": "Execução não encontrada. Recarregue a página para atualizar o histórico."}), 404
     export_format = request.args.get("format", "json")
-    filename = f"powertrackz-escalabilidade-{run_id}"
+    mode = json.loads(run.parameters or "{}").get("mode", "scalability")
+    filename = f"powertrackz-{'comparacao' if mode == 'comparison' else 'escalabilidade'}-{run_id}"
     if export_format == "csv":
         return Response(
             run_to_csv(run),

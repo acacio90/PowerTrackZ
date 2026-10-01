@@ -23,7 +23,7 @@ except ImportError:  # dependencia de desenvolvimento (requirements-dev.txt)
     websocket = None
 
 FRONTEND_URL = os.environ.get("PTZ_FRONTEND_URL", "http://localhost:3000").rstrip("/")
-PAGES = ["/", "/infrastructure", "/analysis", "/scalability"]
+PAGES = ["/", "/infrastructure", "/analysis", "/experiments", "/experiments?mode=comparison"]
 WIDTHS = (1280, 600)
 
 # Rotas que podem receber POST sem gravar dados: as analises e a geracao de topologia (que so devolve os APs).
@@ -283,11 +283,11 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(browser.blocked, [])
         self.assert_no_javascript_errors("execução da análise")
 
-    def test_scalability_page_lists_the_strategies(self):
+    def test_experiments_page_lists_the_strategies(self):
         browser = self.browser
-        browser.open("/scalability")
+        browser.open("/experiments")
         self.assertTrue(browser.wait_for("document.querySelectorAll('input[name=\"strategy\"]').length > 0", 20))
-        self.assert_no_javascript_errors("teste de escalabilidade")
+        self.assert_no_javascript_errors("experimentos")
 
     def test_visible_text_meets_contrast_aa(self):
         for width in WIDTHS:

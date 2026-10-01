@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Teste de escalabilidade - PowerTrackZ{% endblock %}
+{% block title %}Experimentos - PowerTrackZ{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/scalability.css') }}">
@@ -9,28 +9,45 @@
 <section class="scal-page">
     <div class="container">
         <header class="scal-card panel">
-            <h1 class="page-title"><i class="fas fa-gauge-high"></i> Teste de escalabilidade</h1>
+            <h1 class="page-title"><i class="fas fa-flask"></i> Experimentos</h1>
             <p class="page-subtitle scal-lead">
-                Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
-                até o ponto de quebra de cada estratégia: nos métodos exatos, o primeiro tamanho em que o ótimo não é encontrado
-                no limite de tempo; no guloso, o primeiro em que o limite de tempo é excedido; nas estratégias estocásticas,
-                repetidas por semente, o primeiro em que a maioria das repetições para pelo limite de tempo. Nada é salvo no
-                inventário de APs.
+                Compare as estratégias sobre a infraestrutura cadastrada ou meça até que tamanho de rede cada uma resolve o
+                problema. As estratégias estocásticas são repetidas com as mesmas sementes, derivadas da semente do experimento,
+                e cada execução fica no histórico, com os parâmetros e a versão do PowerTrackZ.
             </p>
+            <div class="scal-modes" role="tablist" aria-label="Tipo de experimento">
+                <button type="button" role="tab" class="scal-mode" data-mode="comparison" aria-selected="false">
+                    <i class="fa-solid fa-scale-balanced"></i> Comparação
+                </button>
+                <button type="button" role="tab" class="scal-mode" data-mode="scalability" aria-selected="false">
+                    <i class="fas fa-gauge-high"></i> Escalabilidade
+                </button>
+            </div>
         </header>
 
         <div class="scal-card panel">
-            <h2>Parâmetros do teste</h2>
+            <h2 id="scal-form-title">Parâmetros do experimento</h2>
+            <p class="scal-note scal-mode-text" data-mode="comparison">
+                Executa as estratégias escolhidas sobre os APs cadastrados (<span id="scal-instance">carregando…</span>), com o mesmo
+                critério, os mesmos canais e as mesmas sementes, e mostra os resultados lado a lado. Da melhor repetição de cada
+                estratégia, a configuração proposta fica guardada para ser aberta na página de Análise.
+            </p>
+            <p class="scal-note scal-mode-text" data-mode="scalability">
+                Gera uma topologia pela semente e analisa prefixos dela de tamanho crescente (cada instância contém a anterior),
+                até o ponto de quebra de cada estratégia: nos métodos exatos, o primeiro tamanho em que o ótimo não é encontrado
+                no limite de tempo; no guloso, o primeiro em que o limite de tempo é excedido; nas estratégias estocásticas, o
+                primeiro em que a maioria das repetições para pelo limite de tempo. Nada é salvo no inventário de APs.
+            </p>
             <form id="scal-form" class="scal-form" novalidate>
-                <div>
+                <div class="scal-mode-field" data-mode="scalability">
                     <label for="scal-max-nodes">Tamanho máximo (APs)</label>
                     <input type="number" id="scal-max-nodes" min="2" max="1000" value="200" required>
                 </div>
-                <div>
+                <div class="scal-mode-field" data-mode="scalability">
                     <label for="scal-step">Passo (APs)</label>
                     <input type="number" id="scal-step" min="1" max="1000" value="10" required>
                 </div>
-                <div>
+                <div class="scal-mode-field" data-mode="scalability">
                     <label for="scal-min-degree">Grau mínimo</label>
                     <input type="number" id="scal-min-degree" min="1" max="20" value="3" required>
                 </div>
@@ -73,7 +90,7 @@
                         todas as estratégias; as estocásticas são repetidas com as mesmas sementes, derivadas da semente do teste.
                     </p>
                     <button type="submit" class="btn btn-primary" id="scal-start">
-                        <i class="fa-solid fa-play"></i> Executar teste
+                        <i class="fa-solid fa-play"></i> Executar experimento
                     </button>
                 </div>
             </form>
@@ -93,7 +110,47 @@
             <h2 id="scal-result-title"></h2>
             <div class="scal-meta" id="scal-result-meta"></div>
             <div class="scal-breaks" id="scal-result-breaks"></div>
-            <div class="scal-charts">
+            <div class="scal-comparison" id="scal-comparison" hidden>
+                <div class="scal-table-wrap">
+                    <table class="app-table app-table-compact scal-table scal-comparison-table">
+                        <caption>Resultados por estratégia</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Estratégia</th>
+                                <th scope="col">Repetições</th>
+                                <th scope="col">Conflitos</th>
+                                <th scope="col" title="Soma de w·s nas arestas em conflito">Interferência</th>
+                                <th scope="col">Potência (W)</th>
+                                <th scope="col">APs alterados</th>
+                                <th scope="col">Tempo</th>
+                                <th scope="col" title="Tempo de CPU da análise x potência por núcleo (estimativa; ver docs/energy)">Energia do processamento (J)</th>
+                                <th scope="col">Parada</th>
+                                <th scope="col">Proposta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scal-comparison-rows"></tbody>
+                    </table>
+                </div>
+                <p class="scal-note">Em negrito, o melhor valor de cada métrica (o menor; nas estocásticas, pela média). Nas estocásticas, ± é o desvio-padrão das repetições, e a proposta aberta é a da melhor repetição.</p>
+                <div class="scal-chart">
+                    <div class="scal-chart-head">
+                        <h3>Comparação por métrica</h3>
+                        <label class="scal-inline" for="scal-comparison-metric">Métrica
+                            <select id="scal-comparison-metric">
+                                <option value="conflicts">Conflitos</option>
+                                <option value="interference">Interferência</option>
+                                <option value="power_w">Potência (W)</option>
+                                <option value="changed_nodes">APs alterados</option>
+                                <option value="duration_seconds">Tempo (s)</option>
+                                <option value="processing_energy_j">Energia do processamento (J)</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p>A barra é a média das repetições; o traço vai do melhor ao pior valor.</p>
+                    <div class="scal-chart-box"><canvas id="scal-chart-comparison" aria-label="Comparação das estratégias pela métrica escolhida" role="img"></canvas></div>
+                </div>
+            </div>
+            <div class="scal-charts" id="scal-scalability-charts">
                 <div class="scal-chart">
                     <h3>Tempo de execução por número de APs</h3>
                     <p>Escala logarítmica. A linha tracejada é o limite de tempo; o marcador em X, o ponto de quebra.</p>
@@ -105,7 +162,7 @@
                     <div class="scal-chart-box"><canvas id="scal-chart-conflicts" aria-label="Conflitos por número de APs" role="img"></canvas></div>
                 </div>
             </div>
-            <details class="scal-details">
+            <details class="scal-details" id="scal-points-details">
                 <summary>Tabela dos pontos medidos</summary>
                 <div class="scal-table-wrap">
                     <table class="app-table app-table-compact scal-table">
@@ -178,6 +235,7 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>window.EXPERIMENT_MODE = {{ (mode or 'scalability') | tojson }};</script>
 <script src="{{ url_for('static', filename='js/channel-plan.js') }}"></script>
 <script src="{{ url_for('static', filename='js/scalability.js') }}"></script>
 {% endblock %}
