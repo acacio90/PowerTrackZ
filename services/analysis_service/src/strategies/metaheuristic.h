@@ -117,6 +117,20 @@ bool meta_run_offer(MetaRun *run, const int *profiles, AssignmentCost *cost);
 // Encerra a execucao: ultimo ponto da curva, estatisticas (com a curva) e a configuracao proposta.
 ProposedConfig *meta_run_end(MetaRun *run, AssignmentStats *stats);
 
+// APs moveis em conflito: conflitos de cada AP e o conjunto dos moveis com pelo menos um, atualizado a cada
+// movimento em O(grau). Usado para priorizar os APs em conflito na vizinhanca.
+typedef struct {
+    int *counts;
+    int *members;
+    int *position;
+    int member_count;
+} MetaConflictSet;
+
+void meta_conflicts_init(MetaConflictSet *set, const MetaProblem *problem, const int *profiles);
+void meta_conflicts_free(MetaConflictSet *set);
+// Chamar antes de aplicar o movimento (profiles ainda com o perfil antigo do AP).
+void meta_conflicts_update(MetaConflictSet *set, const MetaProblem *problem, const int *profiles, const MetaMove *move);
+
 // Componentes do custo, na ordem de AssignmentCost.
 typedef enum {
     META_COMPONENT_CONFLICTS = 0,

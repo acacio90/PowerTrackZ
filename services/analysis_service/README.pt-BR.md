@@ -12,6 +12,7 @@ Serviço em C que monta o grafo de conflitos entre pontos de acesso e indica a c
 | `greedy` | Visita os APs em ordem decrescente de grau e atribui a cada um o perfil de menor custo incremental no critério de otimização (no padrão, o de menor interferência local). É também a solução inicial da busca exata. |
 | `local_search` | Busca local sobre a base comum das metaheurísticas (seção abaixo): a cada iteração, troca o perfil de um AP sorteado e aceita a troca se ela não piorar a solução no critério de otimização. Não garante o ótimo; serve de referência para as metaheurísticas. |
 | `simulated_annealing` | Simulated Annealing sobre a base comum: aceita pioras com a probabilidade de Metropolis, que diminui com a temperatura (seção abaixo). Não garante o ótimo. |
+| `tabu_search` | Busca Tabu sobre a base comum: aplica a melhor troca de perfil não proibida, mesmo que pior, e proíbe por um tempo desfazê-la (seção abaixo). Não garante o ótimo. |
 | `genetic` | Ainda não implementada (retorna um *placeholder*). |
 
 ## Parâmetros
@@ -28,7 +29,7 @@ Cada estratégia declara seus parâmetros em `src/strategies/strategy.c`. Eles s
 | `local_search` | `max_iterations_without_improvement` | inteiro | `100000` | 0 a 10⁹ | Para a busca na faixa depois deste número de iterações sem melhorar a melhor solução. `0` desativa o critério. |
 | `local_search` | `initial_solution` | escolha | `greedy` | `greedy`, `random` | Solução inicial: a do guloso ou um perfil aleatório para cada AP. |
 
-As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Os parâmetros do `simulated_annealing` estão na seção Simulated Annealing. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
+As estratégias `greedy` e `genetic` não têm parâmetros configuráveis. Os parâmetros do `simulated_annealing` e da `tabu_search` estão nas seções de cada uma. Nas metaheurísticas, pelo menos um dos três critérios de parada comuns precisa estar ativo; com os três desativados, a requisição é recusada com HTTP 400.
 
 `GET /strategies` descreve esses parâmetros em `strategy_details`, com nome, rótulo, tipo (`integer`, `number` ou `choice`), padrão, limites, unidade, se o valor `0` desativa o recurso, se ele é avançado (`advanced`, exibido recolhido na interface) e se é opcional (`optional`, sem padrão: `default` vem nulo, e `optional_label` diz o que acontece sem valor, como `Sorteada` ou `Estimada`). Os parâmetros de escolha (`choice`) trazem as opções em `options` (`value` e `label`) e a opção padrão em `default`, sem `min` e `max`. Cada estratégia declara também a sua família (`family`: `exact`, `constructive` ou `metaheuristic`). A interface monta os campos e agrupa as estratégias a partir dessa descrição, de modo que um parâmetro ou uma estratégia nova precisa ser declarada apenas no serviço.
 
@@ -88,6 +89,24 @@ Cada faixa de `execution.bands` traz em `search`: `initial_temperature` e `initi
 | `min_temperature` | número | `0.001` | 0 a 10⁶ | Temperatura em que a busca para; `0` desativa o critério (no linear, a busca para quando T chega a zero). |
 
 Além desses, o SA aceita os parâmetros comuns das metaheurísticas (`seed`, `time_limit_seconds`, `max_iterations`, `max_iterations_without_improvement` e `initial_solution`). Uma temperatura mínima igual ou maior que a inicial informada é recusada com HTTP 400.
+
+## Busca Tabu
+
+A estratégia `tabu_search` (`src/strategies/tabu_search.c`) move a solução corrente, a cada iteração, para o melhor vizinho admissível, mesmo que ele seja pior, e devolve a melhor solução encontrada.
+
+- **Candidatos.** A cada iteração, são sorteados `candidate_nodes` APs, e todas as trocas de perfil deles são avaliadas pelo custo incremental da base comum. Cada AP é sorteado entre os APs móveis em conflito com probabilidade 0,8 (quando há algum) e, no restante, entre todos os APs móveis, para que a busca também mexa em APs sem conflito, nos quais a interferência, a largura e a potência ainda podem melhorar. Os APs em conflito são acompanhados a cada movimento, em O(grau) (`MetaConflictSet`, na base comum).
+- **Lista tabu.** Ao trocar o perfil de um AP, voltar esse AP ao perfil que ele deixou fica proibido por `tabu_tenure` iterações. O atributo proibido é o par (AP, perfil deixado), e não o movimento inteiro, o que impede desfazer a troca sem impedir outras trocas do mesmo AP.
+- **Aspiração.** Um movimento proibido é aceito se levar a uma solução melhor que a melhor já encontrada.
+- **Sem movimento admissível.** Se todos os candidatos estiverem proibidos e nenhum atender à aspiração, a iteração passa sem movimento (`blocked_iterations`).
+
+Cada faixa de `execution.bands` traz em `search`: `evaluated_moves` (movimentos avaliados), `tabu_rejections` (candidatos descartados por estarem proibidos), `aspirations` (movimentos proibidos aceitos por aspiração), `worsening_moves` (movimentos aplicados que pioraram a solução corrente) e `blocked_iterations`.
+
+| Parâmetro | Tipo | Padrão | Intervalo | Descrição |
+|---|---|---|---|---|
+| `tabu_tenure` | inteiro | `10` | 1 a 100.000 | Iterações em que um AP fica proibido de voltar ao perfil que deixou. |
+| `candidate_nodes` | inteiro | `20` | 1 a 10.000 | APs sorteados a cada iteração, cujas trocas de perfil são todas avaliadas. |
+
+Além desses, a Busca Tabu aceita os parâmetros comuns das metaheurísticas. Cada iteração avalia dezenas de movimentos, então, com os padrões, a busca costuma parar pelo limite de tempo.
 
 ## Interferência
 

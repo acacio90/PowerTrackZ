@@ -5,6 +5,7 @@
 #include "../../src/analysis_service.h"
 #include "../../src/strategies/backtracking.h"
 #include "../../src/strategies/metaheuristic.h"
+#include "../../src/strategies/tabu_search.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -177,7 +178,80 @@ static void test_neighbors_respect_bands_and_locked_access_points(void) {
     analysis_free_graph(&graph);
 }
 
+// O movimento que desfaz uma troca fica proibido por "tenure" iteracoes e volta a ser permitido depois.
+static void test_tabu_list_forbids_for_the_tenure(void) {
+    TabuList list;
+    tabu_list_init(&list, 4, 3);
+    tabu_forbid(&list, 2, 1, 10, 5);
+    for (long long iteration = 10; iteration < 15; iteration++) {
+        CHECK(tabu_is_forbidden(&list, 2, 1, iteration), "movimento deveria estar proibido na iteracao %lld", iteration);
+    }
+    CHECK(!tabu_is_forbidden(&list, 2, 1, 15), "movimento deveria estar liberado ao fim da permanencia");
+    CHECK(!tabu_is_forbidden(&list, 2, 0, 11), "outro perfil do mesmo AP nao deveria estar proibido");
+    CHECK(!tabu_is_forbidden(&list, 1, 1, 11), "o mesmo perfil em outro AP nao deveria estar proibido");
+    tabu_list_free(&list);
+}
+
+// Aspiracao: um movimento proibido so e admissivel se levar a uma solucao melhor que a melhor ja encontrada.
+static void test_tabu_aspiration(void) {
+    TabuList list;
+    tabu_list_init(&list, 2, 2);
+    tabu_forbid(&list, 0, 1, 0, 100);
+    AssignmentCost best = {5, 10.0, 100.0, 0};
+    AssignmentCost better = {4, 50.0, 100.0, 0};
+    AssignmentCost equal = best;
+    AssignmentCost worse = {5, 11.0, 100.0, 0};
+    bool aspiration = false;
+    CHECK(tabu_admissible(&list, 0, 1, 1, OBJECTIVE_DEFAULT, &better, &best, &aspiration) && aspiration,
+          "movimento proibido melhor que a melhor solucao deveria ser aceito por aspiracao");
+    CHECK(!tabu_admissible(&list, 0, 1, 1, OBJECTIVE_DEFAULT, &equal, &best, &aspiration) && !aspiration,
+          "movimento proibido igual a melhor solucao nao deveria ser aceito");
+    CHECK(!tabu_admissible(&list, 0, 1, 1, OBJECTIVE_DEFAULT, &worse, &best, &aspiration),
+          "movimento proibido pior nao deveria ser aceito");
+    CHECK(tabu_admissible(&list, 0, 0, 1, OBJECTIVE_DEFAULT, &worse, &best, &aspiration) && !aspiration,
+          "movimento nao proibido deveria ser admissivel, mesmo pior");
+    tabu_list_free(&list);
+}
+
+// O conjunto de APs em conflito, atualizado a cada movimento, deve bater com a recontagem completa.
+static void test_conflict_set_follows_the_moves(void) {
+    Graph graph;
+    build_test_graph(&graph, 60, 17);
+    MetaProblem problem;
+    meta_problem_init(&problem, &graph, default_search_profiles(), OBJECTIVE_DEFAULT);
+    MetaRng rng;
+    meta_rng_seed(&rng, 2, 0);
+    int *profiles = malloc(sizeof(int) * (size_t) graph.node_count);
+    AssignmentCost cost = meta_initial_solution(&problem, &rng, META_INITIAL_RANDOM, profiles);
+    MetaConflictSet set;
+    meta_conflicts_init(&set, &problem, profiles);
+    int mismatches = 0;
+    for (int step = 0; step < 3000; step++) {
+        MetaMove move;
+        meta_random_move(&problem, &rng, profiles, &move);
+        AssignmentCost delta = meta_move_delta(&problem, profiles, &move);
+        meta_conflicts_update(&set, &problem, profiles, &move);
+        meta_apply_move(profiles, &cost, &move, &delta);
+        MetaConflictSet fresh;
+        meta_conflicts_init(&fresh, &problem, profiles);
+        for (int node_index = 0; node_index < graph.node_count; node_index++) {
+            mismatches += set.counts[node_index] != fresh.counts[node_index];
+            mismatches += (set.position[node_index] >= 0) != (fresh.position[node_index] >= 0);
+        }
+        mismatches += set.member_count != fresh.member_count;
+        meta_conflicts_free(&fresh);
+    }
+    CHECK(mismatches == 0, "conjunto de APs em conflito divergiu da recontagem em %d verificacoes", mismatches);
+    meta_conflicts_free(&set);
+    free(profiles);
+    meta_problem_free(&problem);
+    analysis_free_graph(&graph);
+}
+
 int main(void) {
+    test_tabu_list_forbids_for_the_tenure();
+    test_tabu_aspiration();
+    test_conflict_set_follows_the_moves();
     test_rng_is_reproducible();
     test_greedy_cost_matches_full_cost();
     test_neighbors_respect_bands_and_locked_access_points();

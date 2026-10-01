@@ -130,6 +130,7 @@ window.addEventListener('DOMContentLoaded', function() {
             greedy: 'Guloso',
             local_search: 'Busca local',
             simulated_annealing: 'Simulated Annealing',
+            tabu_search: 'Busca Tabu',
             genetic: 'Algoritmo genético'
         }[strategy] || strategy || 'Nenhuma estratégia';
     }
@@ -475,10 +476,13 @@ window.addEventListener('DOMContentLoaded', function() {
             const annealing = search.initial_temperature != null
                 ? ` | temperatura ${formatNumber(search.initial_temperature, 3)}${search.initial_temperature_estimated ? ' (estimada)' : ''} → ${formatNumber(search.final_temperature, 4)} | ${Number(search.accepted_worse).toLocaleString('pt-BR')} pioras aceitas`
                 : '';
+            const tabu = search.tabu_rejections != null
+                ? ` | ${Number(search.evaluated_moves).toLocaleString('pt-BR')} movimentos avaliados, ${Number(search.tabu_rejections).toLocaleString('pt-BR')} proibidos, ${Number(search.aspirations).toLocaleString('pt-BR')} por aspiração`
+                : '';
             return `
                 <div class="analysis-execution-item">
                     <span class="analysis-execution-label">Faixa ${escapeHtml(String(band.frequency).replace('.', ','))}</span>
-                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing} | ${describeSearchOutcome(strategy, search)}</span>
+                    <span class="analysis-execution-value">${band.nodes} APs | ${band.edges} arestas | k = ${band.profile_count} | ${conflicts}${iterations}${annealing}${tabu} | ${describeSearchOutcome(strategy, search)}</span>
                 </div>`;
         }).join('');
     }
@@ -2191,7 +2195,7 @@ window.addEventListener('DOMContentLoaded', function() {
         { id: 'constructive', label: 'Construtiva' },
         { id: 'metaheuristic', label: 'Metaheurísticas' }
     ];
-    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', simulated_annealing: 'fa-temperature-arrow-down', genetic: 'fa-dna' };
+    const STRATEGY_ICONS = { backtracking: 'fa-sitemap', greedy: 'fa-bolt', local_search: 'fa-shoe-prints', simulated_annealing: 'fa-temperature-arrow-down', tabu_search: 'fa-ban', genetic: 'fa-dna' };
     const strategyList = document.getElementById('analysis-strategy-list');
 
     function renderStrategyCard(detail) {

@@ -5,6 +5,7 @@
 #include "local_search.h"
 #include "metaheuristic.h"
 #include "simulated_annealing.h"
+#include "tabu_search.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -168,6 +169,46 @@ static const StrategyParameter SIMULATED_ANNEALING_PARAMETERS[] = {
     META_INITIAL_SOLUTION_PARAMETER,
 };
 
+static ProposedConfig *run_tabu_search(
+    const Graph *graph,
+    const AnalysisExecutionContext *context,
+    AssignmentStats *stats
+) {
+    return build_tabu_search_proposals(graph, context, stats);
+}
+
+static const StrategyParameter TABU_SEARCH_PARAMETERS[] = {
+    META_SEED_PARAMETER,
+    META_TIME_LIMIT_PARAMETER,
+    {
+        .name = "tabu_tenure",
+        .label = "Permanência na lista tabu",
+        .description = "Por quantas iterações um AP fica proibido de voltar ao perfil que acabou de deixar.",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 10,
+        .min_value = 1,
+        .max_value = 100000,
+        .unit = NULL,
+        .zero_disables = false,
+        .advanced = true,
+    },
+    {
+        .name = "candidate_nodes",
+        .label = "APs avaliados por iteração",
+        .description = "Quantos APs são sorteados a cada iteração, priorizando os em conflito; todas as trocas de perfil deles são avaliadas.",
+        .type = STRATEGY_PARAMETER_INTEGER,
+        .default_value = 20,
+        .min_value = 1,
+        .max_value = 10000,
+        .unit = NULL,
+        .zero_disables = false,
+        .advanced = true,
+    },
+    META_MAX_ITERATIONS_PARAMETER,
+    META_STAGNATION_PARAMETER,
+    META_INITIAL_SOLUTION_PARAMETER,
+};
+
 #define PARAMETER_COUNT(parameters) (sizeof(parameters) / sizeof((parameters)[0]))
 
 static const AnalysisStrategy STRATEGIES[] = {
@@ -212,6 +253,17 @@ static const AnalysisStrategy STRATEGIES[] = {
         .parameter_count = PARAMETER_COUNT(SIMULATED_ANNEALING_PARAMETERS),
         .run = run_simulated_annealing,
         .validate = validate_simulated_annealing_parameters,
+    },
+    {
+        .name = "tabu_search",
+        .description = "Busca Tabu: aplica a melhor troca de perfil não proibida, mesmo que pior, e proíbe por um tempo desfazê-la.",
+        .mode = "sequential",
+        .family = "metaheuristic",
+        .exact = false,
+        .parameters = TABU_SEARCH_PARAMETERS,
+        .parameter_count = PARAMETER_COUNT(TABU_SEARCH_PARAMETERS),
+        .run = run_tabu_search,
+        .validate = meta_validate_parameters,
     },
     {
         .name = "genetic",
