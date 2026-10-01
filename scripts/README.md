@@ -15,8 +15,10 @@ scripts/
 │   ├── stop.sh           # Stop the project
 │   ├── start-local.ps1   # Run without Docker Compose (Windows)
 │   └── SCRIPTS.md        # Documentation of the management scripts
-└── maintenance/          # Maintenance and deploy scripts
-    └── maintenance.sh    # Maintenance tasks and full deploy
+├── maintenance/          # Maintenance and deploy scripts
+│   └── maintenance.sh    # Maintenance tasks and full deploy
+└── experiments/          # Research experiments
+    └── processing_energy.py  # Processing energy of the strategies (docs/energy)
 ```
 
 ## 🎯 Script Categories
@@ -60,6 +62,13 @@ Scripts for maintenance, cleanup and full deploy tasks.
 - Code update via Git
 - Docker image rebuild
 - Service health check
+
+### 🔬 **Experiments** - Experiments
+Measurement scripts used in the research, run with the services up.
+
+**Location:** `scripts/experiments/`
+
+- **`processing_energy.py`** - Measures the CPU time of each strategy through the analysis_service container cgroup and estimates the processing energy (method and results in [docs/energy/README.md](../docs/energy/README.md))
 
 ### 📊 **Monitor** - Monitoring
 Scripts for real-time monitoring.
