@@ -513,6 +513,12 @@ class AnalysisServiceBacktrackingTests(unittest.TestCase):
         self.assertEqual(backtracking["thread_count"]["min"], 1)
         self.assertEqual(backtracking["time_limit_seconds"]["default"], 60)
         self.assertTrue(backtracking["time_limit_seconds"]["zero_disables"])
+        self.assertTrue(backtracking["thread_count"]["advanced"])
+        self.assertFalse(backtracking["time_limit_seconds"]["advanced"])
+        self.assertEqual(
+            {name: detail["family"] for name, detail in details.items()},
+            {"backtracking": "exact", "greedy": "constructive", "genetic": "metaheuristic"},
+        )
         self.assertEqual(details["greedy"]["parameters"], [])
         self.assertFalse(details["genetic"]["implemented"])
         self.assertTrue(details["backtracking"]["exact"])

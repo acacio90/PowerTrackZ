@@ -73,12 +73,16 @@ typedef struct {
     double max_value;
     const char *unit;
     bool zero_disables;
+    // Parametro avancado: a interface o mostra recolhido, com o valor padrao.
+    bool advanced;
 } StrategyParameter;
 
 typedef struct {
     const char *name;
     const char *description;
     const char *mode;
+    // Familia exibida na interface: "exact", "constructive" ou "metaheuristic".
+    const char *family;
     // Metodo exato: quando termina dentro do limite de tempo, a solucao e comprovadamente otima.
     bool exact;
     const StrategyParameter *parameters;

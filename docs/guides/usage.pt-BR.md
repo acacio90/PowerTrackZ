@@ -33,23 +33,22 @@ Na lista, APs sem coordenadas aparecem em vermelho. Somente APs com coordenadas 
 
 ## 2. Analisar
 
-A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de conflitos entre os APs salvos e indica uma nova configuração para cada um.
+A página **Análise** (menu **Análise**, `/analysis`) monta o grafo de conflitos entre os APs salvos e indica uma nova configuração para cada um. A configuração fica em uma coluna lateral, em quatro etapas numeradas, e o resultado, em abas ao lado; em telas estreitas, a coluna fica acima do resultado. Só a etapa 1 começa aberta; cada etapa recolhe e expande ao clicar no título (um parâmetro inválido abre a sua etapa ao executar); recolhida, mostra a escolha atual ao lado dele (a estratégia, o critério ou o k de cada faixa), para poupar espaço na tela.
 
-1. Clique na estratégia desejada. A página passa a exibir os parâmetros dessa estratégia:
-   - **Backtracking:** busca exata. Com poucos APs, devolve a configuração ótima; em redes grandes, para no limite de tempo e devolve a melhor configuração encontrada até ali. Parâmetros:
-     - *Threads*: número de threads que dividem a busca, limitado ao número de APs;
-     - *Limite de tempo (s)*: 60 s por padrão, até 3600 s, aplicado a cada faixa. Marque *Sem limite* para deixar a busca terminar por completo.
-   - **Guloso:** heurística rápida, adequada a redes grandes, sem garantia de ótimo. Não tem parâmetros.
-   - **Algoritmo genético:** ainda não implementado; devolve a configuração atual.
-2. Em **Canais disponíveis por faixa**, abra cada faixa para ver o mapa do espectro: uma linha por largura de banda e, em cada linha, uma barra por opção, na posição e com a largura que ela ocupa no eixo de frequência. Clique nas barras para escolher os canais que as estratégias podem usar. A 40 MHz, cada barra é um par de primário e secundário, rotulado pelos dois canais (como 7+11); nas demais larguras, o rótulo é o canal primário, e a 80 e 160 MHz cada barra é um bloco de canais (como 36–48 a 80 MHz). A dica da barra mostra os canais, o primário enviado e o intervalo em MHz. Barras que se sobrepõem no eixo interferem entre si, e as marcadas que se sobrepõem a outra marcada da mesma largura ficam em laranja. Os atalhos **Padrão**, **Todos** e **Nenhum** marcam conjuntos prontos, e os de **Sem sobreposição** marcam uma única largura, com o maior conjunto de canais que não se sobrepõem (em 2,4 GHz, 1, 5, 9 e 13 a 20 MHz), desmarcando as demais. O resumo de cada faixa mostra o total de perfis (k), e cada largura, a sua parte. Os perfis padrão já vêm marcados; em 2,4 GHz, os dois de 40 MHz (1+5 e 7+11) se sobrepõem em 10 MHz e aparecem em laranja, e o atalho **Sem sobreposição** de 40 MHz troca-os por 1+5 e 9+13 quando o experimento não deve ter essa sobreposição (a decisão de mantê-los como padrão está no README do analysis_service). Em 2,4 e 5 GHz, é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
-3. Em **Critério de otimização**, escolha a ordem em que as estratégias comparam as soluções:
+1. **Estratégia.** As estratégias aparecem agrupadas por família, cada uma com uma descrição curta e a indicação de método exato ou sem garantia de ótimo, conforme o analysis_service declara:
+   - **Exata — Backtracking:** com poucos APs, devolve a configuração ótima; em redes grandes, para no limite de tempo e devolve a melhor configuração encontrada até ali.
+   - **Construtiva — Guloso:** heurística rápida, adequada a redes grandes, sem garantia de ótimo.
+   - **Metaheurísticas — Algoritmo genético:** ainda não implementado, aparece desabilitado.
+2. **Critério de otimização.** Escolha a ordem em que as estratégias comparam as soluções; a explicação da opção escolhida aparece abaixo do campo:
    - **Padrão:** menos conflitos, depois menor interferência e, no desempate, maior largura de banda;
    - **Energia no desempate:** menos conflitos, depois menor interferência e, no desempate, menor potência;
    - **Energia primeiro:** menor potência, depois menos conflitos e menor interferência; aceita conflitos para economizar energia.
 
    A potência vem do mesmo modelo de consumo exibido nos resultados. Configurações sem valor no modelo (160 MHz) contam como a maior potência modelada da faixa, e, em 6 GHz, que não tem valores no modelo, a energia não diferencia os perfis. Rodar a mesma rede com critérios diferentes mostra quanto de energia se ganha ou se perde em troca de conflitos e interferência.
-4. Ajuste os parâmetros e clique em **Executar análise**. Valores fora do intervalo aceito são indicados abaixo dos campos, e a análise não é iniciada.
-5. Acompanhe o progresso no grafo da direita, que indica a faixa em processamento. A execução pode ser cancelada enquanto estiver em andamento.
+3. **Canais.** A etapa mostra o total de perfis (k) de cada faixa e se ele ainda é o padrão ou foi personalizado. **Escolher no mapa do espectro** abre o mapa de cada faixa: uma linha por largura de banda e, em cada linha, uma barra por opção, na posição e com a largura que ela ocupa no eixo de frequência. Clique nas barras para escolher os canais que as estratégias podem usar. A 40 MHz, cada barra é um par de primário e secundário, rotulado pelos dois canais (como 7+11); nas demais larguras, o rótulo é o canal primário, e a 80 e 160 MHz cada barra é um bloco de canais (como 36–48 a 80 MHz). A dica da barra mostra os canais, o primário enviado e o intervalo em MHz. Barras que se sobrepõem no eixo interferem entre si, e as marcadas que se sobrepõem a outra marcada da mesma largura ficam em laranja. Os atalhos **Padrão**, **Todos** e **Nenhum** marcam conjuntos prontos, e os de **Sem sobreposição** marcam uma única largura, com o maior conjunto de canais que não se sobrepõem (em 2,4 GHz, 1, 5, 9 e 13 a 20 MHz), desmarcando as demais. Os perfis padrão já vêm marcados; em 2,4 GHz, os dois de 40 MHz (1+5 e 7+11) se sobrepõem em 10 MHz e aparecem em laranja, e o atalho **Sem sobreposição** de 40 MHz troca-os por 1+5 e 9+13 quando o experimento não deve ter essa sobreposição (a decisão de mantê-los como padrão está no README do analysis_service). Em 2,4 e 5 GHz, é preciso manter ao menos um canal, e a faixa de 6 GHz começa vazia, com seus APs mantendo a configuração atual.
+4. **Parâmetros.** Os parâmetros comuns da estratégia ficam visíveis, e os avançados, recolhidos em **Parâmetros avançados**, com os valores padrão. No backtracking, *Limite de tempo (s)* é comum (60 s por padrão, até 3600 s, aplicado a cada faixa; marque *Sem limite* para deixar a busca terminar por completo), e *Threads*, avançado (número de threads que dividem a busca, limitado ao número de APs). O guloso não tem parâmetros.
+
+Clique em **Executar análise**, ao fim da coluna. Valores fora do intervalo aceito são indicados acima do botão, e a análise não é iniciada. Durante a execução, a página mostra a aba **Grafos**, com o progresso sobre o grafo da proposta, que indica a faixa em processamento; a execução pode ser cancelada enquanto estiver em andamento. Ao terminar, a página passa para a aba **Resumo**.
 
 APs de faixas diferentes não interferem entre si: a análise monta um grafo para cada faixa, sem arestas entre faixas, e resolve cada um separadamente.
 
@@ -57,23 +56,24 @@ Os detalhes das estratégias e dos parâmetros aceitos pela API estão em [servi
 
 ## 3. Ler o Resultado
 
-- **Resumo:** acima dos grafos, aparece depois de cada análise, com os valores calculados pelo analysis_service:
+O resultado fica em cinco abas. A página abre na aba **Resumo**, que, antes da primeira análise, mostra a configuração atual: número de APs e de faixas, sobreposições (arestas do grafo), conflitos, interferência total e consumo no período, no total e por faixa, com as mesmas definições usadas no resultado. A aba **Grafos** já mostra o grafo da configuração original, enquadrado ao ser aberta.
+
+- **Resumo:** a linha de abertura traz a estratégia, o critério, o tempo de execução e se a solução é ótima; os cartões trazem os valores calculados pelo analysis_service:
   - *Conflitos*: arestas em conflito (em vermelho) antes e depois da otimização;
   - *Interferência total*: soma da interferência (w·s) das arestas em conflito, antes e depois;
-  - *APs alterados*: quantos APs tiveram canal, largura de banda ou frequência alterados;
-  - *Consumo*: estimativa de energia antes e depois, no número de dias informado;
-  - *Estratégia*: tempo de execução e se a solução é ótima.
+  - *APs alterados*: quantos APs tiveram canal, largura de banda ou faixa alterados;
+  - *Consumo*: estimativa de energia antes e depois, no número de dias do campo *Dias da estimativa de consumo*, no alto da aba.
 
   Cada variação aparece em verde, com ▼, quando melhora, e em vermelho, com ▲, quando piora; nas quatro métricas, valores menores são melhores. Abaixo dos cartões, a tabela **Resultados por faixa** traz, para cada faixa, os APs, o número de perfis (k), os conflitos, a interferência, a potência e a solução.
-- **Grafos:** *Configuração original* e *Configuração proposta* ficam lado a lado em telas largas e empilhados em telas estreitas. Os APs são posicionados pelas suas coordenadas, na mesma posição nos dois grafos, e o zoom e o deslocamento feitos em um grafo são replicados no outro; **Reenquadrar** volta a exibir os grafos inteiros. A legenda fica abaixo de cada grafo. Cada configuração de canal, largura e faixa tem uma cor e uma forma de nó (círculo, quadrado, triângulo, losango ou hexágono), as mesmas nos dois grafos; a legenda mostra a amostra com a cor e a forma, o número de APs e a configuração. Cada aresta liga dois APs cujas áreas de cobertura se sobrepõem:
+- **Grafos:** *Configuração original* e *Configuração proposta* ficam lado a lado em telas muito largas e empilhados nas demais. Os APs são posicionados pelas suas coordenadas, na mesma posição nos dois grafos, e o zoom e o deslocamento feitos em um grafo são replicados no outro; **Reenquadrar** volta a exibir os grafos inteiros. Acima de cada grafo, aparecem a estimativa de energia (kWh) e o custo (R$, a R$ 0,72 por kWh) no período escolhido no Resumo; a potência de cada AP é calculada pelo analysis_service com o modelo de Dembélé et al. (2023), pela faixa e pela largura de banda, e APs a 160 MHz ou em 6 GHz, que não têm valor no modelo, ficam fora da soma. A legenda fica abaixo de cada grafo. Cada configuração de canal, largura e faixa tem uma cor e uma forma de nó (círculo, quadrado, triângulo, losango ou hexágono), as mesmas nos dois grafos; a legenda mostra a amostra com a cor e a forma, o número de APs e a configuração. Cada aresta liga dois APs cujas áreas de cobertura se sobrepõem:
   - em **vermelho**, mais grossa, quando os dois APs estão em conflito na configuração exibida, com a interferência em porcentagem;
-  - em **cinza-claro** quando há apenas sobreposição, sem conflito, com a porcentagem de sobreposição. Em grafos com muitas arestas, esses rótulos ficam ocultos; use *Mostrar pesos das arestas sem conflito* para exibi-los.
+  - em **cinza-claro** quando há apenas sobreposição, sem conflito, com a porcentagem de sobreposição. Em grafos com muitas arestas, esses rótulos ficam ocultos; use *Mostrar pesos das arestas sem conflito*, no alto da aba, para exibi-los.
 
   No grafo otimizado, os APs cuja configuração mudou ganham borda escura, e os conflitos do grafo original resolvidos pela estratégia aparecem tracejados e atenuados. A legenda informa quantos APs mudaram e quantos conflitos foram resolvidos. Desmarque *Destacar mudanças no grafo otimizado* para ocultar esses destaques.
-- **Tabela de configurações:** canal, largura de banda e frequência atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados em **Canais disponíveis por faixa**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
-- **Consumo:** estimativa de energia (kWh) e custo (R$, a R$ 0,72 por kWh), acima de cada grafo, no período informado no campo *Dias da estimativa de consumo*. A potência de cada AP é calculada pelo analysis_service com o modelo de Dembélé et al. (2023), pela faixa e pela largura de banda; APs a 160 MHz ou em 6 GHz, que não têm valor no modelo, ficam fora da soma.
-- **Metadados da execução:**
-  - *Critério de otimização*: o critério usado na análise;
+- **Convergência:** a curva da melhor solução ao longo das iterações, produzida pelas metaheurísticas. O backtracking e o guloso não a produzem, e a aba informa isso.
+- **Configurações:** canal, largura de banda e faixa atuais e propostos de cada AP. **Editar** permite trocar a configuração proposta, escolhida em listas com os canais marcados na etapa **Canais**; ao salvar, o AP fica travado nessa configuração e a análise otimizada é refeita.
+- **Execução:** os metadados da execução e o botão **Repetir com a mesma configuração**, que executa de novo a análise exibida com a mesma estratégia, critério, canais e parâmetros, mesmo que a coluna lateral tenha mudado depois. Nas estratégias com semente, o botão passa a **Repetir com a mesma semente** e a aba mostra a semente usada. Os metadados são:
+  - *Estratégia* e *Critério de otimização*: a estratégia e o critério usados;
   - *Arestas*: pares de APs com sobreposição de cobertura na mesma faixa, com ou sem conflito;
   - *Conflitos (antes / depois)*: pares de APs em conflito (interferência maior que zero) antes e depois da otimização;
   - *Densidade de conflitos (antes / depois)*: fração dos pares possíveis de APs que estão em conflito;

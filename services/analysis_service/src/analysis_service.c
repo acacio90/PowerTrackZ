@@ -1074,6 +1074,7 @@ static cJSON *build_strategy_parameters_json(const AnalysisStrategy *strategy) {
             cJSON_AddNullToObject(item, "unit");
         }
         cJSON_AddBoolToObject(item, "zero_disables", parameter->zero_disables);
+        cJSON_AddBoolToObject(item, "advanced", parameter->advanced);
         cJSON_AddItemToArray(json, item);
     }
     return json;
@@ -1280,6 +1281,7 @@ static void handle_strategies(int fd) {
         cJSON_AddStringToObject(detail, "name", strategy->name);
         cJSON_AddStringToObject(detail, "description", strategy->description);
         cJSON_AddStringToObject(detail, "mode", strategy->mode);
+        cJSON_AddStringToObject(detail, "family", strategy->family);
         cJSON_AddBoolToObject(detail, "exact", strategy->exact);
         cJSON_AddBoolToObject(detail, "implemented", strategy->run != NULL);
         cJSON_AddItemToObject(detail, "parameters", build_strategy_parameters_json(strategy));
