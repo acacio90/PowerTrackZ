@@ -12,6 +12,7 @@ C service that builds the conflict graph between access points and suggests the 
 | `greedy` | Visits the APs in decreasing order of degree and assigns each one the profile with the lowest incremental cost in the optimization criterion (by default, the lowest local interference). It is also the initial solution of the exact search. |
 | `local_search` | Local search on the common metaheuristic base (section below): at each iteration, it changes the profile of a random AP and accepts the change if it does not worsen the solution under the optimization criterion. It does not guarantee the optimum; it is the reference for the metaheuristics. |
 | `simulated_annealing` | Simulated Annealing on the common base: accepts worsenings with the Metropolis probability, which decreases with the temperature (section below). It does not guarantee the optimum. |
+| `tabu_search` | Tabu Search on the common base: applies the best non-forbidden profile change, even if worse, and forbids undoing it for a while (section below). It does not guarantee the optimum. |
 | `genetic` | Not implemented yet (returns a *placeholder*). |
 
 ## Parameters
@@ -28,7 +29,7 @@ Each strategy declares its parameters in `src/strategies/strategy.c`. They are s
 | `local_search` | `max_iterations_without_improvement` | integer | `100000` | 0 to 10⁹ | Stops the search in the band after this number of iterations without improving the best solution. `0` disables the criterion. |
 | `local_search` | `initial_solution` | choice | `greedy` | `greedy`, `random` | Initial solution: the greedy one or a random profile for each AP. |
 
-The `greedy` and `genetic` strategies have no configurable parameters. The `simulated_annealing` parameters are in the Simulated Annealing section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
+The `greedy` and `genetic` strategies have no configurable parameters. The `simulated_annealing` and `tabu_search` parameters are in each one's section. In the metaheuristics, at least one of the three common stopping criteria must be active; with all three disabled, the request is rejected with HTTP 400.
 
 `GET /strategies` describes these parameters in `strategy_details`, with name, label, type (`integer`, `number` or `choice`), default, limits, unit, whether the value `0` disables the feature, whether it is advanced (`advanced`, shown collapsed in the interface) and whether it is optional (`optional`, with no default: `default` is null, and `optional_label` tells what happens without a value, such as `Sorteada` or `Estimada`). Choice parameters (`choice`) list their options in `options` (`value` and `label`) and the default option in `default`, without `min` and `max`. Each strategy also declares its family (`family`: `exact`, `constructive` or `metaheuristic`). The interface builds its fields and groups the strategies from this description, so a new parameter or strategy only needs to be declared in the service.
 
@@ -88,6 +89,24 @@ Each band in `execution.bands` reports in `search`: `initial_temperature` and `i
 | `min_temperature` | number | `0.001` | 0 to 10⁶ | Temperature at which the search stops; `0` disables the criterion (in linear cooling, the search stops when T reaches zero). |
 
 Besides these, SA accepts the metaheuristics' common parameters (`seed`, `time_limit_seconds`, `max_iterations`, `max_iterations_without_improvement` and `initial_solution`). A minimum temperature equal to or above the given initial one is rejected with HTTP 400.
+
+## Tabu Search
+
+The `tabu_search` strategy (`src/strategies/tabu_search.c`) moves the current solution, at each iteration, to the best admissible neighbor, even if it is worse, and returns the best solution found.
+
+- **Candidates.** At each iteration, `candidate_nodes` APs are drawn, and all their profile changes are evaluated with the common base's incremental cost. Each AP is drawn among the mobile APs in conflict with probability 0.8 (when there is any) and, otherwise, among all mobile APs, so that the search also changes APs without conflict, in which interference, bandwidth and power can still improve. The APs in conflict are tracked at each move, in O(degree) (`MetaConflictSet`, in the common base).
+- **Tabu list.** When the profile of an AP changes, returning that AP to the profile it left is forbidden for `tabu_tenure` iterations. The forbidden attribute is the pair (AP, profile left), not the whole move, which prevents undoing the change without preventing other changes of the same AP.
+- **Aspiration.** A forbidden move is accepted if it leads to a solution better than the best one found so far.
+- **No admissible move.** If every candidate is forbidden and none meets the aspiration criterion, the iteration passes without a move (`blocked_iterations`).
+
+Each band in `execution.bands` reports in `search`: `evaluated_moves` (moves evaluated), `tabu_rejections` (candidates discarded for being forbidden), `aspirations` (forbidden moves accepted by aspiration), `worsening_moves` (applied moves that worsened the current solution) and `blocked_iterations`.
+
+| Parameter | Type | Default | Range | Description |
+|---|---|---|---|---|
+| `tabu_tenure` | integer | `10` | 1 to 100,000 | Iterations during which an AP is forbidden from returning to the profile it left. |
+| `candidate_nodes` | integer | `20` | 1 to 10,000 | APs drawn at each iteration, all of whose profile changes are evaluated. |
+
+Besides these, Tabu Search accepts the metaheuristics' common parameters. Each iteration evaluates dozens of moves, so, with the defaults, the search usually stops at the time limit.
 
 ## Interference
 

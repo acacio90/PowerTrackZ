@@ -265,6 +265,69 @@ bool meta_validate_parameters(cJSON *parameters, char *error, size_t error_size)
     return false;
 }
 
+// ---------- APs em conflito ----------
+
+static void conflict_set_refresh(MetaConflictSet *set, const MetaProblem *problem, int node_index) {
+    bool mobile = problem->allowed_start[node_index + 1] - problem->allowed_start[node_index] > 1;
+    bool inside = set->position[node_index] >= 0;
+    if (mobile && set->counts[node_index] > 0 && !inside) {
+        set->position[node_index] = set->member_count;
+        set->members[set->member_count++] = node_index;
+    } else if ((!mobile || set->counts[node_index] == 0) && inside) {
+        int last = set->members[--set->member_count];
+        set->members[set->position[node_index]] = last;
+        set->position[last] = set->position[node_index];
+        set->position[node_index] = -1;
+    }
+}
+
+void meta_conflicts_init(MetaConflictSet *set, const MetaProblem *problem, const int *profiles) {
+    const Graph *graph = problem->setup.graph;
+    size_t size = sizeof(int) * (size_t) (graph->node_count > 0 ? graph->node_count : 1);
+    set->counts = calloc(1, size);
+    set->members = assignment_malloc(size, "malloc conflict members");
+    set->position = assignment_malloc(size, "malloc conflict positions");
+    if (!set->counts) {
+        perror("calloc conflict counts");
+        exit(1);
+    }
+    set->member_count = 0;
+    for (int edge_index = 0; edge_index < graph->edge_count; edge_index++) {
+        int left = graph->edges[edge_index].source;
+        int right = graph->edges[edge_index].target;
+        if (pair_interference(problem, left, profiles[left], right, profiles[right]) > 0.0) {
+            set->counts[left]++;
+            set->counts[right]++;
+        }
+    }
+    for (int node_index = 0; node_index < graph->node_count; node_index++) {
+        set->position[node_index] = -1;
+        conflict_set_refresh(set, problem, node_index);
+    }
+}
+
+void meta_conflicts_free(MetaConflictSet *set) {
+    free(set->counts);
+    free(set->members);
+    free(set->position);
+}
+
+void meta_conflicts_update(MetaConflictSet *set, const MetaProblem *problem, const int *profiles, const MetaMove *move) {
+    const Node *node = &problem->setup.graph->nodes[move->node_index];
+    int old_profile = profiles[move->node_index];
+    for (int position = 0; position < node->neighbor_count; position++) {
+        int neighbor = node->neighbors[position];
+        int before = pair_interference(problem, move->node_index, old_profile, neighbor, profiles[neighbor]) > 0.0;
+        int after = pair_interference(problem, move->node_index, move->profile_index, neighbor, profiles[neighbor]) > 0.0;
+        if (before != after) {
+            set->counts[move->node_index] += after - before;
+            set->counts[neighbor] += after - before;
+            conflict_set_refresh(set, problem, neighbor);
+        }
+    }
+    conflict_set_refresh(set, problem, move->node_index);
+}
+
 // ---------- Componentes do custo ----------
 
 double meta_component_worsening(const AssignmentCost *candidate, const AssignmentCost *reference, MetaCostComponent component) {

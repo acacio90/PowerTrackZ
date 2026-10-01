@@ -127,12 +127,12 @@ As rotas de análise recebem o critério no campo `objective` (`default`, `energ
 
 As rotas de análise recebem esses valores em `parameters`. Valores fora do tipo ou do intervalo declarado, e opções fora da lista, retornam HTTP 400 com a mensagem em `error`. Os detalhes estão em [services/analysis_service/README.pt-BR.md](../../services/analysis_service/README.pt-BR.md).
 
-Nas metaheurísticas (família `metaheuristic`: `local_search` e `simulated_annealing`), a resposta traz também:
+Nas metaheurísticas (família `metaheuristic`: `local_search`, `simulated_annealing` e `tabu_search`), a resposta traz também:
 
 - `execution.seed`: a semente usada, informada em `parameters.seed` ou sorteada; repetir a requisição com ela reproduz o resultado (exceto quando a busca para pelo limite de tempo);
 - `execution.search.iterations` e, em cada faixa, `search.iterations`: as iterações executadas;
 - `stop_reason`: além de `completed`, `time_limit` e `cancelled`, os motivos `iteration_limit` (limite de iterações), `no_improvement` (iterações sem melhora) e `min_temperature` (temperatura mínima do Simulated Annealing);
-- no Simulated Annealing, cada faixa traz em `search` a temperatura inicial e a final, se a inicial foi estimada, os patamares percorridos e as pioras aceitas;
+- no Simulated Annealing, cada faixa traz em `search` a temperatura inicial e a final, se a inicial foi estimada, os patamares percorridos e as pioras aceitas, e, na Busca Tabu, os movimentos avaliados, proibidos, aceitos por aspiração e de piora;
 - `execution.bands[].convergence`: a curva de convergência da faixa, com a melhor solução na solução inicial, a cada melhora e no fim:
 
 ```json

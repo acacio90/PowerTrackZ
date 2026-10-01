@@ -340,5 +340,60 @@ class SimulatedAnnealingTests(AnalysisServiceTestCase):
             self.assertIn("temperatura mínima", json.loads(error.read().decode("utf-8"))["error"])
 
 
+
+class TabuSearchTests(AnalysisServiceTestCase):
+    """Busca Tabu (#83) sobre a base comum. A lista tabu e a aspiracao tem testes em C (tests/c)."""
+
+    def tabu(self, aps, **parameters):
+        return self.post_json("/analyze-graph", {"aps": aps, "strategy": "tabu_search", "parameters": parameters}, timeout=60)
+
+    def dense_aps(self, count, seed):
+        return AnalysisServiceMetaheuristicTests.dense_aps(self, count, seed)
+
+    def test_is_declared_with_its_parameters(self):
+        details = {item["name"]: item for item in self.get_json("/strategies")["strategy_details"]}
+        tabu = details["tabu_search"]
+        parameters = {parameter["name"]: parameter for parameter in tabu["parameters"]}
+
+        self.assertEqual(tabu["family"], "metaheuristic")
+        self.assertFalse(tabu["exact"])
+        self.assertTrue({"seed", "time_limit_seconds", "tabu_tenure", "candidate_nodes", "max_iterations",
+                         "max_iterations_without_improvement", "initial_solution"} <= set(parameters))
+        self.assertEqual(parameters["tabu_tenure"]["default"], 10)
+
+    def test_same_seed_gives_the_same_result(self):
+        aps = self.dense_aps(60, seed=50)
+        parameters = {"seed": 11, "time_limit_seconds": 0, "max_iterations": 2000, "initial_solution": "random"}
+        first = self.tabu(aps, **parameters)
+        second = self.tabu(aps, **parameters)
+
+        self.assertEqual(self.proposals(first), self.proposals(second))
+        self.assertEqual(
+            [band["search"]["tabu_rejections"] for band in first["execution"]["bands"]],
+            [band["search"]["tabu_rejections"] for band in second["execution"]["bands"]],
+        )
+
+    def test_moves_to_worse_neighbors_but_returns_the_best(self):
+        aps = self.dense_aps(60, seed=51)
+        result = self.tabu(aps, seed=2, time_limit_seconds=0, max_iterations=3000, max_iterations_without_improvement=0)
+
+        bands = result["execution"]["bands"]
+        self.assertGreater(sum(band["search"]["worsening_moves"] for band in bands), 0)
+        self.assertGreater(sum(band["search"]["tabu_rejections"] for band in bands), 0)
+        for band in bands:
+            self.assertLessEqual(band["search"]["conflicts"], band["search"]["greedy_conflicts"])
+            self.assertEqual(band["search"]["iterations"], 3000)
+        self.assertEqual(result["execution"]["search"]["conflicts"], result["execution"]["comparison"]["conflicts_after"])
+
+    def test_a_longer_tenure_forbids_more_moves(self):
+        aps = self.dense_aps(60, seed=52)
+        common = {"seed": 4, "time_limit_seconds": 0, "max_iterations": 2000, "max_iterations_without_improvement": 0}
+        short = self.tabu(aps, tabu_tenure=1, **common)
+        long = self.tabu(aps, tabu_tenure=500, **common)
+
+        rejections = lambda result: sum(band["search"]["tabu_rejections"] for band in result["execution"]["bands"])
+        self.assertGreater(rejections(long), rejections(short))
+
+
 if __name__ == "__main__":
     unittest.main()
